@@ -14,7 +14,8 @@
 [pheglib] regex probe (\d+)-(\d+): new=ok match=1 err=-
 [pheglib] regex: 2nd group 20
 [pheglib] own tests done, fails=0
-[pheglib] probe posix_spawn rc=0 pid=38
+[pheglib] child started: argc=3 argv1=--phe-run argv2=exit0
+[pheglib] probe pipe-EOF: spawn=0 waitpid=39 status=0 | select(read only)=0 readable=0 | select(read+except)=1 bits=2 (1=read 2=except) | read=-1 errno=35
 [pheglib] child started: argc=3 argv1=--phe-run argv2=list
 [pheglib] /list/sort: 
 [pheglib] OK
@@ -52,4 +53,6 @@
 [pheglib] OK
 [pheglib] /list/double-free: 
 [pheglib] child started: argc=5 argv1=-q argv2=-p
-PH: [stdio] (Z:\sys\bin\pheglibtest.exe:41): GLib-[1;33mWARNING[0m **: [34m.005[0m: corrupted double-linked list detected
+[pheglib] OK
+[pheglib] /list/sort/stable: 
+[pheglib] OK

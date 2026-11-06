@@ -44,6 +44,15 @@ the kernel: `tools/phorepoc-x86/ekern/xk_pipe.cpp` + `make_ekern.sh` + `xboot.cp
 - GLib's `GChildWatchSource` (gmain.c) DOES depend on SIGCHLD (dispatch_unix_signals_unlocked), which Open C never delivers: fixed in `patch_glib.sh` (prepare/check poll `waitpid(WNOHANG)` every 20 ms). That alone did not unblock the test.
 - Thread dump (DUMP=90) after the hang: top-level process Main in waitpid/WaitForRequest; the list child's Main polling (alive, in a request wait); one GLib worker thread on a condition variable; the grandchild is GONE (`Main Killed 1`). So the exit is not the missing piece: `wait_for_child` (gtestutils.c) finishes only when the child exited AND both pipe read ends hit EOF. Leading hypothesis: the pipe write end is still held after the child died (Open C pipe handle duplicated into the child by posix_spawn file actions / `TransferToChild`, parent-side `close()` not releasing the kernel pipe end), so no EOF. Check next: in a standalone probe, spawn a child that exits, close the parent write end, `read()` the pipe -- EOF or hang? Derive from `RPipe` ownership in kernelhwsrv `dpipe.cpp` (a pipe end is released when its last handle closes) and `CFileTable::TransferToChild`.
 
+## Pipe EOF -- derived from source, confirmed by one boot (2026-11-06)
+- Open C `CPipeReadDesc::Poll` (backend upipedesc.cpp) reports a pipe whose write end is closed and which is empty ONLY as an exception (`EAnyException`);
+  a `select()` with only readfds never wakes at EOF, and a non-blocking `read()` at EOF returns EAGAIN (`DoRead` maps 0 to KErrWouldBlock; the blocking read returns 0).
+  Probe: `probe pipe-EOF: spawn=0 waitpid=38 status=0 | select(read only)=0 readable=0 | select(read+except)=1 bits=2 | read=-1 errno=35`.
+- Fix (`patch_glib.sh`, PHE_XSET): GLib's select-based `g_poll` also watches every fd in the exception set and reports it as `G_IO_IN|G_IO_HUP` (a read then returns 0).
+  Result: `glib/tests/list.c` now runs ALL cases in the child, including the `g_test_trap_subprocess` case (`/list/double-free`) and `/list/sort/stable`, then the list child exits.
+- OPEN: the top-level `g_spawn_sync` in the test harness does not return after the list child exited (thread dump: one pheglibtest process left, its Main in a request wait). Next: log
+  before/after the read loop and the final `waitpid` in `g_spawn_sync` (gspawn.c) -- one boot.
+
 ## Next steps
 1. g_spawn over posix_spawn (pipe() works now; fork does not exist), rerun hash.c to the end, more of glib/tests.
 2. SIS packaging (recipes/sis.sh, pdk layer wiring).

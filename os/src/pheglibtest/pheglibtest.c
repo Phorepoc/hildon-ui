@@ -90,9 +90,16 @@ int phe_glib_test_run (void)
   /* GLib's own test programs, each in a CHILD process (posix_spawn; a test program calls g_test_init once and exits). The parent logs
    * every child's exit status. hash.c spawns grandchildren itself (g_test_trap_subprocess). */
   {
-    { pid_t pp = 0; char *pav[] = { (char *) "pheglibtest.exe", (char *) "--phe-run", (char *) "list", NULL }; int pst = -1, pr = posix_spawn (&pp, "pheglibtest.exe", NULL, NULL, pav, NULL);
-      snprintf (b, sizeof b, "probe posix_spawn rc=%d pid=%d", pr, (int) pp); phe_log (b);
-      if (pr == 0) { int wr = (int) waitpid (pp, &pst, 0); snprintf (b, sizeof b, "probe waitpid rc=%d status=%d", wr, pst); phe_log (b); } }
+    { /* probe: a child that exits, its stdout pipe, and what waitpid / select / read say afterwards (pipe EOF) */
+      pid_t pp = 0; int pf[2], pst = -1, pr, wr = -1, s1 = -9, s2 = -9, rd = -9, rdyr = 0, rdyx = 0; char rb[4]; fd_set rs, xs; struct timeval tv;
+      posix_spawn_file_actions_t fa; char *pav[] = { (char *) "pheglibtest.exe", (char *) "--phe-run", (char *) "exit0", NULL };
+      if (pipe (pf) == 0) { posix_spawn_file_actions_init (&fa); posix_spawn_file_actions_adddup2 (&fa, pf[1], 1);
+        pr = posix_spawn (&pp, "pheglibtest.exe", &fa, NULL, pav, NULL); close (pf[1]);
+        if (pr == 0) wr = (int) waitpid (pp, &pst, 0);
+        FD_ZERO (&rs); FD_SET (pf[0], &rs); tv.tv_sec = 0; tv.tv_usec = 500000; s1 = select (pf[0] + 1, &rs, NULL, NULL, &tv); rdyr = FD_ISSET (pf[0], &rs) ? 1 : 0;
+        FD_ZERO (&rs); FD_ZERO (&xs); FD_SET (pf[0], &rs); FD_SET (pf[0], &xs); tv.tv_sec = 0; tv.tv_usec = 500000; s2 = select (pf[0] + 1, &rs, NULL, &xs, &tv); rdyx = (FD_ISSET (pf[0], &rs) ? 1 : 0) | (FD_ISSET (pf[0], &xs) ? 2 : 0);
+        fcntl (pf[0], F_SETFL, O_NONBLOCK); rd = (int) read (pf[0], rb, sizeof rb);
+        snprintf (b, sizeof b, "probe pipe-EOF: spawn=%d waitpid=%d status=%d | select(read only)=%d readable=%d | select(read+except)=%d bits=%d (1=read 2=except) | read=%d errno=%d", pr, wr, pst, s1, rdyr, s2, rdyx, rd, errno); phe_log (b); } }
     static const char *names[] = { "list", "hash", "slist", "queue", "array", "strfuncs", "keyfile", "mainloop" };
     unsigned i; int total_bad = 0;
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
@@ -120,6 +127,7 @@ int phe_glib_child (int argc, char **argv)
   for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
                              else if (cargc < 14) cargv[++cargc] = argv[i];
   cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
+  if (name && !strcmp (name, "exit0")) return 0;
   if (!name)   /* a GTestSubprocess re-run (-p /<program>/<case>/subprocess): the first path segment names the program */
     { static char seg[24]; for (i = 1; i < argc; i++) if (argv[i][0] == (char) 0x2f) { const char *q = argv[i] + 1; unsigned k = 0; while (*q && *q != (char) 0x2f && k < sizeof seg - 1) seg[k++] = *q++; seg[k] = 0; name = seg; break; } }
   if (!name) name = "hash";

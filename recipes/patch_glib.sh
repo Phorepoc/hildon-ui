@@ -78,3 +78,18 @@ s = s.replace(old_prep, new)
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# select()-based g_poll: Open C reports a pipe whose write end closed ONLY as an exception (CPipeReadDesc::Poll -> EAnyException; a plain readfds
+# select never wakes at EOF). Watch every fd for exceptions too and report them as G_IO_IN|G_IO_HUP (a read() then returns 0 = EOF).
+if ! grep -q PHE_XSET $G/gpoll.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gpoll.c"
+s = open(p, newline="").read()
+a = "\tif (f->events & G_IO_PRI)\n\t  FD_SET (f->fd, &xset);"
+assert a in s
+s = s.replace(a, "\tif (f->events & (G_IO_PRI | G_IO_IN)) /* PHE_XSET */\n\t  FD_SET (f->fd, &xset);")
+c = "\t    if (FD_ISSET (f->fd, &xset))\n\t      f->revents |= G_IO_PRI;"
+assert c in s
+s = s.replace(c, "\t    if (FD_ISSET (f->fd, &xset))\n\t      f->revents |= (f->events & G_IO_PRI) ? G_IO_PRI : (G_IO_IN | G_IO_HUP);")
+open(p, "w", newline="\n").write(s)
+PY
+fi
