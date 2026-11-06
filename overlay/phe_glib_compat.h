@@ -5,6 +5,10 @@
 #include <signal.h>
 #include <time.h>
 #include <errno.h>
+#include <string.h>
+/* Open C strerror() can return NULL for an errno it does not know; GLib passes the result to g_locale_to_utf8 */
+static inline char *phe_strerror (int e) { char *s = (strerror) (e); return s ? s : (char *) "Unknown error"; }
+#define strerror(e) phe_strerror (e)
 #ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC CLOCK_REALTIME   /* Open C has one clock; GCond timeouts and g_get_monotonic_time agree on it */
 #endif

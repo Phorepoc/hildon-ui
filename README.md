@@ -8,15 +8,17 @@ meant to be a Catalogue download. Licences: our recipes BSD-2-Clause; GLib/libhi
 GLib **2.56.4** (+ libffi 3.4.6), to be split into app-private DLLs with new names (`phegl*`) so the ROM's old ossrv glib is never
 touched. Evidence: GTK+ 2.24.33 needs GLib >= 2.28, Leste's libhildon code needs >= 2.32; 2.56 is the last autotools release.
 
-## Status (2026-11-06): GLib 2.56.4 RUNS on the x32 PC image (static archives, console test EXE)
-Proof: `test/boot-log-2026-11-06.txt` (QEMU boot log of `pheglibtest.exe`): g_print, GString, GMainLoop with a timeout source
-(3 ticks), a GObject subclass with a signal, a GThread, GKeyFile, and GLib's own `glib/tests/hash.c` (first 13 cases OK).
-Known open problems: (1) `g_regex_match` returns FALSE (bundled PCRE; config of glib/pcre not checked); (2) the test panics
-KERN-EXEC 3 in hash.c `/hash/recursive-remove-all` (not the stack: 1 MB gives the same); (3) NOT yet split into DLLs (needs `.def`
-files with frozen ordinals generated from the archives, registry entries `pheglib`...`phegthread`); (4) GIO is not built.
-Open C facts found: `pipe()` fails with ENOENT, `socketpair()` EOPNOTSUPP, `clock_gettime()` fails at run time, no `poll.h`,
-`alloca.h`, `libintl.h`, `pthread_rwlock_t`, `sig_atomic_t`. Workarounds: `overlay/` (compat header, libintl stub, an in-process
-GWakeup + g_poll wrapper) and `recipes/patch_glib.sh` (x32 negative-addend fix in guniprop.c).
+## Status (2026-11-06, second session): GLib 2.56.4 runs from FOUR DLLs on the x32 PC image
+`pheglib.dll`, `phegobject.dll` (+libffi), `phegmodule.dll`, `phegthread.dll` (new names, frozen-ordinal `.def` from `recipes/gen_defs.py`;
+the ROM's old ossrv glib is untouched) and the console EXE `pheglibtest` linking them. Proof: `test/boot-log-2026-11-06.txt`: g_print, GString,
+GMainLoop + timeout, GObject subclass + signal, GThread, GKeyFile, GRegex (PCRE works; the earlier "failure" was a backslash lost in the test source),
+then glib/tests/hash.c: 12 cases OK, then `/hash/recursive-remove-all` aborts.
+That abort is a REAL limit, not a bug: `g_test_trap_subprocess()` needs pipe() + process spawn. Open C pipe() = `RPipe::Create` (kernel pipe
+device) fails ENOENT on our kernel, socketpair() EOPNOTSUPP; fork/exec do not exist (stubbed to ENOSYS in `overlay/phe_posix_stubs.c`; `posix_spawn`
+is exported by libc and could back a g_spawn replacement once pipes exist). Starting the user-side LibCIpcServer does not help (tried).
+Fixes found by running: `STRERROR_R_CHAR_P` (glibc-only) made g_strerror return NULL; guniprop.c negative reloc addends (2 places);
+Open C `clock_gettime()` supports ONLY CLOCK_REALTIME and fills tv_nsec with microseconds (libc/src/clock_funcs.cpp), so GLib uses gettimeofday via the compat header.
+Open: pipe()/spawn (kernel RPipe device), GIO, SIS packaging (`package.conf` is a draft; needs the pdk to resolve `.hildon/` and merge `registry/components_hildon.py`).
 
 ## Build (all in the phorepoc-x86 image, private volume `hildon-wk` at /wk; see each script's header)
 1. `recipes/fetch.sh` (host) -- pinned tarballs into dl/.

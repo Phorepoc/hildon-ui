@@ -1,17 +1,19 @@
 [bootui] pheglibtest: started
-Thread pheglibtest.exe::Local-c813c0e8 Killed -1
+Thread pheglibtest.exe::Local-c813c4e0 Killed -1
 [pheglib] main entered
-[pheglib] probe pipe rc=-1 errno=2 fds=73400320,0
-[pheglib] probe socketpair rc=-1 errno=45 fds=73400320,0
+[pheglib] probe pipe rc=-1 errno=2 fds=690563369,690563369
+[pheglib] probe socketpair rc=-1 errno=45 fds=690563369,690563369
 [pheglib] pheglibtest: GLib 2.56.4, sizeof(gsize)=4 sizeof(gint64)=8 sizeof(gpointer)=4
 [pheglib] string: hello 5 x 1234567890123
 [pheglib] mainloop: 3 timeout ticks
 [pheglib] gobject: type PheCounter, signal seen 11
 [pheglib] gthread: joined, flag=42 ret=7
-[pheglib] FAIL /h/test/pheglibtest.c:75 g_regex_match (re, "range 10-20 ok", 0, &mi)
-[pheglib] FAIL /h/test/pheglibtest.c:76 m2 && strcmp (m2, "20") == 0
-[pheglib] regex: 2nd group (null)
-[pheglib] own tests done, fails=2
+[pheglib] regex probe abc: new=ok match=1 err=-
+[pheglib] regex probe [0-9]+: new=ok match=1 err=-
+[pheglib] regex probe \d+: new=ok match=1 err=-
+[pheglib] regex probe (\d+)-(\d+): new=ok match=1 err=-
+[pheglib] regex: 2nd group 20
+[pheglib] own tests done, fails=0
 [pheglib] /hash/misc: 
 [pheglib] OK
 [pheglib] /hash/one: 
@@ -39,4 +41,5 @@ Thread pheglibtest.exe::Local-c813c0e8 Killed -1
 [pheglib] /hash/remove-all: 
 [pheglib] OK
 [pheglib] /hash/recursive-remove-all: 
+PH: [stdio] (hash:34): GLib-[1;31mERROR[0m **: [34m.395[0m: g_test_trap_subprocess() failed: No such file or directory
 Thread pheglibtest.exe::Main Panic KERN-EXEC 3

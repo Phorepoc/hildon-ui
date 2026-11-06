@@ -24,3 +24,5 @@ PY
 fi
 # the replaced gpoll.c tail uses __builtin_alloca (no alloca.h in Open C); re-apply when an older patch used g_alloca
 sed -i 's/g_alloca (/__builtin_alloca (/g' /wk/glib-2.56.4/glib/gpoll.c
+# output_special_case() (inlined into real_toupper/real_tolower) has the same folding: table + (val - 0x1000000)
+grep -q PHE_X32B /wk/glib-2.56.4/glib/guniprop.c || sed -i 's|const gchar \*p = special_case_table + offset;|const gchar *p; { const gchar *tb_ = special_case_table; __asm__ ("" : "+r" (tb_)); p = tb_ + offset; } /* PHE_X32B */|' /wk/glib-2.56.4/glib/guniprop.c

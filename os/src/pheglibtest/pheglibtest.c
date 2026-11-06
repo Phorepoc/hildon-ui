@@ -72,7 +72,8 @@ int phe_glib_test_run (void)
   CHECK (g_key_file_load_from_data (kf, "[a]\nk=v\nn=12\n", -1, G_KEY_FILE_NONE, &e));
   gchar *v = g_key_file_get_string (kf, "a", "k", NULL); CHECK (v && strcmp (v, "v") == 0); g_free (v);
   CHECK (g_key_file_get_integer (kf, "a", "n", NULL) == 12); g_key_file_free (kf);
-  GRegex *re = g_regex_new ("(\d+)-(\d+)", 0, 0, NULL); GMatchInfo *mi; CHECK (g_regex_match (re, "range 10-20 ok", 0, &mi));
+  { const char *pats[] = { "abc", "[0-9]+", "\\d+", "(\\d+)-(\\d+)" }; int pi; for (pi = 0; pi < 4; pi++) { GError *ge = NULL; GRegex *r0 = g_regex_new (pats[pi], 0, 0, &ge); GMatchInfo *m0 = NULL; gboolean ok = r0 && g_regex_match (r0, "xx abc 10-20 ok", 0, &m0); snprintf (b, sizeof b, "regex probe %s: new=%s match=%\d err=%s", pats[pi], r0 ? "ok" : "NULL", ok, ge ? ge->message : "-"); phe_log (b); } }
+  GRegex *re = g_regex_new ("(\\d+)-(\\d+)", 0, 0, NULL); GMatchInfo *mi; CHECK (g_regex_match (re, "range 10-20 ok", 0, &mi));
   gchar *m2 = g_match_info_fetch (mi, 2); CHECK (m2 && strcmp (m2, "20") == 0); g_print ("regex: 2nd group %s\n", m2); g_free (m2);
   g_match_info_free (mi); g_regex_unref (re);
 
