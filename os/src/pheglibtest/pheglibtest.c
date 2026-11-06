@@ -3,6 +3,8 @@
  * serial log through phe_log (RDebug). Licence of this file: BSD-2-Clause. */
 #include <glib.h>
 #include <glib-object.h>
+#include <gio/gio.h>
+static int phe_front_on;
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -11,6 +13,9 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <spawn.h>
+#include <math.h>
+#include <float.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 
@@ -43,6 +48,15 @@ static void on_bumped (PheCounter *c, int v, gpointer d) { bumped_seen += v; }
 /* --- thread --- */
 static gpointer worker (gpointer d) { int *p = d; g_usleep (20000); *p = 42; return GINT_TO_POINTER (7); }
 
+/* the first directory this OS lets a program create files in (what Open C paths and the test ROM's drives allow) */
+static const char *phe_writable_dir (void)
+{
+  static const char *dirs[] = { "c:/data/", "c:/" };   /* drive paths: absolute to GLib since PHE_DRIVE (patch_glib.sh) */
+  unsigned i; char p[64];
+  for (i = 0; i < sizeof dirs / sizeof dirs[0]; i++)
+    { int fd; snprintf (p, sizeof p, "%sphe_wd_probe", dirs[i]); fd = open (p, O_CREAT | O_WRONLY, 0600); if (fd >= 0) { close (fd); unlink (p); return dirs[i]; } }
+  return "c:/";
+}
 int phe_glib_test_run (void)
 {
   char b[200];
@@ -86,10 +100,45 @@ int phe_glib_test_run (void)
   gchar *m2 = g_match_info_fetch (mi, 2); CHECK (m2 && strcmp (m2, "20") == 0); g_print ("regex: 2nd group %s\n", m2); g_free (m2);
   g_match_info_free (mi); g_regex_unref (re);
 
+  { /* GIO: GFile read/write/query/delete and GKeyFile through a file, in a directory this OS lets us write */
+    const char *wd = phe_writable_dir (); gchar *path = g_strconcat (wd, "phe_gio_test.txt", NULL); GFile *gf = g_file_new_for_path (path);
+    GError *ge = NULL; gchar *content = NULL; gsize clen = 0; GFileInfo *fi; gboolean ok;
+    snprintf (b, sizeof b, "gio: writable dir [%s], file [%s]", wd, path); phe_log (b);
+    ok = g_file_replace_contents (gf, "hello gio", 9, NULL, FALSE, G_FILE_CREATE_NONE, NULL, NULL, &ge);
+    snprintf (b, sizeof b, "gio: replace_contents=%d %s", ok, ge ? ge->message : "-"); phe_log (b); CHECK (ok); g_clear_error (&ge);
+    ok = g_file_load_contents (gf, NULL, &content, &clen, NULL, &ge);
+    snprintf (b, sizeof b, "gio: load_contents=%d len=%u [%.12s] %s", ok, (unsigned) clen, content ? content : "-", ge ? ge->message : "-"); phe_log (b);
+    CHECK (ok && clen == 9 && memcmp (content, "hello gio", 9) == 0); g_clear_error (&ge); g_free (content);
+    fi = g_file_query_info (gf, "standard::name,standard::size,standard::type", G_FILE_QUERY_INFO_NONE, NULL, &ge);
+    snprintf (b, sizeof b, "gio: query_info name=%s size=%d type=%d %s", fi ? g_file_info_get_name (fi) : "-", fi ? (int) g_file_info_get_size (fi) : -1, fi ? (int) g_file_info_get_file_type (fi) : -1, ge ? ge->message : "-"); phe_log (b);
+    CHECK (fi && g_file_info_get_size (fi) == 9); if (fi) g_object_unref (fi); g_clear_error (&ge);
+    { GKeyFile *kf2 = g_key_file_new (); gchar *data; gsize dl; GKeyFile *kf3 = g_key_file_new (); gchar *back;
+      g_key_file_set_string (kf2, "grp", "key", "value"); g_key_file_set_integer (kf2, "grp", "n", 42); data = g_key_file_to_data (kf2, &dl, NULL);
+      ok = g_file_set_contents (path, data, dl, &ge); CHECK (ok); g_clear_error (&ge);
+      ok = g_key_file_load_from_file (kf3, path, G_KEY_FILE_NONE, &ge); back = ok ? g_key_file_get_string (kf3, "grp", "key", NULL) : NULL;
+      snprintf (b, sizeof b, "gio: GKeyFile through a file: load=%d key=[%s] n=%d %s", ok, back ? back : "-", ok ? g_key_file_get_integer (kf3, "grp", "n", NULL) : -1, ge ? ge->message : "-"); phe_log (b);
+      CHECK (ok && back && !strcmp (back, "value")); g_clear_error (&ge); g_free (back); g_free (data); g_key_file_free (kf2); g_key_file_free (kf3); }
+    ok = g_file_delete (gf, NULL, &ge); CHECK (ok); g_clear_error (&ge); CHECK (!g_file_query_exists (gf, NULL));
+    snprintf (b, sizeof b, "gio: delete ok=%d exists_after=%d", ok, g_file_query_exists (gf, NULL)); phe_log (b);
+    g_object_unref (gf); g_free (path);
+  }
   snprintf (b, sizeof b, "own tests done, fails=%d", fails); phe_log (b);
   /* GLib's own test programs, each in a CHILD process (posix_spawn; a test program calls g_test_init once and exits). The parent logs
    * every child's exit status. hash.c spawns grandchildren itself (g_test_trap_subprocess). */
   {
+  { /* probe: doubles through libc snprintf and GLib's own printf (gnulib), and strtod round trips */
+    double ds[5]; const char *nm[5] = { "DBL_MAX", "-DBL_MAX", "pow(2,-1024.1)", "0.1", "1e300" }; int i; char b1[64], b2[64], pb2[220];
+    ds[0] = DBL_MAX;
+    ds[1] = -ds[0]; ds[2] = pow (2.0, -1024.1); ds[3] = 0.1; ds[4] = 1e300;
+    for (i = 0; i < 5; i++) { double back1, back2; snprintf (b1, sizeof b1, "%.17g", ds[i]); g_snprintf (b2, sizeof b2, "%.17g", ds[i]);
+      back1 = strtod (b1, NULL); back2 = g_ascii_strtod (b2, NULL);
+      snprintf (pb2, sizeof pb2, "probe dbl %s: libc[%s] strtod_back_eq=%d | glib[%s] g_ascii_strtod_back_eq=%d | same_string=%d", nm[i], b1, back1 == ds[i], b2, back2 == ds[i], strcmp (b1, b2) == 0); phe_log (pb2); } }
+  { /* probe: where can a test write? */
+    const char *paths[] = { "c:/phe_probe.txt", "c:\phe_probe.txt", "/tmp/phe_probe.txt", "c:/data/phe_probe.txt", "c:/private/phe_probe.txt" }; int i; char pb3[200];
+    for (i = 0; i < 5; i++) { int fd; errno = 0; fd = open (paths[i], O_CREAT | O_WRONLY, 0600); snprintf (pb3, sizeof pb3, "probe open(%s) fd=%d errno=%d", paths[i], fd, errno); phe_log (pb3); if (fd >= 0) { close (fd); unlink (paths[i]); } }
+    { char t1[] = "c:/phe_XXXXXX"; char t2[] = "/tmp/phe_XXXXXX"; int fd; errno = 0; fd = mkstemp (t1); snprintf (pb3, sizeof pb3, "probe mkstemp(c:/) fd=%d errno=%d [%s]", fd, errno, t1); phe_log (pb3); if (fd >= 0) { close (fd); unlink (t1); }
+      errno = 0; fd = mkstemp (t2); snprintf (pb3, sizeof pb3, "probe mkstemp(/tmp) fd=%d errno=%d [%s]", fd, errno, t2); phe_log (pb3); if (fd >= 0) { close (fd); unlink (t2); }
+      { GError *ge = NULL; gchar *nn = NULL; fd = g_file_open_tmp (NULL, &nn, &ge); snprintf (pb3, sizeof pb3, "probe g_file_open_tmp fd=%d name=%s err=%s tmpdir=%s", fd, nn ? nn : "-", ge ? ge->message : "-", g_get_tmp_dir ()); phe_log (pb3); if (fd >= 0) { close (fd); unlink (nn); } } } }
     { /* probe: a child that exits, its stdout pipe, and what waitpid / select / read say afterwards (pipe EOF) */
       pid_t pp = 0; int pf[2], pst = -1, pr, wr = -1, s1 = -9, s2 = -9, rd = -9, rdyr = 0, rdyx = 0; char rb[4]; fd_set rs, xs; struct timeval tv;
       posix_spawn_file_actions_t fa; char *pav[] = { (char *) "pheglibtest.exe", (char *) "--phe-run", (char *) "exit0", NULL };
@@ -100,7 +149,7 @@ int phe_glib_test_run (void)
         FD_ZERO (&rs); FD_ZERO (&xs); FD_SET (pf[0], &rs); FD_SET (pf[0], &xs); tv.tv_sec = 0; tv.tv_usec = 500000; s2 = select (pf[0] + 1, &rs, NULL, &xs, &tv); rdyx = (FD_ISSET (pf[0], &rs) ? 1 : 0) | (FD_ISSET (pf[0], &xs) ? 2 : 0);
         fcntl (pf[0], F_SETFL, O_NONBLOCK); rd = (int) read (pf[0], rb, sizeof rb);
         snprintf (b, sizeof b, "probe pipe-EOF: spawn=%d waitpid=%d status=%d | select(read only)=%d readable=%d | select(read+except)=%d bits=%d (1=read 2=except) | read=%d errno=%d", pr, wr, pst, s1, rdyr, s2, rdyx, rd, errno); phe_log (b); } }
-    static const char *names[] = { "queue", "array", "strfuncs", "keyfile", "mainloop", "slist", "list", "hash" };
+    static const char *names[] = { "queue", "array", "strfuncs", "keyfile", "slist", "list", "hash", "mainloop" };
     unsigned i; int total_bad = 0;
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
       {
@@ -129,7 +178,7 @@ int phe_glib_child (int argc, char **argv)
   for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
                              else if (cargc < 14) cargv[++cargc] = argv[i];
   cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
-  setenv ("G_TEST_SRCDIR", "z:/resource/pheglibtest", 1); setenv ("TMPDIR", "c:/", 1);   /* the data files of the test programs (keyfile): rom_data of the registry key */
+  setenv ("G_TEST_SRCDIR", "z:/resource/pheglibtest", 1); { static char td[64]; snprintf (td, sizeof td, "%s", phe_writable_dir ()); if (strlen (td) > 1) td[strlen (td) - 1] = 0; setenv ("TMPDIR", td, 1); } phe_front_on = name && (!strcmp (name, "strfuncs") || !strcmp (name, "keyfile") || !strcmp (name, "mainloop"));   /* the data files of the test programs (keyfile): rom_data of the registry key */
   if (name && !strcmp (name, "exit0")) return 0;
   if (!name)   /* a GTestSubprocess re-run (-p /<program>/<case>/subprocess): the first path segment names the program */
     { static char seg[24]; for (i = 1; i < argc; i++) if (argv[i][0] == (char) 0x2f) { const char *q = argv[i] + 1; unsigned k = 0; while (*q && *q != (char) 0x2f && k < sizeof seg - 1) seg[k++] = *q++; seg[k] = 0; name = seg; break; } }
@@ -150,13 +199,14 @@ int phe_glib_child (int argc, char **argv)
  * which prints to stderr and aborts on a fatal message -- in a child process of ours that output is lost. This wrapper puts a handler in front that
  * writes every message to the serial log first and then calls the one g_test_init installed. */
 #include <stdarg.h>
-static GLogFunc phe_prev_log; static gpointer phe_prev_data;
+static int phe_front_on; static GLogFunc phe_prev_log; static gpointer phe_prev_data;
 static void phe_log_front (const gchar *d, GLogLevelFlags l, const gchar *m, gpointer u)
 { char b[400]; snprintf (b, sizeof b, "GLOG[%s/%d] %.330s", d ? d : "-", (int) l, m ? m : "(null)"); phe_log (b);
   if (phe_prev_log) phe_prev_log (d, l, m, phe_prev_data); }
 void phe_g_test_init (int *argc, char ***argv, ...)
 {
   g_test_init (argc, argv, NULL);
+  if (!phe_front_on) return;   /* the front handler changes what a fatal message prints to stderr: only for the programs under diagnosis */
   phe_prev_log = g_log_set_default_handler (phe_log_front, NULL);
   if (!phe_prev_log) phe_prev_log = g_log_default_handler;   /* g_test_init left none: the default prints to stderr, which a parent test captures */
 }

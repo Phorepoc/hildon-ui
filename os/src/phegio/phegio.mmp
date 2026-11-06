@@ -1,0 +1,18 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phegio.mmp -- OURS: GIO of GLib 2.56.4 (LGPL 2.1+) as its own replaceable DLL, app-private under a new name. Code = prebuilt archive libphegio.a
+// (recipes/build_gio_x32.sh + package_x32.sh) with zlib linked in statically; exports = phegio.def (gen_defs.py).
+TARGET			phegio.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7015776
+CAPABILITY		None
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phegio_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib libdl.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib
+SMPSAFE

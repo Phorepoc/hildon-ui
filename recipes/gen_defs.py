@@ -5,7 +5,7 @@
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a")]
+LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a")]
 OTHER = ["libpheglibtest.a", "libpheffi.a"]
 def nm(a):
     d, u = {}, set()

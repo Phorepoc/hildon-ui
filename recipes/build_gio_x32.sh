@@ -20,4 +20,10 @@ for v in libgio_2_0_la_OBJECTS; do
   make -k -j${JOBS:-8} -C gio CC=$CC "CFLAGS=-O2 -g0 -w -fno-pic $FF" $o >> /wk/x32/gio-objs.log 2>&1
   echo "gio/$v: $(echo $o | wc -w) objects"
 done
+for sub in xdgmime:libxdgmime_la_OBJECTS gvdb:libgvdb_la_OBJECTS; do
+  d=${sub%%:*}; v=${sub##*:}
+  o=$(make -s -C gio/$d -f Makefile -f /h/recipes/print.mk P-$v)
+  make -k -j${JOBS:-8} -C gio/$d CC=$CC "CFLAGS=-O2 -g0 -w -fno-pic $FF" $o >> /wk/x32/gio-objs.log 2>&1
+  echo "gio/$d/$v: $(echo $o | wc -w) objects"
+done
 echo "errors: $(grep -ac ' error' /wk/x32/gio-objs.log)"; grep -a ' error' /wk/x32/gio-objs.log | sed 's/.*glib-2.56.4.//' | cut -c1-150 | sort | uniq -c | sort -rn | head -15

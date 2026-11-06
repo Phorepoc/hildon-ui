@@ -1,0 +1,20 @@
+[pheglib] gio: writable dir [c:/data/], file [c:/data/phe_gio_test.txt]
+[pheglib] gio: replace_contents=1 -
+[pheglib] gio: load_contents=1 len=9 [hello gio] -
+[pheglib] gio: query_info name=phe_gio_test.txt size=9 type=1 -
+[pheglib] gio: GKeyFile through a file: load=1 key=[value] n=42 -
+[pheglib] gio: delete ok=1 exists_after=0
+[pheglib] probe dbl DBL_MAX: libc[1.7976931348623157e+308] strtod_back_eq=1 | glib[1.7976931348623157e+308] g_ascii_strtod_back_eq=1 | same_string=1
+[pheglib] probe dbl -DBL_MAX: libc[-1.7976931348623157e+308] strtod_back_eq=1 | glib[-1.7976931348623157e+308] g_ascii_strtod_back_eq=1 | same_string=1
+[pheglib] probe dbl pow(2,-1024.1): libc[1.3720453440777821e-308] strtod_back_eq=0 | glib[1.3720453440777821e-308] g_ascii_strtod_back_eq=0 | same_string=1
+[pheglib] probe dbl 0.1: libc[0.10000000000000001] strtod_back_eq=1 | glib[0.10000000000000001] g_ascii_strtod_back_eq=1 | same_string=1
+[pheglib] probe dbl 1e300: libc[1.0000000000000001e+300] strtod_back_eq=1 | glib[1.0000000000000001e+300] g_ascii_strtod_back_eq=1 | same_string=1
+[pheglib] probe open(c:/phe_probe.txt) fd=5 errno=0
+[pheglib] probe open(c:phe_probe.txt) fd=5 errno=0
+[pheglib] probe open(/tmp/phe_probe.txt) fd=-1 errno=13
+[pheglib] probe open(c:/data/phe_probe.txt) fd=5 errno=0
+[pheglib] probe open(c:/private/phe_probe.txt) fd=-1 errno=13
+[pheglib] probe mkstemp(c:/) fd=5 errno=2 [c:/phe_tjETur]
+[pheglib] probe mkstemp(/tmp) fd=-1 errno=2 [/tmp/phe_psZhAM]
+[pheglib] probe g_file_open_tmp fd=-1 name=- err=Failed to create file “C:\Private\e7015771\tmp/.IWCZX3”: No such file or directory tmpdir=C:\Private\e7015771\tmp
+[pheglib] glib/tests/queue: spawn=1 exit_status=0 

@@ -11,5 +11,5 @@ OS_LAYER_LIBC_SYSTEMINCLUDE
 SOURCEPATH		.
 SOURCE			pheglibmain.cpp
 STATICLIBRARY	libcrt0.lib
-LIBRARY			libc.lib libm.lib libpthread.lib libdl.lib euser.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib
+LIBRARY			libc.lib libm.lib libpthread.lib libdl.lib euser.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib
 SMPSAFE

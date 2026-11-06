@@ -17,4 +17,5 @@ mk libphegobject.a $X/gobject/.libs/*.o
 mk libphegmodule.a $X/gmodule/.libs/*.o
 mk libphegthread.a $X/gthread/.libs/*.o
 mk libpheffi.a $(ls /wk/out/ffi/*.o | grep -v win64)
+[ -d $X/gio/.libs ] && mk libphegio.a $X/gio/.libs/*.o $X/gio/xdgmime/.libs/*.o $X/gio/gvdb/.libs/*.o
 mk libpheglibtest.a /wk/out/t/*.o

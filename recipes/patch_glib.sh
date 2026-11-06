@@ -108,3 +108,21 @@ s = s.replace(a, b)
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# Open C paths: "c:/data/x" is ABSOLUTE (drive letter), not relative. GFile (glocalfile.c canonicalize_filename) asks g_path_skip_root; without this it prepended the
+# current directory ("/c:/data/x": Invalid argument). A drive-letter prefix is now a root.
+if ! grep -q PHE_DRIVE $G/gfileutils.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gfileutils.c"
+s = open(p, newline="").read()
+drv = "(g_ascii_isalpha (file_name[0]) && file_name[1] == 0x3a && (file_name[2] == 0x2f || file_name[2] == 0x5c))"
+i = s.index("g_path_is_absolute (const gchar *file_name)")
+a = "  g_return_val_if_fail (file_name != NULL, FALSE);\n"
+j = s.index(a, i)
+s = s[:j + len(a)] + "  if " + drv + " return TRUE; /* PHE_DRIVE */\n" + s[j + len(a):]
+i = s.index("g_path_skip_root (const gchar *file_name)")
+a = "  g_return_val_if_fail (file_name != NULL, NULL);\n"
+j = s.index(a, i)
+s = s[:j + len(a)] + "  if " + drv + " return (gchar *) file_name + 3; /* PHE_DRIVE */\n" + s[j + len(a):]
+open(p, "w", newline="\n").write(s)
+PY
+fi
