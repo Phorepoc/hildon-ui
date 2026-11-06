@@ -100,7 +100,7 @@ int phe_glib_test_run (void)
         FD_ZERO (&rs); FD_ZERO (&xs); FD_SET (pf[0], &rs); FD_SET (pf[0], &xs); tv.tv_sec = 0; tv.tv_usec = 500000; s2 = select (pf[0] + 1, &rs, NULL, &xs, &tv); rdyx = (FD_ISSET (pf[0], &rs) ? 1 : 0) | (FD_ISSET (pf[0], &xs) ? 2 : 0);
         fcntl (pf[0], F_SETFL, O_NONBLOCK); rd = (int) read (pf[0], rb, sizeof rb);
         snprintf (b, sizeof b, "probe pipe-EOF: spawn=%d waitpid=%d status=%d | select(read only)=%d readable=%d | select(read+except)=%d bits=%d (1=read 2=except) | read=%d errno=%d", pr, wr, pst, s1, rdyr, s2, rdyx, rd, errno); phe_log (b); } }
-    static const char *names[] = { "list", "hash", "slist", "queue", "array", "strfuncs", "keyfile", "mainloop" };
+    static const char *names[] = { "queue", "array", "strfuncs", "keyfile", "mainloop", "slist", "list", "hash" };
     unsigned i; int total_bad = 0;
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
       {
@@ -109,6 +109,8 @@ int phe_glib_test_run (void)
         gboolean ok = g_spawn_sync (NULL, av, NULL, 0, NULL, NULL, &so, &se, &st, &e2);
         snprintf (b, sizeof b, "glib/tests/%s: spawn=%d exit_status=%d %s", names[i], ok, st, e2 ? e2->message : "");
         phe_log (b); if (!ok || st != 0) total_bad++;
+        if (so && *so) { snprintf (b, sizeof b, "  stdout: %.200s", so); phe_log (b); }
+        if (se && *se) { snprintf (b, sizeof b, "  stderr: %.200s", se); phe_log (b); }
         g_free (so); g_free (se); if (e2) g_error_free (e2);
       }
     snprintf (b, sizeof b, "glib tests: %d of %u programs not clean", total_bad, (unsigned) (sizeof names / sizeof names[0])); phe_log (b);

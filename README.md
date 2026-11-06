@@ -53,8 +53,22 @@ the kernel: `tools/phorepoc-x86/ekern/xk_pipe.cpp` + `make_ekern.sh` + `xboot.cp
 - OPEN: the top-level `g_spawn_sync` in the test harness does not return after the list child exited (thread dump: one pheglibtest process left, its Main in a request wait). Next: log
   before/after the read loop and the final `waitpid` in `g_spawn_sync` (gspawn.c) -- one boot.
 
+## Result of the glib test programs as child processes (2026-11-06, one boot)
+```
+glib/tests/queue:    exit_status=0    glib/tests/slist: exit_status=0
+glib/tests/array:    exit_status=0    glib/tests/list:  exit_status=0
+glib/tests/hash:     exit_status=0 (incl. /hash/recursive-remove-all, a g_test_trap_subprocess grandchild)
+glib/tests/strfuncs: exit_status=770 (KERN-EXEC 3 abort during /strfuncs/strcanon -- not yet analysed)
+glib/tests/keyfile:  exit_status=256 (test_load: data files (G_TEST_SRCDIR) are not in the ROM -- environment, then abort)
+glib/tests/mainloop: exit_status=770 (KERN-EXEC 3 abort in /maincontext/basic -- not yet analysed)
+glib tests: 3 of 8 programs not clean   DONE fails=3
+```
+`test/boot-log-spawn.txt` has the lines. The last blocker (`g_spawn_sync` never returning) was in gspawn.c itself: `g_spawn_sync` does a plain `select()` on the read ends with
+no timeout (not `g_poll`), which at pipe EOF never wakes on Open C; `patch_glib.sh` (PHE_XSPAWN) adds the exception set. With that, hash/list/slist/queue/array pass.
+GIO: `recipes/build_gio_x32.sh` is written (native gio with overlay/pyshim + CFLAGS=-w, copy into the x32 tree, pp-gcc objects) but NOT run yet.
+
 ## Next steps
-1. g_spawn over posix_spawn (pipe() works now; fork does not exist), rerun hash.c to the end, more of glib/tests.
+1. strfuncs (/strfuncs/strcanon abort) and mainloop (/maincontext/basic abort): find the failing assertion (child stderr is captured by g_spawn_sync: the harness logs it; GLib messages in an aborting child go to the log handler first).
 2. SIS packaging (recipes/sis.sh, pdk layer wiring).
 3. GIO (GFile etc.: libhildon/home use `g_file_*`), then step 2 of the plan (pixman, cairo, pango).
 

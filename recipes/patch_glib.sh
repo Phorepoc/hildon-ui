@@ -93,3 +93,18 @@ s = s.replace(c, "\t    if (FD_ISSET (f->fd, &xset))\n\t      f->revents |= (f->
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# g_spawn_sync waits with a plain select() on the read ends -- no timeout, readfds only -- which at pipe EOF never wakes on Open C (the exception-only
+# EOF, see PHE_XSET above). Add the exception set and treat an exceptional fd as readable (the blocking read() then returns 0).
+if ! grep -q PHE_XSPAWN $G/gspawn.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gspawn.c"
+s = open(p, newline="").read()
+a = "      ret = select (MAX (outpipe, errpipe) + 1,\n                    &fds,\n                    NULL, NULL,\n                    NULL /* no timeout */);\n"
+assert a in s
+b = ("      fd_set xfds; /* PHE_XSPAWN */\n      FD_ZERO (&xfds);\n      if (outpipe >= 0) FD_SET (outpipe, &xfds);\n      if (errpipe >= 0) FD_SET (errpipe, &xfds);\n"
+     "      ret = select (MAX (outpipe, errpipe) + 1,\n                    &fds,\n                    NULL, &xfds,\n                    NULL /* no timeout */);\n"
+     "      if (ret > 0)\n        {\n          if (outpipe >= 0 && FD_ISSET (outpipe, &xfds)) FD_SET (outpipe, &fds);\n          if (errpipe >= 0 && FD_ISSET (errpipe, &xfds)) FD_SET (errpipe, &fds);\n        }\n")
+s = s.replace(a, b)
+open(p, "w", newline="\n").write(s)
+PY
+fi

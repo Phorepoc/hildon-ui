@@ -15,44 +15,126 @@
 [pheglib] regex: 2nd group 20
 [pheglib] own tests done, fails=0
 [pheglib] child started: argc=3 argv1=--phe-run argv2=exit0
-[pheglib] probe pipe-EOF: spawn=0 waitpid=39 status=0 | select(read only)=0 readable=0 | select(read+except)=1 bits=2 (1=read 2=except) | read=-1 errno=35
-[pheglib] child started: argc=3 argv1=--phe-run argv2=list
-[pheglib] /list/sort: 
+[pheglib] probe pipe-EOF: spawn=0 waitpid=38 status=0 | select(read only)=0 readable=0 | select(read+except)=1 bits=2 (1=read 2=except) | read=-1 errno=35
+[pheglib] child started: argc=3 argv1=--phe-run argv2=queue
+[pheglib] /queue/basic: 
 [pheglib] OK
-[pheglib] /list/sort-with-data: 
+[pheglib] /queue/copy: 
 [pheglib] OK
-[pheglib] /list/insert-sorted: 
+[pheglib] /queue/off-by-one: 
 [pheglib] OK
-[pheglib] /list/insert-sorted-with-data: 
+[pheglib] /queue/find-custom: 
 [pheglib] OK
-[pheglib] /list/reverse: 
+[pheglib] /queue/static: 
 [pheglib] OK
-[pheglib] /list/nth: 
+[pheglib] /queue/clear: 
 [pheglib] OK
-[pheglib] /list/concat: 
+[pheglib] /queue/free-full: 
 [pheglib] OK
-[pheglib] /list/remove: 
+[pheglib] /queue/random/seed:2001187587: 
 [pheglib] OK
-[pheglib] /list/remove-all: 
+[pheglib] glib/tests/queue: spawn=1 exit_status=0 
+[pheglib] child started: argc=3 argv1=--phe-run argv2=array
+[pheglib] /array/append: 
 [pheglib] OK
-[pheglib] /list/first-last: 
+[pheglib] /array/prepend: 
 [pheglib] OK
-[pheglib] /list/insert: 
+[pheglib] /array/remove: 
 [pheglib] OK
-[pheglib] /list/free-full: 
+[pheglib] /array/remove-fast: 
 [pheglib] OK
-[pheglib] /list/copy: 
+[pheglib] /array/remove-range: 
 [pheglib] OK
-[pheglib] /list/copy-deep: 
+[pheglib] /array/ref-count: 
 [pheglib] OK
-[pheglib] /list/delete-link: 
+[pheglib] /array/sort: 
 [pheglib] OK
-[pheglib] /list/prepend: 
+[pheglib] /array/sort-with-data: 
 [pheglib] OK
-[pheglib] /list/position: 
+[pheglib] /array/clear-func: 
 [pheglib] OK
-[pheglib] /list/double-free: 
-[pheglib] child started: argc=5 argv1=-q argv2=-p
+[pheglib] /array/new/cleared: 
 [pheglib] OK
-[pheglib] /list/sort/stable: 
+[pheglib] /array/new/sized-cleared: 
+[pheglib] OK
+[pheglib] /array/new/zero-terminated: 
+[pheglib] OK
+[pheglib] /pointerarray/add: 
+[pheglib] OK
+[pheglib] /pointerarray/insert: 
+[pheglib] OK
+[pheglib] /pointerarray/ref-count: 
+[pheglib] OK
+[pheglib] /pointerarray/free-func: 
+[pheglib] OK
+[pheglib] /pointerarray/sort: 
+[pheglib] OK
+[pheglib] /pointerarray/sort-with-data: 
+[pheglib] OK
+[pheglib] /pointerarray/find/empty: 
+[pheglib] OK
+[pheglib] /pointerarray/find/non-empty: 
+[pheglib] OK
+[pheglib] /bytearray/append: 
+[pheglib] OK
+[pheglib] /bytearray/prepend: 
+[pheglib] OK
+[pheglib] /bytearray/remove: 
+[pheglib] OK
+[pheglib] /bytearray/remove-fast: 
+[pheglib] OK
+[pheglib] /bytearray/remove-range: 
+[pheglib] OK
+[pheglib] /bytearray/ref-count: 
+[pheglib] OK
+[pheglib] /bytearray/sort: 
+[pheglib] OK
+[pheglib] /bytearray/sort-with-data: 
+[pheglib] OK
+[pheglib] /bytearray/new-take: 
+[pheglib] OK
+[pheglib] /bytearray/free-to-bytes: 
+[pheglib] OK
+[pheglib] glib/tests/array: spawn=1 exit_status=0 
+[pheglib] child started: argc=3 argv1=--phe-run argv2=strfuncs
+[pheglib] /strfuncs/test-is-to-digit: 
+[pheglib] OK
+[pheglib] /strfuncs/strdup: 
+[pheglib] OK
+[pheglib] /strfuncs/strndup: 
+[pheglib] OK
+[pheglib] /strfuncs/strdup-printf: 
+[pheglib] OK
+[pheglib] /strfuncs/strdupv: 
+[pheglib] OK
+[pheglib] /strfuncs/strnfill: 
+[pheglib] OK
+[pheglib] /strfuncs/strconcat: 
+[pheglib] OK
+[pheglib] /strfuncs/strjoin: 
+[pheglib] OK
+[pheglib] /strfuncs/strcanon: 
+Thread pheglibtest.exe::Main Panic KERN-EXEC 3
+[pheglib] glib/tests/strfuncs: spawn=1 exit_status=770 
+[pheglib]   stderr: 
+[pheglib] child started: argc=3 argv1=--phe-run argv2=keyfile
+[pheglib] /keyfile/line-ends: 
+[pheglib] OK
+[pheglib] /keyfile/whitespace: 
+[pheglib] OK
+[pheglib] /keyfile/comments: 
+[pheglib] OK
+[pheglib] /keyfile/listing: 
+[pheglib] OK
+[pheglib] /keyfile/string: 
+[pheglib] OK
+[pheglib] /keyfile/boolean: 
+[pheglib] OK
+[pheglib] /keyfile/number: 
+[pheglib] OK
+[pheglib] /keyfile/locale-string: 
+[pheglib] OK
+[pheglib] /keyfile/lists: 
+[pheglib] OK
+[pheglib] /keyfile/lists-set-get: 
 [pheglib] OK
