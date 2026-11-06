@@ -1,0 +1,3 @@
+hildon-symbian: build recipes for GLib (LGPL-2.1+), libffi (MIT) and later libhildon / libhildondesktop (LGPL-2.1) as
+app-private libraries for Phorepoc OS. Our recipe files are BSD-2-Clause. The libraries are downloaded, never copied here;
+they stay in their own replaceable DLLs. hildon-desktop and the Leste themes are GPL and are NOT used.
