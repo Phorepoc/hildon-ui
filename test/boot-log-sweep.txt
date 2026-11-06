@@ -1,0 +1,17 @@
+[pheglib] gio: writable dir [c:/data/], file [c:/data/phe_gio_test.txt]
+[pheglib] gio: replace_contents=1 -
+[pheglib] gio: load_contents=1 len=9 [hello gio] -
+[pheglib] gio: query_info name=phe_gio_test.txt size=9 type=1 -
+[pheglib] gio: GKeyFile through a file: load=1 key=[value] n=42 -
+[pheglib] gio: delete ok=1 exists_after=0
+[pheglib] probe dbl pow(2,-1024.1): libc[5.1901682964836274e-309] strtod_back_eq=1 | glib[5.1901682964836274e-309] g_ascii_strtod_back_eq=1 | same_string=1
+[pheglib] glib/tests/queue: no exit within 100 s, killed -- VERDICT=TIMEOUT
+[pheglib] glib/tests/array: exit_status=0 (type 0 reason 0) VERDICT=PASS
+[pheglib] glib/tests/strfuncs: exit_status=0 (type 0 reason 0) VERDICT=PASS
+[pheglib] glib/tests/keyfile: exit_status=256 (type 0 reason 1) VERDICT=FAIL
+[pheglib] glib/tests/slist: exit_status=0 (type 0 reason 0) VERDICT=PASS
+[pheglib] glib/tests/list: exit_status=256 (type 0 reason 1) VERDICT=FAIL
+[pheglib] glib/tests/hash: exit_status=0 (type 0 reason 0) VERDICT=PASS
+[pheglib] glib/tests/mainloop: no exit within 100 s, killed -- VERDICT=TIMEOUT
+[pheglib] glib tests: 4 of 8 programs not clean
+[pheglib] DONE fails=4

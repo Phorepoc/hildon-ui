@@ -21,6 +21,7 @@ static int phe_front_on;
 
 extern void phe_log (const char *msg);
 extern int phe_glib_test_hash (int argc, char **argv);
+extern void phe_kill_pid (int pid);
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { fails++; char b[160]; snprintf (b, sizeof b, "FAIL %s:%d %s", __FILE__, __LINE__, #c); phe_log (b); } } while (0)
@@ -154,13 +155,17 @@ int phe_glib_test_run (void)
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
       {
         gchar *av[] = { (gchar *) "pheglibtest.exe", (gchar *) "--phe-run", (gchar *) names[i], NULL };
-        gchar *so = NULL, *se = NULL; gint st = -1; GError *e2 = NULL;
-        gboolean ok = g_spawn_sync (NULL, av, NULL, 0, NULL, NULL, &so, &se, &st, &e2);
-        snprintf (b, sizeof b, "glib/tests/%s: spawn=%d exit_status=%d %s", names[i], ok, st, e2 ? e2->message : "");
-        phe_log (b); if (!ok || st != 0) total_bad++;
-        if (so && *so) { snprintf (b, sizeof b, "  stdout: %.200s", so); phe_log (b); }
-        if (se && *se) { snprintf (b, sizeof b, "  stderr: %.200s", se); phe_log (b); }
-        g_free (so); g_free (se); if (e2) g_error_free (e2);
+        pid_t cpid = 0; int st = -1, done = 0, waited_ms = 0; const int limit_ms = 100000;   /* per-program time limit */
+        posix_spawn_file_actions_t cfa; int rc; posix_spawn_file_actions_init (&cfa);
+        { char of[64]; snprintf (of, sizeof of, "%sphe_child_%s.out", phe_writable_dir (), names[i]);   /* the child's stdout/stderr go to a file (a child that inherits the console hung) */
+          posix_spawn_file_actions_addopen (&cfa, 1, of, O_WRONLY | O_CREAT | O_TRUNC, 0600); posix_spawn_file_actions_adddup2 (&cfa, 1, 2); }
+        rc = posix_spawn (&cpid, "pheglibtest.exe", &cfa, NULL, av, NULL); posix_spawn_file_actions_destroy (&cfa);
+        if (rc != 0) { snprintf (b, sizeof b, "glib/tests/%s: spawn failed rc=%d VERDICT=SPAWN_FAILED", names[i], rc); phe_log (b); total_bad++; continue; }
+        while (waited_ms < limit_ms) { pid_t w = waitpid (cpid, &st, WNOHANG); if (w == cpid) { done = 1; break; } if (w < 0) break; g_usleep (100000); waited_ms += 100; }
+        if (!done) { int k; phe_kill_pid ((int) cpid); for (k = 0; k < 50; k++) { if (waitpid (cpid, &st, WNOHANG) == cpid) break; g_usleep (100000); }
+          snprintf (b, sizeof b, "glib/tests/%s: no exit within %d s, killed -- VERDICT=TIMEOUT", names[i], limit_ms / 1000); phe_log (b); total_bad++; continue; }
+        snprintf (b, sizeof b, "glib/tests/%s: exit_status=%d (type %d reason %d) VERDICT=%s", names[i], st, st & 0xff, (st >> 8) & 0xff, st == 0 ? "PASS" : "FAIL"); phe_log (b);
+        if (st != 0) total_bad++;
       }
     snprintf (b, sizeof b, "glib tests: %d of %u programs not clean", total_bad, (unsigned) (sizeof names / sizeof names[0])); phe_log (b);
     fails += total_bad;

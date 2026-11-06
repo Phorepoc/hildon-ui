@@ -16,3 +16,13 @@ int main(int argc, char** argv)
 	RDebug::Printf("[pheglib] DONE fails=%d", fails);
 	return fails;
 	}
+// the test harness's per-program time limit: end a child process that did not exit
+extern "C" void phe_kill_pid(int aPid)
+	{
+	RProcess p;
+	if (p.Open(TProcessId(aPid)) == KErrNone)
+		{
+		p.Kill(-9);
+		p.Close();
+		}
+	}
