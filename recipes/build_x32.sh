@@ -25,6 +25,7 @@ build glib/libcharset libcharset_la_OBJECTS
 build glib/gnulib libgnulib_la_OBJECTS
 build glib/pcre libpcre_la_OBJECTS
 build glib libglib_2_0_la_OBJECTS
+make -k -C glib CC=$CC "$CF" giounix.lo gspawn.lo >> /wk/x32/objs.log 2>&1
 build gobject libgobject_2_0_la_OBJECTS
 build gmodule libgmodule_2_0_la_OBJECTS
 build gthread libgthread_2_0_la_OBJECTS

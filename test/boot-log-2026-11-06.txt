@@ -1,0 +1,42 @@
+[bootui] pheglibtest: started
+Thread pheglibtest.exe::Local-c813c0e8 Killed -1
+[pheglib] main entered
+[pheglib] probe pipe rc=-1 errno=2 fds=73400320,0
+[pheglib] probe socketpair rc=-1 errno=45 fds=73400320,0
+[pheglib] pheglibtest: GLib 2.56.4, sizeof(gsize)=4 sizeof(gint64)=8 sizeof(gpointer)=4
+[pheglib] string: hello 5 x 1234567890123
+[pheglib] mainloop: 3 timeout ticks
+[pheglib] gobject: type PheCounter, signal seen 11
+[pheglib] gthread: joined, flag=42 ret=7
+[pheglib] FAIL /h/test/pheglibtest.c:75 g_regex_match (re, "range 10-20 ok", 0, &mi)
+[pheglib] FAIL /h/test/pheglibtest.c:76 m2 && strcmp (m2, "20") == 0
+[pheglib] regex: 2nd group (null)
+[pheglib] own tests done, fails=2
+[pheglib] /hash/misc: 
+[pheglib] OK
+[pheglib] /hash/one: 
+[pheglib] OK
+[pheglib] /hash/honeyman: 
+[pheglib] OK
+[pheglib] /hash/direct: 
+[pheglib] OK
+[pheglib] /hash/direct2: 
+[pheglib] OK
+[pheglib] /hash/int: 
+[pheglib] OK
+[pheglib] /hash/int64: 
+[pheglib] OK
+[pheglib] /hash/double: 
+[pheglib] OK
+[pheglib] /hash/string: 
+[pheglib] OK
+[pheglib] /hash/set: 
+[pheglib] OK
+[pheglib] /hash/set-ref: 
+[pheglib] OK
+[pheglib] /hash/ref: 
+[pheglib] OK
+[pheglib] /hash/remove-all: 
+[pheglib] OK
+[pheglib] /hash/recursive-remove-all: 
+Thread pheglibtest.exe::Main Panic KERN-EXEC 3

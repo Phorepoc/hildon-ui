@@ -5,23 +5,31 @@ Groundwork for the Hildon UI libraries on Phorepoc OS (PC image, x86-64 / x32 AB
 meant to be a Catalogue download. Licences: our recipes BSD-2-Clause; GLib/libhildon LGPL-2.1+, libffi MIT.
 
 ## Decision
-GLib **2.56.4** (+ libffi 3.4.6), built as app-private DLLs with new names (`phegl*`) so the ROM's old ossrv glib is never
+GLib **2.56.4** (+ libffi 3.4.6), to be split into app-private DLLs with new names (`phegl*`) so the ROM's old ossrv glib is never
 touched. Evidence: GTK+ 2.24.33 needs GLib >= 2.28, Leste's libhildon code needs >= 2.32; 2.56 is the last autotools release.
 
-## Status (2026-11-06, end of the first session): step 1 NOT finished
-Done: sources pinned and verified (`recipes/pins.sh`, `fetch.sh`); GLib configured natively in the build image
-(`recipes/native_config.sh`, works); the x32 pure-Open-C compiler wrappers (`pp-gcc`) generated and working in a private volume;
-Open C's libc export list extracted (1,500 symbols) to drive the HAVE_* filtering.
-NOT done: the x32 `config.h`/`glibconfig.h` (ILP32 sizes, gint64 = long long, HAVE_* filtered by Open C's exports, NLS off),
-libffi x32, compiling the objects, the DLLs (.def with frozen ordinals), the test EXE, the QEMU boot log.
-Next steps, in order:
-1. `recipes/gen_config.py`: native config.h -> x32 (SIZEOF_* = 4 for long/size_t/void*, drop HAVE_* whose function is not in
-   libc/libm/libpthread/libdl of `.phorepoc-x86-build/mmp-x32`, no `ENABLE_NLS`, no HAVE_POLL_H/eventfd/inotify/netlink/statfs);
-   a glibconfig.h with i386-style gsize/gssize/gintptr (unsigned int), gint64 = long long ("ll").
-2. libffi 3.4.6: compile by hand with pp-gcc (src/prep_cif.c types.c raw_api.c x86/ffi64.c ffiw64.c unix64.S; skip closures.c,
-   GLib only needs ffi_call); ffi.h/fficonfig.h from a native configure.
-3. Native full build first in `/wk/nat` (generates gmarshal.c, enum types; `make -C glib` builds the libcharset/gnulib/pcre
-   subdirs before libglib), then compile the same object lists with `CC=pp-gcc` into archives.
-4. Components in the ROM registry (`x32_archives`, like pheffmpeg_x32): `pheglib`, `phegobject`, `phegmodule`, `phegthread`
-   with generated .def files; a test EXE `pheglibtest` (g_print, GMainLoop + timeout, GObject subclass + signal, GThread).
-   Boot it with `SSM_TEST=pheglibtest` (see tools/phorepoc-x86/cxxrt/run_test.sh for the pattern) and quote the log lines.
+## Status (2026-11-06): GLib 2.56.4 RUNS on the x32 PC image (static archives, console test EXE)
+Proof: `test/boot-log-2026-11-06.txt` (QEMU boot log of `pheglibtest.exe`): g_print, GString, GMainLoop with a timeout source
+(3 ticks), a GObject subclass with a signal, a GThread, GKeyFile, and GLib's own `glib/tests/hash.c` (first 13 cases OK).
+Known open problems: (1) `g_regex_match` returns FALSE (bundled PCRE; config of glib/pcre not checked); (2) the test panics
+KERN-EXEC 3 in hash.c `/hash/recursive-remove-all` (not the stack: 1 MB gives the same); (3) NOT yet split into DLLs (needs `.def`
+files with frozen ordinals generated from the archives, registry entries `pheglib`...`phegthread`); (4) GIO is not built.
+Open C facts found: `pipe()` fails with ENOENT, `socketpair()` EOPNOTSUPP, `clock_gettime()` fails at run time, no `poll.h`,
+`alloca.h`, `libintl.h`, `pthread_rwlock_t`, `sig_atomic_t`. Workarounds: `overlay/` (compat header, libintl stub, an in-process
+GWakeup + g_poll wrapper) and `recipes/patch_glib.sh` (x32 negative-addend fix in guniprop.c).
+
+## Build (all in the phorepoc-x86 image, private volume `hildon-wk` at /wk; see each script's header)
+1. `recipes/fetch.sh` (host) -- pinned tarballs into dl/.
+2. `mk_pure_wrappers.sh` of the main repo (W=/wk/lsc) -- the x32 pure-Open-C `pp-gcc`.
+3. `recipes/native_config.sh`, `recipes/native_build.sh` -- native GLib/libffi build: generated sources + ffi.h.
+4. `gen_config.py` -- native config.h/glibconfig.h -> x32 (filtered by the Open C export list /wk/libc_syms.txt, nm of libc/libm/libpthread/libdl).
+5. `recipes/build_x32.sh` (patches GLib, copies the tree to /wk/x32, compiles every object with pp-gcc), `build_ffi_x32.sh`, `package_x32.sh` -> `.phorepoc-x86-build/hildon/*.a`.
+6. Registry entry `pheglibtest` (emitter/components.py of Symbian-ReverseEngineered) + `recipes/iterate.sh` (link, ROM, QEMU boot, print log).
+   Note: in this checkout the ROM build needed `ROM_EXCLUDE=pheget,phestore,gsaccessoryplugin` (registry points at components core moved away /
+   a missing acccontrol.dll) and the boot `MEM=512` (the ROM is too big for GRUB at 128 MB).
+
+## Next steps
+1. Find the hash.c crash (log the faulting address: `./ph sym`), fix PCRE/regex, run more of glib/tests (list, queue, array, strfuncs, keyfile, mainloop).
+2. DLL split: generate .def (nm of the archives) -> `pheglib.dll`, `phegobject.dll`, `phegmodule.dll`, `phegthread.dll`; the registry side
+   (`x32_archives` + `def`) is the `pheffmpeg_x32` pattern; the layer/pdk side (components_hildon.py in this repo + package.conf) mirrors codecpack.
+3. GIO (GFile etc.: libhildon/home use `g_file_*`), then step 2 of the plan (pixman, cairo, pango).

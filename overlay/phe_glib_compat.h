@@ -8,6 +8,11 @@
 #ifndef CLOCK_MONOTONIC
 #define CLOCK_MONOTONIC CLOCK_REALTIME   /* Open C has one clock; GCond timeouts and g_get_monotonic_time agree on it */
 #endif
+#include <sys/time.h>
+/* Open C: clock_gettime() is there but fails at run time (seen 2026-11-06); gettimeofday() works */
+static inline int phe_clock_gettime (int c, struct timespec *ts) { struct timeval tv; (void) c; if (gettimeofday (&tv, 0)) return -1;
+  ts->tv_sec = tv.tv_sec; ts->tv_nsec = tv.tv_usec * 1000; return 0; }
+#define clock_gettime(c, ts) phe_clock_gettime ((c), (ts))
 static inline int pthread_condattr_setclock (pthread_condattr_t *a, int c) { (void) a; (void) c; return 0; }
 #ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
 #define HAVE_PTHREAD_CONDATTR_SETCLOCK 1

@@ -5,6 +5,10 @@
 #include <glib-object.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/socket.h>
 
 extern void phe_log (const char *msg);
 extern int phe_glib_test_hash (int argc, char **argv);
@@ -38,6 +42,12 @@ static gpointer worker (gpointer d) { int *p = d; g_usleep (20000); *p = 42; ret
 int phe_glib_test_run (void)
 {
   char b[200];
+  { /* probe what Open C offers for GLib's main-loop wakeup */
+    int fds[2], rc, e; char pb[200];
+    errno = 0; rc = pipe (fds); e = errno; snprintf (pb, sizeof pb, "probe pipe rc=%d errno=%d fds=%d,%d", rc, e, fds[0], fds[1]); phe_log (pb);
+    if (rc == 0) { errno = 0; rc = fcntl (fds[0], F_SETFD, FD_CLOEXEC); e = errno; snprintf (pb, sizeof pb, "probe fcntl rc=%d errno=%d", rc, e); phe_log (pb); }
+    errno = 0; rc = socketpair (AF_UNIX, SOCK_STREAM, 0, fds); e = errno; snprintf (pb, sizeof pb, "probe socketpair rc=%d errno=%d fds=%d,%d", rc, e, fds[0], fds[1]); phe_log (pb);
+  }
   g_set_print_handler (print_handler);
   g_log_set_default_handler (log_handler, NULL);
   g_print ("pheglibtest: GLib %u.%u.%u, sizeof(gsize)=%u sizeof(gint64)=%u sizeof(gpointer)=%u\n", glib_major_version,
