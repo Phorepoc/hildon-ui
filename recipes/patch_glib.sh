@@ -26,3 +26,15 @@ fi
 sed -i 's/g_alloca (/__builtin_alloca (/g' /wk/glib-2.56.4/glib/gpoll.c
 # output_special_case() (inlined into real_toupper/real_tolower) has the same folding: table + (val - 0x1000000)
 grep -q PHE_X32B /wk/glib-2.56.4/glib/guniprop.c || sed -i 's|const gchar \*p = special_case_table + offset;|const gchar *p; { const gchar *tb_ = special_case_table; __asm__ ("" : "+r" (tb_)); p = tb_ + offset; } /* PHE_X32B */|' /wk/glib-2.56.4/glib/guniprop.c
+# g_spawn over posix_spawn: the fork-based fork_exec_with_pipes (2nd occurrence = the definition) is renamed and ours appended (overlay/phe_fork_exec.c)
+if ! grep -q phe_spawn_fail $G/gspawn.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gspawn.c"
+s = open(p, newline="").read()
+head = "static gboolean\nfork_exec_with_pipes (gboolean              intermediate_child,"
+i = s.rindex(head)
+s = s[:i] + "static G_GNUC_UNUSED gboolean\nfork_exec_with_pipes_unused (gboolean              intermediate_child," + s[i + len(head):]
+s += open("/h/overlay/phe_fork_exec.c", newline="").read()
+open(p, "w", newline="\n").write(s)
+PY
+fi

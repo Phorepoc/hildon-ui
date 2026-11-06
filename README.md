@@ -29,6 +29,16 @@ Each step is a script in `recipes/` (headers explain them); `VOL=<docker volume>
 the ROM build needs `ROM_EXCLUDE=pheget,phestore,gsaccessoryplugin` and the boot `MEM=512` (`iterate.sh` does both). `pipe()` needs the pipe LDD in
 the kernel: `tools/phorepoc-x86/ekern/xk_pipe.cpp` + `make_ekern.sh` + `xboot.cpp` case 7 + `--builtin-device pipelib.ldd=ldd:7` in the main repo.
 
+## Third/fourth session results (2026-11-06)
+- `pipe()` works (kernel pipe LDD): `probe pipe roundtrip: wrote=3 select(data)=1 read=3 [abc] select(empty)=0` (`test/boot-log-spawn.txt`).
+- `g_spawn` over `posix_spawn` (`overlay/phe_fork_exec.c`, applied by `patch_glib.sh`): `posix_spawn("pheglibtest.exe", argv)` starts a real child that sees its argv
+  (`child started: argc=3 argv1=--phe-run argv2=list`); the child ran glib/tests/list.c (17 cases OK) and spawned a grandchild for `/list/double-free/subprocess`,
+  which ran and exited (GLib printed "corrupted double-linked list detected", `Main Killed 1`). OPEN: the waiting side never returns -- neither `waitpid()` nor
+  GLib's g_spawn_sync/g_test_trap pipe-EOF + child-watch path completes after the child exited, so the spawn tests hang (the parent run is cut by the boot timeout).
+  Next probe: waitpid on a finished child, and whether the parent's copies of the pipe write ends are really closed (Open C pipe handle ownership).
+- The other test programs (hash, slist, queue, array, strfuncs, keyfile, mainloop) are compiled in and dispatched (`--phe-run <name>`) but have not run yet because the
+  run is serial and stops at the hang. keyfile needs data files (G_TEST_SRCDIR) that are not in the ROM.
+
 ## Next steps
 1. g_spawn over posix_spawn (pipe() works now; fork does not exist), rerun hash.c to the end, more of glib/tests.
 2. SIS packaging (recipes/sis.sh, pdk layer wiring).

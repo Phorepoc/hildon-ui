@@ -1,0 +1,55 @@
+[pheglib] main entered
+[pheglib] probe pipe rc=0 errno=0 fds=3,4
+[pheglib] probe fcntl rc=0 errno=0
+[pheglib] probe pipe roundtrip: wrote=3 select(data)=1 read=3 [abc] select(empty)=0
+[pheglib] probe socketpair rc=-1 errno=45 fds=3,4
+[pheglib] pheglibtest: GLib 2.56.4, sizeof(gsize)=4 sizeof(gint64)=8 sizeof(gpointer)=4
+[pheglib] string: hello 5 x 1234567890123
+[pheglib] mainloop: 3 timeout ticks
+[pheglib] gobject: type PheCounter, signal seen 11
+[pheglib] gthread: joined, flag=42 ret=7
+[pheglib] regex probe abc: new=ok match=1 err=-
+[pheglib] regex probe [0-9]+: new=ok match=1 err=-
+[pheglib] regex probe \d+: new=ok match=1 err=-
+[pheglib] regex probe (\d+)-(\d+): new=ok match=1 err=-
+[pheglib] regex: 2nd group 20
+[pheglib] own tests done, fails=0
+[pheglib] probe posix_spawn rc=0 pid=38
+[pheglib] child started: argc=3 argv1=--phe-run argv2=list
+[pheglib] /list/sort: 
+[pheglib] OK
+[pheglib] /list/sort-with-data: 
+[pheglib] OK
+[pheglib] /list/insert-sorted: 
+[pheglib] OK
+[pheglib] /list/insert-sorted-with-data: 
+[pheglib] OK
+[pheglib] /list/reverse: 
+[pheglib] OK
+[pheglib] /list/nth: 
+[pheglib] OK
+[pheglib] /list/concat: 
+[pheglib] OK
+[pheglib] /list/remove: 
+[pheglib] OK
+[pheglib] /list/remove-all: 
+[pheglib] OK
+[pheglib] /list/first-last: 
+[pheglib] OK
+[pheglib] /list/insert: 
+[pheglib] OK
+[pheglib] /list/free-full: 
+[pheglib] OK
+[pheglib] /list/copy: 
+[pheglib] OK
+[pheglib] /list/copy-deep: 
+[pheglib] OK
+[pheglib] /list/delete-link: 
+[pheglib] OK
+[pheglib] /list/prepend: 
+[pheglib] OK
+[pheglib] /list/position: 
+[pheglib] OK
+[pheglib] /list/double-free: 
+[pheglib] child started: argc=5 argv1=-q argv2=-p
+PH: [stdio] (Z:\sys\bin\pheglibtest.exe:41): GLib-[1;33mWARNING[0m **: [34m.005[0m: corrupted double-linked list detected

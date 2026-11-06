@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <sys/time.h>
 
 extern void phe_log (const char *msg);
 extern int phe_glib_test_hash (int argc, char **argv);
@@ -46,6 +50,11 @@ int phe_glib_test_run (void)
     int fds[2], rc, e; char pb[200];
     errno = 0; rc = pipe (fds); e = errno; snprintf (pb, sizeof pb, "probe pipe rc=%d errno=%d fds=%d,%d", rc, e, fds[0], fds[1]); phe_log (pb);
     if (rc == 0) { errno = 0; rc = fcntl (fds[0], F_SETFD, FD_CLOEXEC); e = errno; snprintf (pb, sizeof pb, "probe fcntl rc=%d errno=%d", rc, e); phe_log (pb); }
+    if (rc == 0) { fd_set rs; struct timeval tv; char rb[8]; int w, n, s1, s2; w = (int) write (fds[1], "abc", 3);
+      FD_ZERO (&rs); FD_SET (fds[0], &rs); tv.tv_sec = 0; tv.tv_usec = 100000; s1 = select (fds[0] + 1, &rs, NULL, NULL, &tv);
+      n = (int) read (fds[0], rb, sizeof rb);
+      FD_ZERO (&rs); FD_SET (fds[0], &rs); tv.tv_sec = 0; tv.tv_usec = 50000; s2 = select (fds[0] + 1, &rs, NULL, NULL, &tv);
+      snprintf (pb, sizeof pb, "probe pipe roundtrip: wrote=%d select(data)=%d read=%d [%.3s] select(empty)=%d", w, s1, n, n == 3 ? rb : "", s2); phe_log (pb); }
     errno = 0; rc = socketpair (AF_UNIX, SOCK_STREAM, 0, fds); e = errno; snprintf (pb, sizeof pb, "probe socketpair rc=%d errno=%d fds=%d,%d", rc, e, fds[0], fds[1]); phe_log (pb);
   }
   g_set_print_handler (print_handler);
@@ -78,9 +87,50 @@ int phe_glib_test_run (void)
   g_match_info_free (mi); g_regex_unref (re);
 
   snprintf (b, sizeof b, "own tests done, fails=%d", fails); phe_log (b);
-  /* GLib's own test: glib/tests/hash.c */
-  char *argv[] = { (char *) "hash", NULL };
-  int rc = phe_glib_test_hash (1, argv);
-  snprintf (b, sizeof b, "glib/tests/hash.c rc=%d", rc); phe_log (b);
-  return fails + rc;
+  /* GLib's own test programs, each in a CHILD process (posix_spawn; a test program calls g_test_init once and exits). The parent logs
+   * every child's exit status. hash.c spawns grandchildren itself (g_test_trap_subprocess). */
+  {
+    { pid_t pp = 0; char *pav[] = { (char *) "pheglibtest.exe", (char *) "--phe-run", (char *) "list", NULL }; int pst = -1, pr = posix_spawn (&pp, "pheglibtest.exe", NULL, NULL, pav, NULL);
+      snprintf (b, sizeof b, "probe posix_spawn rc=%d pid=%d", pr, (int) pp); phe_log (b);
+      if (pr == 0) { int wr = (int) waitpid (pp, &pst, 0); snprintf (b, sizeof b, "probe waitpid rc=%d status=%d", wr, pst); phe_log (b); } }
+    static const char *names[] = { "list", "hash", "slist", "queue", "array", "strfuncs", "keyfile", "mainloop" };
+    unsigned i; int total_bad = 0;
+    for (i = 0; i < sizeof names / sizeof names[0]; i++)
+      {
+        gchar *av[] = { (gchar *) "pheglibtest.exe", (gchar *) "--phe-run", (gchar *) names[i], NULL };
+        gchar *so = NULL, *se = NULL; gint st = -1; GError *e2 = NULL;
+        gboolean ok = g_spawn_sync (NULL, av, NULL, 0, NULL, NULL, &so, &se, &st, &e2);
+        snprintf (b, sizeof b, "glib/tests/%s: spawn=%d exit_status=%d %s", names[i], ok, st, e2 ? e2->message : "");
+        phe_log (b); if (!ok || st != 0) total_bad++;
+        g_free (so); g_free (se); if (e2) g_error_free (e2);
+      }
+    snprintf (b, sizeof b, "glib tests: %d of %u programs not clean", total_bad, (unsigned) (sizeof names / sizeof names[0])); phe_log (b);
+    fails += total_bad;
+  }
+  return fails;
+}
+
+/* child mode: pheglibtest.exe --phe-run <name> [args], or a GTestSubprocess re-run of hash.c */
+extern int phe_glib_test_list (int, char **), phe_glib_test_slist (int, char **), phe_glib_test_queue (int, char **),
+  phe_glib_test_array (int, char **), phe_glib_test_strfuncs (int, char **), phe_glib_test_keyfile (int, char **),
+  phe_glib_test_mainloop (int, char **);
+int phe_glib_child (int argc, char **argv)
+{
+  int i; const char *name = NULL; char *cargv[16]; int cargc = 0;
+  for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
+                             else if (cargc < 14) cargv[++cargc] = argv[i];
+  cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
+  if (!name)   /* a GTestSubprocess re-run (-p /<program>/<case>/subprocess): the first path segment names the program */
+    { static char seg[24]; for (i = 1; i < argc; i++) if (argv[i][0] == (char) 0x2f) { const char *q = argv[i] + 1; unsigned k = 0; while (*q && *q != (char) 0x2f && k < sizeof seg - 1) seg[k++] = *q++; seg[k] = 0; name = seg; break; } }
+  if (!name) name = "hash";
+  g_set_print_handler (print_handler); g_log_set_default_handler (log_handler, NULL);
+  if (!strcmp (name, "hash")) return phe_glib_test_hash (cargc, cargv);
+  if (!strcmp (name, "list")) return phe_glib_test_list (cargc, cargv);
+  if (!strcmp (name, "slist")) return phe_glib_test_slist (cargc, cargv);
+  if (!strcmp (name, "queue")) return phe_glib_test_queue (cargc, cargv);
+  if (!strcmp (name, "array")) return phe_glib_test_array (cargc, cargv);
+  if (!strcmp (name, "strfuncs")) return phe_glib_test_strfuncs (cargc, cargv);
+  if (!strcmp (name, "keyfile")) return phe_glib_test_keyfile (cargc, cargv);
+  if (!strcmp (name, "mainloop")) return phe_glib_test_mainloop (cargc, cargv);
+  return 99;
 }
