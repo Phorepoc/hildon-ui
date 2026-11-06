@@ -20,18 +20,23 @@ Fixes found by running: `STRERROR_R_CHAR_P` (glibc-only) made g_strerror return 
 Open C `clock_gettime()` supports ONLY CLOCK_REALTIME and fills tv_nsec with microseconds (libc/src/clock_funcs.cpp), so GLib uses gettimeofday via the compat header.
 Open: pipe()/spawn (kernel RPipe device), GIO, SIS packaging (`package.conf` is a draft; needs the pdk to resolve `.hildon/` and merge `registry/components_hildon.py`).
 
-## Build (all in the phorepoc-x86 image, private volume `hildon-wk` at /wk; see each script's header)
-1. `recipes/fetch.sh` (host) -- pinned tarballs into dl/.
-2. `mk_pure_wrappers.sh` of the main repo (W=/wk/lsc) -- the x32 pure-Open-C `pp-gcc`.
-3. `recipes/native_config.sh`, `recipes/native_build.sh` -- native GLib/libffi build: generated sources + ffi.h.
-4. `gen_config.py` -- native config.h/glibconfig.h -> x32 (filtered by the Open C export list /wk/libc_syms.txt, nm of libc/libm/libpthread/libdl).
-5. `recipes/build_x32.sh` (patches GLib, copies the tree to /wk/x32, compiles every object with pp-gcc), `build_ffi_x32.sh`, `package_x32.sh` -> `.phorepoc-x86-build/hildon/*.a`.
-6. Registry entry `pheglibtest` (emitter/components.py of Symbian-ReverseEngineered) + `recipes/iterate.sh` (link, ROM, QEMU boot, print log).
-   Note: in this checkout the ROM build needed `ROM_EXCLUDE=pheget,phestore,gsaccessoryplugin` (registry points at components core moved away /
-   a missing acccontrol.dll) and the boot `MEM=512` (the ROM is too big for GRUB at 128 MB).
+## Build
+One command, from the pins to the booted proof (host Git Bash, Docker up; `REPO` = the Symbian-ReverseEngineered checkout):
+
+    REPO=C:/Users/memph/Git/Symbian-ReverseEngineered bash recipes/build.sh        # steps: fetch tools native config objects archives images boot
+
+Each step is a script in `recipes/` (headers explain them); `VOL=<docker volume>` and `CLEAN=1` give a fresh, private tree. Notes: in this checkout
+the ROM build needs `ROM_EXCLUDE=pheget,phestore,gsaccessoryplugin` and the boot `MEM=512` (`iterate.sh` does both). `pipe()` needs the pipe LDD in
+the kernel: `tools/phorepoc-x86/ekern/xk_pipe.cpp` + `make_ekern.sh` + `xboot.cpp` case 7 + `--builtin-device pipelib.ldd=ldd:7` in the main repo.
 
 ## Next steps
-1. Find the hash.c crash (log the faulting address: `./ph sym`), fix PCRE/regex, run more of glib/tests (list, queue, array, strfuncs, keyfile, mainloop).
-2. DLL split: generate .def (nm of the archives) -> `pheglib.dll`, `phegobject.dll`, `phegmodule.dll`, `phegthread.dll`; the registry side
-   (`x32_archives` + `def`) is the `pheffmpeg_x32` pattern; the layer/pdk side (components_hildon.py in this repo + package.conf) mirrors codecpack.
+1. g_spawn over posix_spawn (pipe() works now; fork does not exist), rerun hash.c to the end, more of glib/tests.
+2. SIS packaging (recipes/sis.sh, pdk layer wiring).
 3. GIO (GFile etc.: libhildon/home use `g_file_*`), then step 2 of the plan (pixman, cairo, pango).
+
+## GIO scouting (not built yet)
+Native `make -C gio` in the build tree gets 206 objects through. Two blockers, both with known fixes: `gdbus-codegen` needs Python's `distutils`
+(removed in 3.12): `PYTHONPATH=overlay/pyshim` provides the one class it uses; and gcc 13's `-Werror=format-overflow` trips on gdbusauth.c /
+gdbusmessage.c: pass `CFLAGS=-w`. Then the x32 pass is the same as for GLib (objects with pp-gcc from the native tree). Expect to need in the config:
+no inotify/FAM (HAVE_INOTIFY dropped: file monitors fall back to none), zlib from Open C (`-lz` is in libz.a of the main repo's cxxrt/web build), GIO's
+unix sockets/fd-passing code compiled but non-functional (socketpair/SCM_RIGHTS absent).
