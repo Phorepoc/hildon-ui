@@ -129,6 +129,7 @@ int phe_glib_child (int argc, char **argv)
   for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
                              else if (cargc < 14) cargv[++cargc] = argv[i];
   cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
+  setenv ("G_TEST_SRCDIR", "z:/resource/pheglibtest", 1); setenv ("TMPDIR", "c:/", 1);   /* the data files of the test programs (keyfile): rom_data of the registry key */
   if (name && !strcmp (name, "exit0")) return 0;
   if (!name)   /* a GTestSubprocess re-run (-p /<program>/<case>/subprocess): the first path segment names the program */
     { static char seg[24]; for (i = 1; i < argc; i++) if (argv[i][0] == (char) 0x2f) { const char *q = argv[i] + 1; unsigned k = 0; while (*q && *q != (char) 0x2f && k < sizeof seg - 1) seg[k++] = *q++; seg[k] = 0; name = seg; break; } }
@@ -143,4 +144,19 @@ int phe_glib_child (int argc, char **argv)
   if (!strcmp (name, "keyfile")) return phe_glib_test_keyfile (cargc, cargv);
   if (!strcmp (name, "mainloop")) return phe_glib_test_mainloop (cargc, cargv);
   return 99;
+}
+
+/* g_test_init() replaced in the GLib test programs (package_x32.sh: -Dg_test_init=phe_g_test_init). g_test_init installs GLib's test log handler,
+ * which prints to stderr and aborts on a fatal message -- in a child process of ours that output is lost. This wrapper puts a handler in front that
+ * writes every message to the serial log first and then calls the one g_test_init installed. */
+#include <stdarg.h>
+static GLogFunc phe_prev_log; static gpointer phe_prev_data;
+static void phe_log_front (const gchar *d, GLogLevelFlags l, const gchar *m, gpointer u)
+{ char b[400]; snprintf (b, sizeof b, "GLOG[%s/%d] %.330s", d ? d : "-", (int) l, m ? m : "(null)"); phe_log (b);
+  if (phe_prev_log) phe_prev_log (d, l, m, phe_prev_data); }
+void phe_g_test_init (int *argc, char ***argv, ...)
+{
+  g_test_init (argc, argv, NULL);
+  phe_prev_log = g_log_set_default_handler (phe_log_front, NULL);
+  if (!phe_prev_log) phe_prev_log = g_log_default_handler;   /* g_test_init left none: the default prints to stderr, which a parent test captures */
 }

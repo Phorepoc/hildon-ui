@@ -67,6 +67,12 @@ glib tests: 3 of 8 programs not clean   DONE fails=3
 no timeout (not `g_poll`), which at pipe EOF never wakes on Open C; `patch_glib.sh` (PHE_XSPAWN) adds the exception set. With that, hash/list/slist/queue/array pass.
 GIO: `recipes/build_gio_x32.sh` is written (native gio with overlay/pyshim + CFLAGS=-w, copy into the x32 tree, pp-gcc objects) but NOT run yet.
 
+## Sixth session (2026-11-06)
+- Fatal GLib messages now reach the serial log (`phe_g_test_init` in pheglibtest.c wraps g_test_init: a log handler writes `GLOG[domain/level] message` to RDebug, then calls GLib's). Named failures: `/strfuncs/strcanon` and `/maincontext/basic` were NOT GLib bugs: the test programs must be compiled with `-DG_LOG_DOMAIN=\"GLib\"` (glib/tests/Makefile.am does) or `g_test_expect_message()` never matches the library's critical -- fixed in package_x32.sh. strcanon now passes; strfuncs then stops at `/strfuncs/strtod` (strfuncs.c:1016: `g_ascii_strtod (g_ascii_dtostr (d))` is not exactly `d`: Open C's printf/strtod double round trip -- open, needs a probe of snprintf %.17g and strtod).
+- keyfile: its data files are in the test ROM (`rom_data` -> `z:/resource/pheglibtest`, `G_TEST_SRCDIR` set): the load tests now pass; `test_save` fails at `fd != -1` (g_file_open_tmp: no writable temp dir; TMPDIR=c:/ did not help -- needs the real Open C mkstemp/C: path check).
+- mainloop: its run did not complete inside the 420 s boot window (not yet judged). list regressed in the first run with the wrapper (stderr of the double-free grandchild no longer matched) and was not re-run in the last, shorter window: re-run it.
+- GIO: `recipes/build_gio_x32.sh` + `patch_gio.sh`: ALL 208 libgio objects now compile for x32 (errors: 0) after: `-U__linux__` (credentials code), `sys/statvfs.h` + `sys/sysmacros.h` overlay stand-ins, ENOSYS statvfs/fstatvfs, in6addr constants, empty mount-table functions, netlink monitor compiled out, `environ` macro undefined in gapplicationcommandline.c. NOT done: the GIO subdirectory libraries (xdgmime, inotify, giounix pieces of libgio_2_0_la_LIBADD), archives, DLL (`.def`), and a run.
+
 ## Next steps
 1. strfuncs (/strfuncs/strcanon abort) and mainloop (/maincontext/basic abort): find the failing assertion (child stderr is captured by g_spawn_sync: the harness logs it; GLib messages in an aborting child go to the log handler first).
 2. SIS packaging (recipes/sis.sh, pdk layer wiring).

@@ -5,7 +5,8 @@
 # tree with the x32 config, 3) compile every libgio object with pp-gcc.
 set -u
 CC=/wk/lsc/bin/pp-gcc
-FF="-I/wk/ffi-x32/include -I/h/overlay -include /h/overlay/phe_glib_compat.h"
+FF="-I/wk/ffi-x32/include -I/h/overlay -include /h/overlay/phe_glib_compat.h -U__linux__ -U__linux -Ulinux -DHAVE_STATVFS -DUSE_STATVFS -DHAVE_SYS_STATVFS_H"
+bash /h/recipes/patch_gio.sh
 cd /wk/nat; export PYTHONPATH=/h/overlay/pyshim
 make -k -j${JOBS:-8} -C gio CFLAGS="-O0 -w" CPPFLAGS=-I/wk/ffi-inst/include LDFLAGS=-L/wk/ffi-inst/lib > /wk/nat/gio-native.log 2>&1
 echo "native gio: $(ls /wk/nat/gio/*.lo 2>/dev/null | wc -l) objects"

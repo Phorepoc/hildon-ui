@@ -10,3 +10,12 @@ int setrlimit (int r, const struct rlimit *l) { (void) r; (void) l; errno = ENOS
 int execvp (const char *f, char *const a[]) { (void) f; (void) a; errno = ENOSYS; return -1; }
 /* Open C does not export `environ`; GLib's g_get_environ() reads it. NULL = an empty environment (getenv() still works via Open C). */
 char **environ = 0;
+
+/* GIO (glocalfile.c): filesystem info is not available on Open C */
+#include <sys/statvfs.h>
+int statvfs (const char *p, struct statvfs *b) { (void) p; (void) b; errno = ENOSYS; return -1; }
+int fstatvfs (int fd, struct statvfs *b) { (void) fd; (void) b; errno = ENOSYS; return -1; }
+/* GIO (ginetaddress.c): the IPv6 wildcard/loopback constants Open C declares nowhere */
+#include <netinet/in.h>
+const struct in6_addr in6addr_any = { { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } };
+const struct in6_addr in6addr_loopback = { { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 } } };

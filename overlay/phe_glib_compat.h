@@ -38,4 +38,6 @@ static inline int pthread_rwlock_trywrlock (pthread_rwlock_t *l) { int r = 0; pt
   if (l->writer || l->readers) r = EBUSY; else l->writer = 1; pthread_mutex_unlock (&l->m); return r; }
 static inline int pthread_rwlock_unlock (pthread_rwlock_t *l) { pthread_mutex_lock (&l->m);
   if (l->writer) l->writer = 0; else if (l->readers) l->readers--; pthread_cond_broadcast (&l->c); return pthread_mutex_unlock (&l->m); }
+struct in6_addr;
+extern const struct in6_addr in6addr_any, in6addr_loopback;
 #endif

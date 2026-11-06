@@ -29,6 +29,7 @@ COMPONENTS = {
     "phegthread": _dll("phegthread", ["libphegthread"]),
     # the console test EXE: links the four DLLs through its mmp's LIBRARY line (SSM_TEST=pheglibtest)
     "pheglibtest": dict(mmp=os.path.join(OS_ROOT, "src/pheglibtest/pheglibtest.mmp"), test=True, stack=0x100000,
+                        rom_data=["resource\pheglibtest\\" + _f + "=.hildon/testdata/" + _f for _f in ("keyfiletest.ini", "pages.ini", "keyfile.c")],
                         x32_archives=[".hildon/libpheglibtest.a"] + _RT, **_COMMON),
 }
 
