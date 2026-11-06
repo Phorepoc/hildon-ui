@@ -91,3 +91,17 @@ Native `make -C gio` in the build tree gets 206 objects through. Two blockers, b
 gdbusmessage.c: pass `CFLAGS=-w`. Then the x32 pass is the same as for GLib (objects with pp-gcc from the native tree). Expect to need in the config:
 no inotify/FAM (HAVE_INOTIFY dropped: file monitors fall back to none), zlib from Open C (`-lz` is in libz.a of the main repo's cxxrt/web build), GIO's
 unix sockets/fd-passing code compiled but non-functional (socketpair/SCM_RIGHTS absent).
+
+## Eighth session (2026-11-06): per-program timeout, libc strtod/dtoa fix, build.sh with GIO
+- **Clean sweep** (`test/boot-log-sweep.txt`; harness = `posix_spawn` + a 100 s limit per program + `RProcess::Kill` -- pheglibtest.mmp needs CAPABILITY PowerMgmt for that, without it the
+  Kill is a KERN-EXEC 46 platform-security trap; the children's stdout/stderr go to `c:/data/phe_child_<name>.out`):
+  `array PASS, strfuncs PASS, slist PASS, hash PASS (incl. its g_test_trap_subprocess case), keyfile FAIL (exit 1), list FAIL (exit 1), queue TIMEOUT, mainloop TIMEOUT` = `4 of 8 programs not clean`.
+  queue and list passed in earlier runs with the pipe-capturing harness; new in this run are the libc fix and file-redirected children, so the TIMEOUT/FAIL verdicts are not attributed yet
+  (next: print the tail of each child's .out file on FAIL/TIMEOUT).
+- **strtod/printf of subnormals fixed in libc (x32).** The 2010 `arith.h` (ARM) has `#define Sudden_Underflow`; with it gdtoa's dtoa() prints every number below DBL_MIN with wrong digits
+  (device: pow(2,-1024.1) printed `1.3720453440777821e-308`, correct `5.1901682964836274e-309`), so the printf/strtod round trip failed. Fix: a board `arith.h` without it
+  (`toolchain/shims/libc_gdtoa_x32/` in the main repo, with byte copies of gdtoa.h and gdtoaimp.h so the quote-include finds it) through `incs_first` of the `libc` registry entry (x32 only).
+  Device proof: `probe dbl pow(2,-1024.1): libc[5.1901682964836274e-309] strtod_back_eq=1 | glib[...] g_ascii_strtod_back_eq=1`, and strfuncs passes. Host test `tests/user/libc_strtod`
+  (real gdtoa strtod + dtoa): 34 checks pass; with the 2010 arith.h swapped in it shows the wrong digits. Still open, reported but not counted: strtod of the largest subnormal printed with 17 digits parses to DBL_MIN.
+- Gotcha: the x32 builder's object cache tracks headers through the `.d` files, so a header that newly wins the include search is NOT noticed: delete the `.o/.d/.key` of the affected objects in `.phorepoc-x86-build/mmp-x32/<key>/` (done for libc: 55 gdtoa users).
+- `recipes/build.sh` has the `gio` step now (sequence: fetch tools native config objects gio archives images boot); verified from an empty volume up to the boot (the GIO tests passed there).
