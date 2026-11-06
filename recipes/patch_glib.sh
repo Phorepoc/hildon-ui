@@ -38,3 +38,43 @@ s += open("/h/overlay/phe_fork_exec.c", newline="").read()
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# GChildWatchSource: GLib reaps children on SIGCHLD, which Open C never delivers (waitpid itself works: ftable.cpp CFileTable::waitpid does
+# RProcess::Logon on the child). The unix prepare/check poll waitpid(WNOHANG) instead, with a 20 ms poll timeout while the child lives.
+if ! grep -q PHE_CHILD_POLL $G/gmain.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gmain.c"
+s = open(p, newline="").read()
+old_prep = "static gboolean\ng_child_watch_prepare (GSource *source,\n\t\t       gint    *timeout)\n{\n  GChildWatchSource *child_watch_source;\n\n  child_watch_source = (GChildWatchSource *) source;\n\n  return child_watch_source->child_exited;\n}\n\nstatic gboolean\ng_child_watch_check (GSource *source)\n{\n  GChildWatchSource *child_watch_source;\n\n  child_watch_source = (GChildWatchSource *) source;\n\n  return child_watch_source->child_exited;\n}\n"
+assert old_prep in s
+new = """/* PHE_CHILD_POLL */
+static gboolean
+phe_child_poll (GChildWatchSource *w)
+{
+  if (!w->child_exited)
+    {
+      pid_t r = waitpid (w->pid, &w->child_status, WNOHANG);
+      if (r > 0) w->child_exited = TRUE;
+      else if (r == -1 && errno == ECHILD) { w->child_exited = TRUE; w->child_status = 0; }
+    }
+  return w->child_exited;
+}
+
+static gboolean
+g_child_watch_prepare (GSource *source,
+\t\t       gint    *timeout)
+{
+  if (phe_child_poll ((GChildWatchSource *) source)) return TRUE;
+  *timeout = 20;
+  return FALSE;
+}
+
+static gboolean
+g_child_watch_check (GSource *source)
+{
+  return phe_child_poll ((GChildWatchSource *) source);
+}
+"""
+s = s.replace(old_prep, new)
+open(p, "w", newline="\n").write(s)
+PY
+fi

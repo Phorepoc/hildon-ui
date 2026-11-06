@@ -39,6 +39,11 @@ the kernel: `tools/phorepoc-x86/ekern/xk_pipe.cpp` + `make_ekern.sh` + `xboot.cp
 - The other test programs (hash, slist, queue, array, strfuncs, keyfile, mainloop) are compiled in and dispatched (`--phe-run <name>`) but have not run yet because the
   run is serial and stops at the hang. keyfile needs data files (G_TEST_SRCDIR) that are not in the ROM.
 
+## Why a finished child is not reaped (analysis, 2026-11-06, partly from Open C source)
+- Open C `waitpid(pid)` (backend ftable.cpp `CFileTable::waitpid`) is process-exit based: `RProcess::Logon` on the child, status = exit reason << 8 | exit type; WNOHANG returns 0 while the child lives. It does not depend on SIGCHLD.
+- GLib's `GChildWatchSource` (gmain.c) DOES depend on SIGCHLD (dispatch_unix_signals_unlocked), which Open C never delivers: fixed in `patch_glib.sh` (prepare/check poll `waitpid(WNOHANG)` every 20 ms). That alone did not unblock the test.
+- Thread dump (DUMP=90) after the hang: top-level process Main in waitpid/WaitForRequest; the list child's Main polling (alive, in a request wait); one GLib worker thread on a condition variable; the grandchild is GONE (`Main Killed 1`). So the exit is not the missing piece: `wait_for_child` (gtestutils.c) finishes only when the child exited AND both pipe read ends hit EOF. Leading hypothesis: the pipe write end is still held after the child died (Open C pipe handle duplicated into the child by posix_spawn file actions / `TransferToChild`, parent-side `close()` not releasing the kernel pipe end), so no EOF. Check next: in a standalone probe, spawn a child that exits, close the parent write end, `read()` the pipe -- EOF or hang? Derive from `RPipe` ownership in kernelhwsrv `dpipe.cpp` (a pipe end is released when its last handle closes) and `CFileTable::TransferToChild`.
+
 ## Next steps
 1. g_spawn over posix_spawn (pipe() works now; fork does not exist), rerun hash.c to the end, more of glib/tests.
 2. SIS packaging (recipes/sis.sh, pdk layer wiring).
