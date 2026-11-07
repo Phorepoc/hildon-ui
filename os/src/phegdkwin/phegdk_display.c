@@ -26,25 +26,75 @@ static void phe_gdk_window_finalize (GObject *o)
 }
 static void phe_gdk_window_class_init (PheGdkWindowClass *c) { G_OBJECT_CLASS (c)->finalize = phe_gdk_window_finalize; }
 
-/* ---- the main-loop source ---- */
+/* ---- the main-loop source: sleeps until WSERV (or any request) completes ---- */
 typedef struct { GSource base; PheGdkDisplay *display; } PheWsSource;
 
-static gboolean ws_prepare (GSource *s, gint *timeout) { (void) s; *timeout = 10; return FALSE; }
-static gboolean ws_check (GSource *s) { (void) s; return TRUE; }      /* cheap: dispatch drains with a non-blocking poll */
+/* WSERV key codes (e32keys.h) -> X keysyms (what GDK's keyval is); anything printable is the same in both */
+static unsigned keysym_of (int code, int scancode)
+{
+  switch (code) {
+    case 0x0e: return 0xff0d;   /* EKeyEnter -> GDK_KEY_Return */   case 0x01: return 0xff08;  /* EKeyBackspace */
+    case 0x0b: return 0xff1b;   /* EKeyEscape */                     case 0x09: return 0xff09;  /* EKeyTab */
+    case 0xf807: return 0xff51; case 0xf808: return 0xff53; case 0xf809: return 0xff52; case 0xf80a: return 0xff54;   /* arrows: Left Right Up Down */
+    case 0xf845: return 0xffc2; /* EKeyDevice0 (left softkey)  -> GDK_KEY_F5 */  case 0xf846: return 0xffc3;  /* EKeyDevice1 -> F6 */  case 0xf847: return 0xffc4;  /* EKeyDevice2 -> F7 */
+  }
+  if (code >= 0x20 && code < 0x7f) return (unsigned) code;
+  return 0x1008ff00u + (unsigned) (scancode & 0xff);   /* vendor key space: unknown keys stay distinguishable */
+}
+
+/* WSERV delivers EEventKeyDown(scancode), EEventKey(code), EEventKeyUp(scancode) for one key press. A GdkEventKey needs the keyval from the middle one, so the
+ * key-down is held back until the typed event (or the key-up, for keys that never type: modifiers) arrives. */
+static struct { gboolean down_pending; int scancode; unsigned last_keyval; } kstate;
+
+/* returns how many GdkEvents were produced into out[0..1] */
+static int translate (const PheWsEvent *e, PheGdkEvent out[2])
+{
+  PheGdkEvent *g = &out[0]; int n = 0;
+  memset (out, 0, 2 * sizeof *out); out[0].time = out[1].time = (unsigned) (g_get_monotonic_time () / 1000);
+  if (e->type == PHE_EV_KEY) {
+    if (e->ptype == 1) { kstate.down_pending = TRUE; kstate.scancode = e->scancode; return 0; }
+    if (e->ptype == 0) { if (!kstate.down_pending) return 0; kstate.down_pending = FALSE;
+      g->type = PHE_KEY_PRESS; g->hardware_keycode = (unsigned) kstate.scancode; g->keyval = keysym_of (e->code, kstate.scancode); kstate.last_keyval = g->keyval; return 1; }
+    /* key up */
+    if (kstate.down_pending) { kstate.down_pending = FALSE; g->type = PHE_KEY_PRESS; g->hardware_keycode = (unsigned) kstate.scancode; g->keyval = keysym_of (0, kstate.scancode); kstate.last_keyval = g->keyval; n = 1; }
+    out[n].type = PHE_KEY_RELEASE; out[n].hardware_keycode = (unsigned) e->scancode; out[n].keyval = kstate.last_keyval ? kstate.last_keyval : keysym_of (0, e->scancode); kstate.last_keyval = 0; return n + 1;
+  }
+  if (e->type == PHE_EV_POINTER) {
+    g->x = e->x; g->y = e->y;
+    switch (e->ptype) {
+      case 0: g->type = PHE_BUTTON_PRESS; g->button = 1; g->state = 0; return 1;
+      case 1: g->type = PHE_BUTTON_RELEASE; g->button = 1; g->state = 0x100; return 1;
+      case 6: case 7: g->type = PHE_MOTION_NOTIFY; g->state = e->ptype == 6 ? 0x100 : 0; return 1;
+      default: return 0;
+    }
+  }
+  return 0;
+}
+
+static gboolean ws_prepare (GSource *s, gint *timeout) { ((PheWsSource *) s)->display->iterations++; *timeout = -1; return phe_ws_pending () != 0; }
+static gboolean ws_check (GSource *s) { (void) s; return phe_ws_pending () != 0; }
 static gboolean ws_dispatch (GSource *s, GSourceFunc cb, gpointer data)
 {
-  PheGdkDisplay *d = ((PheWsSource *) s)->display; PheWsEvent ev; GList *l; int n = 0; (void) cb; (void) data;
+  PheGdkDisplay *d = ((PheWsSource *) s)->display; PheWsEvent ev; PheGdkEvent ge[2]; GList *l; int n = 0, k, nev; (void) cb; (void) data;
   while (n < 64 && phe_ws_poll (&ev)) {
     n++;
     if (ev.type == PHE_EV_REDRAW) {            /* the window server lost part of the screen: re-present that rectangle from the backing bitmap */
-      char m[120]; snprintf (m, sizeof m, "[phegdkwin] redraw event %d,%d %dx%d", ev.x, ev.y, ev.w, ev.h); phe_log (m);
-      phe_ws_present (ev.x, ev.y, ev.w, ev.h);
-    } else if (d->event_func) d->event_func (&ev, d->event_data);
+      if (ev.w > 0 && ev.h > 0) { char m[120]; snprintf (m, sizeof m, "[phegdkwin] redraw event %d,%d %dx%d", ev.x, ev.y, ev.w, ev.h); phe_log (m); phe_ws_present (ev.x, ev.y, ev.w, ev.h); }
+    } else if ((nev = translate (&ev, ge)) > 0 && d->event_func) for (k = 0; k < nev; k++) d->event_func (&ge[k], d->event_data);
   }
   for (l = d->windows; l; l = l->next) phe_gdk_window_process_updates (l->data);   /* anything the handlers invalidated is exposed in the same iteration */
   return G_SOURCE_CONTINUE;
 }
 static GSourceFuncs ws_funcs = { ws_prepare, ws_check, ws_dispatch, NULL, NULL, NULL };
+
+/* the loop's poll function: look (non-blocking) at the GLib fds, and if nothing is ready sleep in Symbian's own wait, so a WSERV completion wakes it at once */
+static gint ws_poll_func (GPollFD *fds, guint nfds, gint timeout)
+{
+  gint r = g_poll (fds, nfds, 0);
+  if (r != 0 || timeout == 0) return r;
+  phe_ws_wait (timeout);
+  return g_poll (fds, nfds, 0);
+}
 
 PheGdkDisplay *phe_gdk_display_open (void)
 {
@@ -53,8 +103,8 @@ PheGdkDisplay *phe_gdk_display_open (void)
   if (phe_ws_init (&px, &w, &h, &st) != 0) { phe_log ("[phegdkwin] phe_ws_init failed"); return NULL; }
   d->screen = s; s->display = d; s->width = w; s->height = h; d->pixels = px; d->stride = st;
   d->source = g_source_new (&ws_funcs, sizeof (PheWsSource)); ((PheWsSource *) d->source)->display = d;
-  g_source_attach (d->source, NULL);
-  snprintf (m, sizeof m, "[phegdkwin] display open: screen %dx%d, WSERV source attached", w, h); phe_log (m);
+  g_source_attach (d->source, NULL); g_main_context_set_poll_func (NULL, ws_poll_func);
+  snprintf (m, sizeof m, "[phegdkwin] display open: screen %dx%d, WSERV source attached (sleeping poll)", w, h); phe_log (m);
   return d;
 }
 PheGdkScreen *phe_gdk_display_get_screen (PheGdkDisplay *d) { return d->screen; }

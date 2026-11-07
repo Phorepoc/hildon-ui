@@ -14,6 +14,8 @@ enum { PHE_EV_NONE = 0, PHE_EV_KEY = 1, PHE_EV_POINTER = 2, PHE_EV_REDRAW = 3 };
 typedef struct { int type; int x, y, w, h; int code, scancode, ptype; } PheWsEvent;
 int  phe_ws_init (unsigned char **pixels, int *width, int *height, int *stride);   /* connect, window, bitmap; 0 = ok */
 int  phe_ws_poll (PheWsEvent *ev);                                                  /* NON-blocking: 1 = an event/redraw was fetched and its request re-armed */
+int  phe_ws_pending (void);                                                         /* NON-blocking: 1 = a WSERV request status has completed */
+void phe_ws_wait (int timeout_ms);                                                  /* sleep until ANY Symbian request completes (WSERV event, redraw, ...) or the timeout (<0: capped at 250 ms) */
 void phe_ws_present (int x, int y, int w, int h);                                   /* BitBlt of the bitmap rectangle into the window */
 void phe_log (const char *msg);
 
@@ -24,11 +26,14 @@ void phe_log (const char *msg);
 typedef struct _PheGdkDisplay PheGdkDisplay;
 typedef struct _PheGdkScreen PheGdkScreen;
 typedef struct _PheGdkWindow PheGdkWindow;
-typedef void (*PheGdkEventFunc) (const PheWsEvent *ev, gpointer data);
+/* GdkEvent-shaped (GDK 2.24: GdkEventKey / GdkEventButton / GdkEventMotion): what the real GdkEvent translation will fill, same field names */
+typedef enum { PHE_KEY_PRESS = 8, PHE_KEY_RELEASE = 9, PHE_BUTTON_PRESS = 4, PHE_BUTTON_RELEASE = 7, PHE_MOTION_NOTIFY = 3 } PheGdkEventType;
+typedef struct { PheGdkEventType type; unsigned time; double x, y; unsigned keyval; unsigned hardware_keycode; unsigned state; unsigned button; } PheGdkEvent;
+typedef void (*PheGdkEventFunc) (const PheGdkEvent *ev, gpointer data);
 typedef void (*PheGdkExposeFunc) (PheGdkWindow *w, cairo_t *cr, const cairo_rectangle_int_t *area, gpointer data);
 
 struct _PheGdkScreen { GObject parent; PheGdkDisplay *display; int width, height; };
-struct _PheGdkDisplay { GObject parent; PheGdkScreen *screen; unsigned char *pixels; int stride; GSource *source; PheGdkEventFunc event_func; gpointer event_data; GList *windows; };
+struct _PheGdkDisplay { GObject parent; guint iterations; PheGdkScreen *screen; unsigned char *pixels; int stride; GSource *source; PheGdkEventFunc event_func; gpointer event_data; GList *windows; };
 struct _PheGdkWindow {
   GObject parent; PheGdkScreen *screen;
   int x, y, width, height;

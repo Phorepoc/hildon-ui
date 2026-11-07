@@ -90,7 +90,13 @@ extern "C" int phe_ws_poll(PheWsEvent* aEv)
 		switch (ev.Type())
 			{
 		case EEventKey:
-			aEv->type = 1; aEv->code = ev.Key()->iCode; aEv->scancode = ev.Key()->iScanCode;
+			aEv->type = 1; aEv->ptype = 0; aEv->code = ev.Key()->iCode; aEv->scancode = ev.Key()->iScanCode;
+			return 1;
+		case EEventKeyDown:
+			aEv->type = 1; aEv->ptype = 1; aEv->code = 0; aEv->scancode = ev.Key()->iScanCode;
+			return 1;
+		case EEventKeyUp:
+			aEv->type = 1; aEv->ptype = 2; aEv->code = 0; aEv->scancode = ev.Key()->iScanCode;
 			return 1;
 		case EEventPointer:
 			aEv->type = 2; aEv->x = ev.Pointer()->iPosition.iX; aEv->y = ev.Pointer()->iPosition.iY; aEv->ptype = ev.Pointer()->iType;
@@ -100,6 +106,37 @@ extern "C" int phe_ws_poll(PheWsEvent* aEv)
 			}
 		}
 	return 0;
+	}
+
+extern "C" int phe_ws_pending(void)
+	{
+	return gRedrawSt != KRequestPending || gEventSt != KRequestPending;
+	}
+
+// Sleep until ANY request of this thread completes (a WSERV event or redraw, a timer of Open C, ...) or the timeout expires.
+// The timer's own completion is always consumed, so no stray signal is left behind. A negative timeout is capped (other threads
+// cannot wake us: a thread-shared RWsSession and a pipe wake-up are the follow-up).
+extern "C" void phe_ws_wait(int aTimeoutMs)
+	{
+	if (phe_ws_pending())
+		return;
+	if (aTimeoutMs < 0 || aTimeoutMs > 250)
+		aTimeoutMs = 250;
+	RTimer tmr;
+	if (tmr.CreateLocal() != KErrNone)
+		{
+		User::After(aTimeoutMs * 1000);
+		return;
+		}
+	TRequestStatus st;
+	tmr.After(st, aTimeoutMs * 1000);
+	User::WaitForAnyRequest();
+	if (st == KRequestPending)
+		{
+		tmr.Cancel();
+		User::WaitForRequest(st);
+		}
+	tmr.Close();
 	}
 
 static void MainL()

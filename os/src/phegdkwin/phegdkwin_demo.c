@@ -5,7 +5,7 @@
 #include "phegdk.h"
 #include "phe_png_data.h"
 
-typedef struct { PheGdkWindow *win; int ticks, keys, pointers; double dots[16][2]; cairo_surface_t *png; int box_x, box_y, box_w, box_h; guint timeout_id; } Demo;
+typedef struct { PheGdkDisplay *disp; guint last_iter; PheGdkWindow *win; int ticks, keys, pointers; double dots[16][2]; cairo_surface_t *png; int box_x, box_y, box_w, box_h; guint timeout_id; } Demo;
 
 static void round_rect (cairo_t *cr, double x, double y, double w, double h, double r)
 {
@@ -46,24 +46,31 @@ static gboolean on_tick (gpointer data)
 {
   Demo *d = data; char m[100]; d->ticks++; invalidate_box (d);
   snprintf (m, sizeof m, "[phegdkwin] tick %d", d->ticks); phe_log (m);
-  return G_SOURCE_CONTINUE;
+  return d->ticks < 5 ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;          /* five ticks, then the demo goes idle: nothing wakes the loop but WSERV and the stats timer */
+}
+static gboolean on_stats (gpointer data)
+{
+  Demo *d = data; char m[140]; guint n = d->disp->iterations - d->last_iter; d->last_iter = d->disp->iterations;
+  snprintf (m, sizeof m, "[phegdkwin] loop iterations in the last 2 s: %u", n); phe_log (m); return G_SOURCE_CONTINUE;
 }
 
-static void on_event (const PheWsEvent *ev, gpointer data)
+static void on_event (const PheGdkEvent *ev, gpointer data)
 {
-  Demo *d = data; char m[140];
-  if (ev->type == PHE_EV_KEY) { d->keys++; invalidate_box (d); snprintf (m, sizeof m, "[phegdkwin] key event code=0x%x scancode=0x%x (keys=%d)", ev->code, ev->scancode, d->keys); phe_log (m); }
-  else if (ev->type == PHE_EV_POINTER) {
-    snprintf (m, sizeof m, "[phegdkwin] pointer event type=%d at %d,%d", ev->ptype, ev->x, ev->y); phe_log (m);
-    if (ev->ptype == 0 /* TPointerEvent::EButton1Down */ && d->pointers < 16) { d->dots[d->pointers][0] = ev->x; d->dots[d->pointers][1] = ev->y; d->pointers++;
-      phe_gdk_window_invalidate_rect (d->win, ev->x - 16, ev->y - 16, 32, 32); invalidate_box (d); }
+  Demo *d = data; char m[160];
+  if (ev->type == PHE_KEY_PRESS || ev->type == PHE_KEY_RELEASE) {
+    if (ev->type == PHE_KEY_PRESS) { d->keys++; invalidate_box (d); }
+    snprintf (m, sizeof m, "[phegdkwin] GdkEvent KEY_%s keyval=0x%x hardware_keycode=0x%x (keys=%d)", ev->type == PHE_KEY_PRESS ? "PRESS" : "RELEASE", ev->keyval, ev->hardware_keycode, d->keys); phe_log (m);
+  } else {
+    snprintf (m, sizeof m, "[phegdkwin] GdkEvent %s at %.0f,%.0f state=0x%x button=%u", ev->type == PHE_BUTTON_PRESS ? "BUTTON_PRESS" : ev->type == PHE_BUTTON_RELEASE ? "BUTTON_RELEASE" : "MOTION_NOTIFY", ev->x, ev->y, ev->state, ev->button); phe_log (m);
+    if (ev->type == PHE_BUTTON_PRESS && d->pointers < 16) { d->dots[d->pointers][0] = ev->x; d->dots[d->pointers][1] = ev->y; d->pointers++;
+      phe_gdk_window_invalidate_rect (d->win, (int) ev->x - 16, (int) ev->y - 16, 32, 32); invalidate_box (d); }
   }
 }
 
 void phe_gdk_demo_run (PheGdkDisplay *disp, PheGdkWindow *win)
 {
   static Demo demo; Demo *d = &demo; GMainLoop *loop; GdkPixbufLoader *ld; GError *err = NULL; char m[120];
-  d->win = win; d->box_x = (int) (win->width * 0.07); d->box_w = (int) (win->width * 0.86); d->box_h = 40; d->box_y = (int) (win->height * 0.54);
+  d->win = win; d->disp = disp; d->box_x = (int) (win->width * 0.07); d->box_w = (int) (win->width * 0.86); d->box_h = 40; d->box_y = (int) (win->height * 0.54);
   ld = gdk_pixbuf_loader_new ();
   if (gdk_pixbuf_loader_write (ld, phe_png, sizeof phe_png, &err) && gdk_pixbuf_loader_close (ld, &err)) {
     GdkPixbuf *sc = gdk_pixbuf_scale_simple (gdk_pixbuf_loader_get_pixbuf (ld), (int) (win->width * 0.6), (int) (win->width * 0.2), GDK_INTERP_NEAREST);
@@ -74,7 +81,7 @@ void phe_gdk_demo_run (PheGdkDisplay *disp, PheGdkWindow *win)
   phe_gdk_display_set_event_func (disp, on_event, d);
   phe_gdk_window_invalidate_rect (win, 0, 0, win->width, win->height);
   phe_gdk_window_process_updates (win);                                    /* the first paint: the whole window */
-  d->timeout_id = g_timeout_add (400, on_tick, d);
+  d->timeout_id = g_timeout_add (400, on_tick, d); g_timeout_add (2000, on_stats, d);
   loop = g_main_loop_new (NULL, FALSE);
   snprintf (m, sizeof m, "[phegdkwin] loop running (%dx%d, status box %d,%d %dx%d)", win->width, win->height, d->box_x, d->box_y, d->box_w, d->box_h); phe_log (m);
   g_main_loop_run (loop);

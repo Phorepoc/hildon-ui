@@ -48,3 +48,6 @@ GDKPIXBUF_URL=https://download.gnome.org/sources/gdk-pixbuf/2.36/gdk-pixbuf-$GDK
 #  glib, pango, gdk-pixbuf: download.gnome.org .sha256sum files.  pixman: cairographics.org .sha512 (file matches).  cairo: cairographics.org .sha1 + Fedora sources sha512.
 #  freetype, expat: upstream GPG signatures verify (Werner Lemberg, Sebastian Pipping).  libffi, libpng: Arch packaging sha256.  fontconfig: Fedora f38-f40 `sources` sha512.
 #  zlib: Arch packaging sha512 for the .tar.xz (so the pin is the .tar.xz, not the .tar.gz).  harfbuzz 15.1.0: GitHub release asset digest (real release, 04 Nov).
+GTK_VER=2.24.33
+GTK_SHA256=ac2ac757f5942d318a311a54b0c80b5ef295f299c2a73c632f6bfb1ff49cc6da   # = download.gnome.org gtk+-2.24.33.sha256sum (verified 2026-11-07); LGPL 2.1+
+GTK_URL=https://download.gnome.org/sources/gtk+/2.24/gtk+-$GTK_VER.tar.xz
