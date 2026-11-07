@@ -14,6 +14,7 @@
 #include "gdkregion.h"
 #include "gdkpixbuf.h"
 #include "gdkraster.h"
+#include "gdkfont.h"
 
 GdkGC *_gdk_symbian_gc_new (GdkDrawable *drawable, GdkGCValues *values, GdkGCValuesMask mask, gint depth);
 
@@ -353,6 +354,25 @@ gdk_drawable_impl_symbian_copy_to_image (GdkDrawable *d, GdkImage *image, gint s
 }
 static GdkImage *gdk_drawable_impl_symbian_get_image (GdkDrawable *d, gint x, gint y, gint width, gint height) { return gdk_drawable_impl_symbian_copy_to_image (d, NULL, x, y, 0, 0, width, height); }
 
+/* text in a GdkFont (gdkfont-symbian.c): a Pango layout drawn through the same cairo path as the other primitives */
+void _gdk_symbian_font_show (cairo_t *cr, GdkFont *font, gint x, gint y, const gchar *utf8);
+gchar *_gdk_symbian_font_utf8 (const gchar *text, gint length);
+gchar *_gdk_symbian_font_utf8_wc (const GdkWChar *text, gint length);
+
+static void
+draw_text_utf8 (GdkDrawable *d, GdkFont *font, GdkGC *gc, gint x, gint y, const gchar *utf8)
+{
+  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl, gc); gint w;
+  if (!cr) return;
+  _gdk_symbian_gc_apply (gc, cr, FALSE);
+  _gdk_symbian_font_show (cr, font, x, y, utf8);
+  _gdk_symbian_gc_finish (gc, cr);
+  w = gdk_text_width (font, utf8, (gint) strlen (utf8));
+  end (impl, gc, cr, x - 2, y - font->ascent - 2, w + 5, font->ascent + font->descent + 5);
+}
+static void gdk_drawable_impl_symbian_draw_text (GdkDrawable *d, GdkFont *font, GdkGC *gc, gint x, gint y, const gchar *text, gint len) { gchar *u = _gdk_symbian_font_utf8 (text, len); draw_text_utf8 (d, font, gc, x, y, u); g_free (u); }
+static void gdk_drawable_impl_symbian_draw_text_wc (GdkDrawable *d, GdkFont *font, GdkGC *gc, gint x, gint y, const GdkWChar *text, gint len) { gchar *u = _gdk_symbian_font_utf8_wc (text, len); draw_text_utf8 (d, font, gc, x, y, u); g_free (u); }
+
 static void
 gdk_drawable_impl_symbian_class_init (GdkDrawableImplSymbianClass *klass)
 {
@@ -362,6 +382,8 @@ gdk_drawable_impl_symbian_class_init (GdkDrawableImplSymbianClass *klass)
   dc->draw_rectangle = gdk_drawable_impl_symbian_draw_rectangle;
   dc->draw_arc = gdk_drawable_impl_symbian_draw_arc;
   dc->draw_polygon = gdk_drawable_impl_symbian_draw_polygon;
+  dc->draw_text = gdk_drawable_impl_symbian_draw_text;
+  dc->draw_text_wc = gdk_drawable_impl_symbian_draw_text_wc;
   dc->draw_points = gdk_drawable_impl_symbian_draw_points;
   dc->draw_segments = gdk_drawable_impl_symbian_draw_segments;
   dc->draw_lines = gdk_drawable_impl_symbian_draw_lines;
@@ -383,7 +405,6 @@ gdk_drawable_impl_symbian_class_init (GdkDrawableImplSymbianClass *klass)
   dc->create_cairo_surface = gdk_drawable_impl_symbian_create_cairo_surface;
   dc->set_cairo_clip = gdk_drawable_impl_symbian_set_cairo_clip;
   dc->get_source_drawable = gdk_drawable_impl_symbian_get_source_drawable;
-  /* draw_text / draw_text_wc belong to the deprecated GdkFont API (gdkfont.c is not part of this backend: no GdkFont can be created) */
 }
 
 /* ---- dirty rectangles of windows -> WSERV ---- */

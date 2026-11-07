@@ -18,5 +18,5 @@ nm --defined-only -g $B/*.o | awk 'NF==3 && $2 ~ /[TDBR]/{print $3}' | sort > /t
 echo "defined in both core and backend: $(comm -12 /tmp/core_def.txt /tmp/be_def.txt | tr '\n' ' ')"
 nm -u /wk/gdk-x32/*.o $B/*.o | grep " U " | awk '{print $2}' | sort -u > /tmp/u_all.txt
 sort -u /tmp/core_def.txt /tmp/be_def.txt > /tmp/d_all.txt
-comm -23 /tmp/u_all.txt /tmp/d_all.txt | grep -E "^_?gdk_" | grep -v "gdk_pixbuf" > /wk/gdk-x32/undefined-now.txt
+comm -23 /tmp/u_all.txt /tmp/d_all.txt | grep -E "^_?gdk_" | grep -v "gdk_pixbuf" > /wk/gdk-x32/undefined-now.txt || true
 echo "gdk_* still undefined (core + backend): $(wc -l < /wk/gdk-x32/undefined-now.txt)"
