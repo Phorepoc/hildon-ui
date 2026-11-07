@@ -57,6 +57,12 @@ if [ -f /wk/out/libphehildon.a ]; then
   GT=/wk/gtk+-2.24.33; HI="-I/h/os/src/phehildonwin -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/h/dl/libhildon -I/h/os/src/phehildon/shims -I/wk/gtk-x32 -I/wk/gtk-x32/inc -I$GT -I/wk/atk-2.38.0 -I/wk/gdk-x32 -I$GT/gdk -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/glib-2.56.4/gio"
   mkdir -p /wk/out/hi; rm -f /wk/out/hi/*.o $O/libphehildonwin.a
   $CC $CF $INC $HI -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phehildonwin/phehildonwin_demo.c -o /wk/out/hi/phehildonwin_demo.o || echo "HILDON DEMO COMPILE FAIL"
-  ar rcs $O/libphehildonwin.a /wk/out/hi/*.o; cp /h/os/src/phehildonwin/fonts.conf $O/testdata/phehildonwin_fonts.conf; echo "libphehildonwin.a built"
+  ar rcs $O/libphehildonwin.a /wk/out/hi/*.o; cp /h/os/src/phehildonwin/fonts.conf $O/testdata/phehildonwin_fonts.conf; cp /h/os/src/phehildonwin/phehildon.rc $O/testdata/phehildon.rc
+  python3 - <<'PYEOF'
+import wave, struct, math
+w = wave.open("/o/testdata/phehildon_beep.wav", "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(22050)
+w.writeframes(b"".join(struct.pack("<h", int(9000 * math.sin(2 * math.pi * 880 * i / 22050) * min(1.0, (11025 - i) / 2000.0 if i > 9000 else 1.0))) for i in range(11025))); w.close()
+PYEOF
+  echo "libphehildonwin.a built"
 fi
 mk libpheglibtest.a /wk/out/t/*.o

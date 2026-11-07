@@ -184,7 +184,29 @@ gdk_window_set_group (GdkWindow *window, GdkWindow *leader)
   if (leader) g_object_weak_ref (G_OBJECT (leader), group_gone, impl);
 }
 
-GdkWindow *gdk_window_get_group (GdkWindow *window) { g_return_val_if_fail (GDK_IS_WINDOW (window), NULL); return WI (window)->group; }
+/* every toplevel belongs to the display's default window group (X11: the display's leader window, set in WM_HINTS at creation) unless gdk_window_set_group () said otherwise */
+static GdkWindow *default_leader = NULL;
+static GdkWindow *
+get_default_leader (void)
+{
+  if (!default_leader) {
+    GdkWindowAttr a; memset (&a, 0, sizeof a);
+    a.window_type = GDK_WINDOW_TOPLEVEL; a.wclass = GDK_INPUT_OUTPUT; a.width = a.height = 1; a.x = a.y = -10;
+    default_leader = gdk_window_new (NULL, &a, GDK_WA_X | GDK_WA_Y);                    /* never mapped */
+  }
+  return default_leader;
+}
+
+GdkWindow *
+gdk_window_get_group (GdkWindow *window)
+{
+  GdkWindowImplSymbian *impl;
+  g_return_val_if_fail (GDK_IS_WINDOW (window), NULL);
+  impl = WI (window);
+  if (impl->group) return impl->group;
+  if (GDK_WINDOW_OBJECT (window)->window_type == GDK_WINDOW_TOPLEVEL && !(default_leader && window == default_leader)) return get_default_leader ();
+  return NULL;
+}
 
 /* the old WM hints call: position / size hints in one, applied as geometry hints */
 void

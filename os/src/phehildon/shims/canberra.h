@@ -1,5 +1,6 @@
-/* shim: libcanberra's client API as libcanberra behaves on a system where no sound driver could be opened: contexts can be created and configured, ca_context_open () and playing fail with
- * CA_ERROR_NODRIVER (what the real library returns when none of its backends is available). Implemented in phehildon_canberra.c. BSD-2-Clause (Phorepoc). */
+/* shim: libcanberra's client API with the platform's audio as its one backend: a sample file (media.filename) is played through the MMF (phehildon_mmf.cpp, CMdaAudioPlayerUtility), the finish
+ * callback is called when the sample has been played. Sound-theme lookup by event id (event.id) is not implemented: a play request without a file name fails with CA_ERROR_NOTSUPPORTED.
+ * Implemented in phehildon_canberra.c. BSD-2-Clause (Phorepoc). */
 #ifndef PHE_CANBERRA_H
 #define PHE_CANBERRA_H
 #include <glib.h>

@@ -166,6 +166,43 @@ queue_event (GdkDisplay *display, GdkEvent *event)
   _gdk_windowing_got_event (display, node, event, _gdk_windowing_window_get_next_serial (display));
 }
 
+/* ---- window event filters (gdk_window_add_filter): GDK stores them, the backend runs them over the native events it makes. The "native event" passed to a filter is an X-style event
+ * structure (the one an X11 toolkit's filter casts to XEvent / XPropertyEvent / XClientMessageEvent); this backend builds the two it generates itself: a property change of the root window
+ * (the window manager telling clients which application window is active) and the client messages sent between windows (XSendEvent in the Xlib shim). ---- */
+GdkFilterReturn
+gdk_symbian_apply_filters (GdkWindow *window, gpointer xevent, GdkEvent *event)
+{
+  GdkFilterReturn result = GDK_FILTER_CONTINUE; GList *lists[2], *l, *copy; gint k;
+  lists[0] = window ? GDK_WINDOW_OBJECT (window)->filters : NULL; lists[1] = _gdk_default_filters;
+  for (k = 0; k < 2 && result == GDK_FILTER_CONTINUE; k++) {
+    copy = g_list_copy (lists[k]);
+    for (l = copy; l && result == GDK_FILTER_CONTINUE; l = l->next) {
+      GdkEventFilter *f = l->data;
+      if (f->flags & GDK_EVENT_FILTER_REMOVED) continue;
+      f->ref_count++;
+      result = f->function (xevent, event, f->data);
+      _gdk_event_filter_unref (window, f);
+    }
+    g_list_free (copy);
+  }
+  return result;
+}
+
+typedef struct { gint type; gulong serial; gint send_event; gpointer display; gulong window; gulong atom; gulong time; gint state; } PheXPropertyEvent;
+
+/* the window manager's active-application property of the root window: the toplevel that holds the focus, and the PropertyNotify a client with a root filter reacts to */
+static void
+set_active_window_property (GdkWindow *top)
+{
+  GdkWindow *root = _gdk_parent_root; GdkAtom prop = gdk_atom_intern_static_string ("_MB_CURRENT_APP_WINDOW"); gulong xid = (gulong) (gsize) top; PheXPropertyEvent xe;
+  gdk_property_change (root, prop, gdk_atom_intern_static_string ("WINDOW"), 32, GDK_PROP_MODE_REPLACE, (const guchar *) &xid, 1);
+  memset (&xe, 0, sizeof xe); xe.type = 28; xe.display = _gdk_display; xe.window = (gulong) (gsize) root; xe.atom = (gulong) GPOINTER_TO_UINT (prop); xe.time = now_ms (); xe.state = 0;
+  gdk_symbian_apply_filters (root, &xe, NULL);
+  { GList *l, *copy = g_list_copy (_gdk_symbian_toplevel_stack ());       /* the toplevels that selected property changes see them too (what a toolkit that watches the root does through its own window) */
+    for (l = copy; l; l = l->next) if (!GDK_WINDOW_DESTROYED (l->data) && (((GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (l->data)->impl)->event_mask & GDK_PROPERTY_CHANGE_MASK)) gdk_symbian_apply_filters (l->data, &xe, NULL);
+    g_list_free (copy); }
+}
+
 /* Called by the window code when the stack of toplevels changed: a toplevel that lost the top loses the keyboard focus, the new top gets it. */
 void
 _gdk_symbian_focus_update (void)
@@ -176,6 +213,7 @@ _gdk_symbian_focus_update (void)
     GdkEvent *ev = gdk_event_new (GDK_FOCUS_CHANGE); ev->focus_change.window = g_object_ref (focus_window); ev->focus_change.in = FALSE; queue_event (display, ev);
   }
   focus_window = top;
+  if (focus_window != _gdk_parent_root) set_active_window_property (focus_window);
   if (focus_window != _gdk_parent_root) {
     GdkEvent *ev = gdk_event_new (GDK_FOCUS_CHANGE); ev->focus_change.window = g_object_ref (focus_window); ev->focus_change.in = TRUE; queue_event (display, ev);
   }

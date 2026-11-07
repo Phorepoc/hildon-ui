@@ -8,6 +8,6 @@ EPOCHEAPSIZE	0x100000 0x4000000
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 OS_LAYER_LIBC_SYSTEMINCLUDE
 SOURCEPATH		.
-SOURCE			phehildon_dll.c
-LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib phepng.lib phepixman.lib phefreetype.lib phefontconfig.lib phehb.lib phecairo.lib phepango.lib phepixbuf.lib pheatk.lib phegdk.lib phegtk.lib
+SOURCE			phehildon_mmf.cpp
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib phepng.lib phepixman.lib phefreetype.lib phefontconfig.lib phehb.lib phecairo.lib phepango.lib phepixbuf.lib pheatk.lib phegdk.lib phegtk.lib mediaclientaudio.lib
 SMPSAFE

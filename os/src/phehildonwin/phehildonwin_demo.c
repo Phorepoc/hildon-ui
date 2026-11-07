@@ -28,6 +28,7 @@ static void on_button (GtkButton *b, gpointer d) { (void) d; presses++; update_s
 static void on_menu_item (GtkButton *b, gpointer d) { (void) d; LOG ("[phehildonwin] app menu item: %s", hildon_button_get_title (HILDON_BUTTON (b))); }
 static void on_picked (HildonPickerButton *p, gpointer d) { (void) d; LOG ("[phehildonwin] picker value: %s", hildon_button_get_value (HILDON_BUTTON (p))); }
 static void on_menu_open (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_app_menu_popup (app_menu, GTK_WINDOW (window)); LOG ("[phehildonwin] app menu popped up"); }
+static void on_sound (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_play_system_sound ("z:/resource/phehildonwin/beep.wav"); LOG ("[phehildonwin] sound requested"); }
 static void on_banner (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_banner_show_information (window, NULL, "A HildonBanner"); LOG ("[phehildonwin] banner shown"); }
 
 static void
@@ -38,6 +39,14 @@ on_note (GtkButton *b, gpointer d)
   g_signal_connect (note, "response", G_CALLBACK (gtk_widget_destroy), NULL);
   gtk_widget_show_all (note);
   LOG ("[phehildonwin] note shown");
+}
+
+static gboolean
+report_topmost (gpointer d)
+{
+  (void) d;
+  LOG ("[phehildonwin] HildonProgram is-topmost: %d, window is-topmost: %d", hildon_program_get_is_topmost (program), hildon_window_get_is_topmost (HILDON_WINDOW (window)));
+  return FALSE;
 }
 
 static void
@@ -63,6 +72,7 @@ phe_hildon_demo_main (void)
 {
   GtkWidget *vbox, *w, *picker, *selector, *b;
   gtk_init (NULL, NULL); hildon_init ();
+  gtk_rc_parse ("z:/resource/phehildonwin/phehildon.rc");                          /* the Phorepoc Hildon look (Etesian tokens) */
   LOG ("[phehildonwin] gtk + hildon init ok: GTK %d.%d.%d, libhildon %d.%d.%d", gtk_major_version, gtk_minor_version, gtk_micro_version, HILDON_MAJOR_VERSION, HILDON_MINOR_VERSION, HILDON_MICRO_VERSION);
   selftest ();
   program = hildon_program_get_instance ();
@@ -89,6 +99,7 @@ phe_hildon_demo_main (void)
   w = hildon_check_button_new (HILDON_SIZE_FINGER_HEIGHT | HILDON_SIZE_AUTO_WIDTH); gtk_button_set_label (GTK_BUTTON (w), "A HildonCheckButton"); gtk_box_pack_start (GTK_BOX (vbox), w, FALSE, FALSE, 0);
   b = hildon_gtk_button_new (HILDON_SIZE_FINGER_HEIGHT | HILDON_SIZE_AUTO_WIDTH); gtk_button_set_label (GTK_BUTTON (b), "App menu"); g_signal_connect (b, "clicked", G_CALLBACK (on_menu_open), NULL); gtk_box_pack_start (GTK_BOX (vbox), b, FALSE, FALSE, 0);
   b = hildon_gtk_button_new (HILDON_SIZE_FINGER_HEIGHT | HILDON_SIZE_AUTO_WIDTH); gtk_button_set_label (GTK_BUTTON (b), "Banner"); g_signal_connect (b, "clicked", G_CALLBACK (on_banner), NULL); gtk_box_pack_start (GTK_BOX (vbox), b, FALSE, FALSE, 0);
+  b = hildon_gtk_button_new (HILDON_SIZE_FINGER_HEIGHT | HILDON_SIZE_AUTO_WIDTH); gtk_button_set_label (GTK_BUTTON (b), "Sound"); g_signal_connect (b, "clicked", G_CALLBACK (on_sound), NULL); gtk_box_pack_start (GTK_BOX (vbox), b, FALSE, FALSE, 0);
   b = hildon_gtk_button_new (HILDON_SIZE_FINGER_HEIGHT | HILDON_SIZE_AUTO_WIDTH); gtk_button_set_label (GTK_BUTTON (b), "Note"); g_signal_connect (b, "clicked", G_CALLBACK (on_note), NULL); gtk_box_pack_start (GTK_BOX (vbox), b, FALSE, FALSE, 0);
   status = gtk_label_new (NULL); gtk_box_pack_start (GTK_BOX (vbox), status, FALSE, FALSE, 8); update_status ();
   hildon_pannable_area_add_with_viewport (HILDON_PANNABLE_AREA (pannable), vbox);
@@ -96,6 +107,7 @@ phe_hildon_demo_main (void)
   g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
   gtk_widget_show_all (window);
   LOG ("[phehildonwin] window shown (mapped %d)", gtk_widget_get_mapped (window));
+  g_timeout_add (2500, report_topmost, NULL);
   LOG ("[phehildonwin] loop running");
   gtk_main ();
   return 0;

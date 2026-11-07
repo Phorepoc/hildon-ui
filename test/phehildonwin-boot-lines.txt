@@ -1,0 +1,22 @@
+0:[bootui] phehildonwin: started
+1:[phehildonwin] gtk + hildon init ok: GTK 2.24.33, libhildon 2.2.24
+0:[phehildonwin] selftest done: 8 passed, 0 failed
+1:[phehildonwin] window shown (mapped 1)
+1:[phehildonwin] loop running
+1:[phehildonwin] hildon button pressed: A HildonButton / title above, value below
+1:[phehildonwin] banner shown
+0:[phecanberra] playing z:\resource\phehi
+1:[phehildonwin] sound requested
+1:[phecanberra] sample opened, error 0
+1:[phecanberra] playback of the sample ended, error 0
+0:[phehildonwin] note shown
+0:[phecanberra] playing z:\usr\share\sounds\ui
+1:[phecanberra] sample opened, error -12
+1:[phecanberra] playback of the sample ended, error -12
+1:[bootui] phehildonwin: started
+0:[phehildonwin] gtk + hildon init ok: GTK 2.24.33, libhildon 2.2.24
+1:[phehildonwin] selftest done: 8 passed, 0 failed
+1:[phehildonwin] window shown (mapped 1)
+1:[phehildonwin] loop running
+0:[phehildonwin] HildonProgram is-topmost: 1, window is-topmost: 1
+1:[phehildonwin] hildon button pressed: A HildonButton / title above, value below

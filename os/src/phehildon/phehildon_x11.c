@@ -3,6 +3,8 @@
 #include <string.h>
 #include "phe_xlib.h"
 
+GdkFilterReturn gdk_symbian_apply_filters (GdkWindow *window, gpointer xevent, GdkEvent *event);       /* phegdk (gdkevents-symbian.c) */
+
 static GdkWindow *win_of (Window w) { return gdk_window_lookup ((GdkNativeWindow) w); }
 static GdkAtom ga (Atom a) { return GUINT_TO_POINTER ((guint) a); }
 
@@ -85,6 +87,8 @@ XSendEvent (Display *display, Window w, Bool propagate, glong event_mask, XEvent
   ev = gdk_event_new (GDK_CLIENT_EVENT);
   ev->client.window = g_object_ref (win); ev->client.send_event = TRUE; ev->client.message_type = ga (event_send->xclient.message_type); ev->client.data_format = event_send->xclient.format;
   for (i = 0; i < 5; i++) ev->client.data.l[i] = event_send->xclient.data.l[i];
+  /* the filters of the target window see the message first, as the native event it is */
+  if (gdk_symbian_apply_filters (win, event_send, ev) == GDK_FILTER_REMOVE) { gdk_event_free (ev); return 1; }
   gdk_event_put (ev); gdk_event_free (ev);
   return 1;
 }
