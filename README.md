@@ -126,3 +126,9 @@ Verdicts of the last boot (`test/boot-log-sweep.txt`; harness: pipes drained by 
   There is no host test: the backend classes need the Symbian user library (CFileDescBase is an abstract class over RFs/TRequestStatus); the on-device probe is the test.
 - **mainloop now PASSES** (all 22 cases incl. `/mainloop/unix-fd` and `/mainloop/unix-file-poll`; ~152 s). Full sweep (`test/boot-log-sweep.txt`): queue (312 s), array, strfuncs, keyfile, slist, hash, mainloop PASS; list intermittently FAIL.
 - **list flake, cause found**: in a failing run the harness kept the trapped grandchild's stderr bytes: **0 bytes** (`[trap stderr: 0 bytes]`): the grandchild's last stderr write (the "corrupted double-linked list detected" warning) was lost when the process aborted right after it (the write goes through Open C's stdio, buffered when stderr is a pipe, and the abort is an int3 that skips any flush). Fix: `setvbuf (stderr, NULL, _IONBF, 0)` in the test child entry. After the fix `list` passed 10 of 10 runs in one boot (before: failures in 5 of the last 12 runs); that is evidence, not proof.
+
+## Twelfth session (2026-11-07): text and images
+- Pins: all 12 verified against independent sources (record in `recipes/pins.sh`); zlib is the `.tar.xz`. HarfBuzz 15.1.0 (newest; every `hb_*` call of Pango 1.40.14 is still declared).
+- New DLLs `phehb phepng phefontconfig phepango phepixbuf` (`os/src/*`), recipes `build_cxxheaders/harfbuzz/zlib_png/fontconfig/pango/pixbuf_x32.sh`, `build.sh` steps `cxxhdr hb zlibpng fontconfig pango pixbuf defs`.
+- Verified on the PC image (QEMU): HarfBuzz shaping; gdk-pixbuf + PNG 7/7 (needed `gio_can_sniff=yes`: no MIME database on the device); fontconfig finds the 5 ROM fonts (needed the drive-letter patches).
+- Open: Pango's font creation hits `g_object_new_internal: assertion failed: (nqueue != NULL)`; see `docs/phorepoc/hildon-port.md` 7.7.1 in the main repo. Next: trace it, then the GDK backend.

@@ -10,6 +10,9 @@ cd /wk; [ -d expat-$EXPAT_VER ] || tar xf /h/dl/expat-$EXPAT_VER.tar.xz; [ -d fo
 E=/wk/expat-$EXPAT_VER/lib
 # Open C paths carry a drive letter (z:/resource/fonts): fontconfig must treat them as absolute (it does so only for _WIN32)
 sed -i 's|^    return \*s == .\/.;$|    return *s == 0x2f \|\| (((*s \| 0x20) >= 0x61 \&\& (*s \| 0x20) <= 0x7a) \&\& s[1] == 0x3a \&\& s[2] == 0x2f);   /* PHE: drive letter */|' /wk/fontconfig-$FONTCONFIG_VER/src/fcstr.c
+# the same drive-letter rule at two more places: FcStrCanonFilename (else z:/x gets the cwd glued in front) and FcConfigFileExists (else "/" is glued in front of z:/x.conf)
+sed -i 's|^    if (s\[0\] == 0x2f)$|XX|; s|^    if (s\[0\] == .\/.)$|    if (FcStrIsAbsoluteFilename (s))   /* PHE: drive letter */|' /wk/fontconfig-$FONTCONFIG_VER/src/fcstr.c
+sed -i "s#^    if ((!path\[0\] || path\[strlen((char \*) path)-1\] != '/') \&\& file\[0\] != '/')\$#    if ((!path[0] || path[strlen((char *) path)-1] != '/') \&\& !FcStrIsAbsoluteFilename (file))   /* PHE: drive letter */#" /wk/fontconfig-$FONTCONFIG_VER/src/fccfg.c
 cat > /wk/fc-work/expat_config.h <<'EOC'
 #define BYTEORDER 1234
 #define HAVE_MEMMOVE 1

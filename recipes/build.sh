@@ -43,6 +43,6 @@ has archives && { echo "== archives"; dr a1 bash /h/recipes/package_x32.sh; }
 has pango    && { echo "== pango";    dr pg1 bash /h/recipes/build_pango_x32.sh | tail -6; }
 has pixbuf   && { echo "== pixbuf";   dr px1 bash /h/recipes/build_pixbuf_x32.sh | tail -4; }
 has defs     && { echo "== defs";     dr d1 python3 /h/recipes/gen_defs.py /o /h/os/src; }
-has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheglibtest ) | tail -3; }
+has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phepng phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheglibtest ) | tail -3; }
 has boot     && { echo "== boot";     ( cd "$REPO" && bash "$HERE/recipes/iterate.sh" ); }
 echo "build.sh: done ($STEPS)"

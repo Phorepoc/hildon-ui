@@ -1,7 +1,9 @@
 /* phe_pixbuf_test.c -- gdk-pixbuf 2.36.12 with the built-in PNG loader (libpng 1.6.43 + zlib 1.3.1): decode an 8x4 PNG through GdkPixbufLoader and through a GMemoryInputStream (gio), check the pixels, scale it. BSD-2-Clause (Phorepoc). */
 #include <stdio.h>
 #include <string.h>
+#define GDK_PIXBUF_ENABLE_BACKEND 1
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gdk-pixbuf/gdk-pixbuf-io.h>
 #include <gio/gio.h>
 #include "phe_png_data.h"
 extern void phe_log (const char *msg);
@@ -23,6 +25,14 @@ int phe_pixbuf_test (void)
       { GdkPixbuf *sc = gdk_pixbuf_scale_simple (pb, 4, 2, GDK_INTERP_BILINEAR); T (sc && gdk_pixbuf_get_width (sc) == 4 && gdk_pixbuf_get_height (sc) == 2 && gdk_pixbuf_get_pixels (sc)[0] > 200, "scale_simple 4x2"); if (sc) g_object_unref (sc); }
       { GdkPixbuf *al = gdk_pixbuf_add_alpha (pb, FALSE, 0, 0, 0); T (al && gdk_pixbuf_get_has_alpha (al), "add_alpha"); if (al) g_object_unref (al); } }
     g_clear_error (&err); g_object_unref (ld); }
+  { GSList *fl = gdk_pixbuf_get_formats (), *it; int nf = 0; char nm[160] = ""; for (it = fl; it; it = it->next) { nf++; if (strlen (nm) < 120) { strcat (nm, gdk_pixbuf_format_get_name (it->data)); strcat (nm, " "); } }
+    snprintf (m, sizeof m, "pixbuf: %d formats: %s", nf, nm); phe_log (m);
+    if (fl) { GdkPixbufFormat *pf0 = fl->data; const unsigned char *pre = pf0->signature ? (const unsigned char *) pf0->signature[0].prefix : NULL; char hx[64] = ""; int k;
+      for (k = 0; pre && k < 9; k++) { char t[8]; snprintf (t, sizeof t, "%02x ", pre[k]); strcat (hx, t); }
+      snprintf (m, sizeof m, "pixbuf: png signature=%p prefix=%p bytes=%s relevance=%d disabled=%d", (void *) pf0->signature, (const void *) pre, hx, pf0->signature ? pf0->signature[0].relevance : -1, (int) pf0->disabled); phe_log (m); }
+    g_slist_free (fl);
+    { GdkPixbufLoader *l2 = gdk_pixbuf_loader_new (); gboolean ok2 = gdk_pixbuf_loader_write (l2, phe_png, sizeof phe_png, &err); gboolean cl2 = gdk_pixbuf_loader_close (l2, ok2 ? &err : NULL);
+      snprintf (m, sizeof m, "pixbuf: untyped loader write=%d close=%d pixbuf=%p %s", ok2, cl2, (void *) gdk_pixbuf_loader_get_pixbuf (l2), err ? err->message : "-"); phe_log (m); g_clear_error (&err); g_object_unref (l2); } }
   { GInputStream *in0 = g_memory_input_stream_new_from_data (phe_png, sizeof phe_png, NULL); char buf0[2048]; gssize n0 = g_input_stream_read (in0, buf0, sizeof buf0, NULL, &err); GBytes *by = NULL;
     snprintf (m, sizeof m, "pixbuf: stream read n=%ld first=%02x %s png=%u bytes", (long) n0, n0 > 0 ? (unsigned char) buf0[0] : 0, err ? err->message : "-", (unsigned) sizeof phe_png); phe_log (m); g_clear_error (&err); g_object_unref (in0);
     in0 = g_memory_input_stream_new_from_data (phe_png, sizeof phe_png, NULL); by = g_input_stream_read_bytes (in0, 65536, NULL, &err);

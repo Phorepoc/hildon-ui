@@ -6,15 +6,10 @@ set -eu
 CC=/wk/lsc/bin/pp-gcc; mkdir -p /wk/out
 cd /wk; [ -d gdk-pixbuf-$GDKPIXBUF_VER ] || tar xf /h/dl/gdk-pixbuf-$GDKPIXBUF_VER.tar.xz
 printf 'Name: libpng16\nDescription: png\nVersion: %s\nRequires:\nCflags: -I/wk/libpng-%s -I/wk/png-work -I/wk/zlib-%s\nLibs: -L/wk/png-work/nat -lpng16 -lz -lm\n' $LIBPNG_VER $LIBPNG_VER $ZLIB_VER > /wk/pc/libpng16.pc
-printf "Name: shared-mime-info
-Description: stub (no MIME sniffing database on the device)
-Version: 9.9
-Requires:
-Libs:
-Cflags:
-" > /wk/pc/shared-mime-info.pc
+# gio_can_sniff=yes (set on the configure line below): otherwise configure turns GDK_PIXBUF_USE_GIO_MIME on, i.e. format sniffing through the shared-mime-info DATABASE
+# (g_content_type_guess), which the device does not have: every untyped load then fails with "Unrecognized image file format". The built-in signature check is wanted.
 rm -rf pixbuf-nat pixbuf-x32; mkdir pixbuf-nat; cd pixbuf-nat
-PKG_CONFIG_PATH=/wk/pc PKG_CONFIG_LIBDIR=/wk/pc LDFLAGS="-L/wk/png-work/nat" CFLAGS="-I/wk/png-work -I/wk/libpng-$LIBPNG_VER -I/wk/zlib-$ZLIB_VER" /wk/gdk-pixbuf-$GDKPIXBUF_VER/configure --disable-shared --enable-static --disable-introspection --disable-gtk-doc \
+gio_can_sniff=yes PKG_CONFIG_PATH=/wk/pc PKG_CONFIG_LIBDIR=/wk/pc LDFLAGS="-L/wk/png-work/nat" CFLAGS="-I/wk/png-work -I/wk/libpng-$LIBPNG_VER -I/wk/zlib-$ZLIB_VER" /wk/gdk-pixbuf-$GDKPIXBUF_VER/configure --disable-shared --enable-static --disable-introspection --disable-gtk-doc \
   --disable-man --without-libtiff --without-libjpeg --without-libjasper --with-included-loaders=png --disable-modules --disable-glibtest --without-x11 > cfg.log 2>&1 || { tail -25 cfg.log; exit 1; }
 (cd /wk/pixbuf-nat; PKG_CONFIG_PATH=/wk/pc make -k -j${JOBS:-8} -C gdk-pixbuf CFLAGS="-O0 -w -I/wk/png-work -I/wk/libpng-$LIBPNG_VER -I/wk/zlib-$ZLIB_VER" > nat-make.log 2>&1) || true
 cd /wk; cp -a pixbuf-nat pixbuf-x32; grep -rIl '/wk/pixbuf-nat' pixbuf-x32 --include=Makefile --include=libtool --include=config.status 2>/dev/null | xargs -r sed -i 's|/wk/pixbuf-nat|/wk/pixbuf-x32|g'

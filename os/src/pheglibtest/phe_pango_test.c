@@ -5,6 +5,7 @@
 #include <hb.h>
 #include <cairo.h>
 #include <pango/pangocairo.h>
+#include <fontconfig/fontconfig.h>
 extern void phe_log (const char *msg);
 #define T(c, what) do { checks++; if (!(c)) { fails++; snprintf (m, sizeof m, "pango FAIL: %s (line %d)", what, __LINE__); phe_log (m); } } while (0)
 
@@ -27,6 +28,15 @@ int phe_pango_test (void)
       hb_buffer_destroy (buf); hb_font_destroy (font); hb_face_destroy (face); hb_blob_destroy (blob);
       free (data);
     } }
+  /* 1b. fontconfig alone: which config file, which directories, how many fonts */
+  { FcConfig *cfg; FcStrList *dl; FcChar8 *dir; FcFontSet *fs; int nd = 0, nf = 0; char dn[200] = "";
+    T (FcInit (), "FcInit"); cfg = FcConfigGetCurrent (); dl = FcConfigGetFontDirs (cfg); while (dl && (dir = FcStrListNext (dl))) { nd++; if (strlen (dn) < 150) { strcat (dn, (char *) dir); strcat (dn, " "); } }
+    fs = FcConfigGetFonts (cfg, FcSetSystem); nf = fs ? fs->nfont : -1;
+    snprintf (m, sizeof m, "fontconfig %d: dirs=%d [%s] fonts=%d, config files: %s", FC_VERSION, nd, dn, nf, FcConfigGetFilename (cfg, (const FcChar8 *) "z:/resource/pheglibtest/fonts.conf") ? "found" : "NOT found"); phe_log (m);
+    { FcPattern *pat = FcPatternCreate (), *mt; FcResult r; FcChar8 *fam = NULL, *file = NULL; FcPatternAddString (pat, FC_FAMILY, (const FcChar8 *) "Sans"); FcConfigSubstitute (cfg, pat, FcMatchPattern); FcDefaultSubstitute (pat);
+      mt = FcFontMatch (cfg, pat, &r); if (mt) { FcPatternGetString (mt, FC_FAMILY, 0, &fam); FcPatternGetString (mt, FC_FILE, 0, &file); }
+      snprintf (m, sizeof m, "fontconfig: match for Sans = %s file %s", fam ? (char *) fam : "(none)", file ? (char *) file : "(none)"); phe_log (m); T (mt != NULL, "FcFontMatch"); if (mt) FcPatternDestroy (mt); FcPatternDestroy (pat); }
+    T (nf > 0, "fontconfig sees fonts"); }
   /* 2. Pango: a layout through PangoCairo, drawn black on white */
   { cairo_surface_t *s = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 220, 48); cairo_t *cr = cairo_create (s); PangoLayout *lay; PangoFontDescription *fd; int w = 0, h = 0, x, y; long dark = 0; unsigned char *d; int st;
     cairo_set_source_rgb (cr, 1, 1, 1); cairo_paint (cr); cairo_set_source_rgb (cr, 0, 0, 0);
@@ -34,8 +44,8 @@ int phe_pango_test (void)
     pango_layout_set_text (lay, "Hildon Pango", -1); pango_layout_get_pixel_size (lay, &w, &h);
     snprintf (m, sizeof m, "pango %s: layout \"Hildon Pango\" %dx%d px, lines %d", pango_version_string (), w, h, pango_layout_get_line_count (lay)); phe_log (m);
     T (w > 60 && w < 220 && h > 10 && h < 48, "layout size plausible"); T (pango_layout_get_line_count (lay) == 1, "one line");
-    { PangoFontMap *fm = pango_cairo_font_map_get_default (); PangoContext *ctx = pango_layout_get_context (lay); PangoFont *font = pango_font_map_load_font (fm, ctx, fd);
-      snprintf (m, sizeof m, "pango: font map %s, loaded font %p", G_OBJECT_TYPE_NAME (fm), (void *) font); phe_log (m); T (font != NULL, "font loaded through fontconfig"); if (font) g_object_unref (font); }
+    { PangoLayoutLine *ln = pango_layout_get_line_readonly (lay, 0); PangoFont *font = (ln && ln->runs) ? ((PangoLayoutRun *) ln->runs->data)->item->analysis.font : NULL;
+      snprintf (m, sizeof m, "pango: font map %s, run font %p (%s)", G_OBJECT_TYPE_NAME (pango_cairo_font_map_get_default ()), (void *) font, font ? G_OBJECT_TYPE_NAME (font) : "-"); phe_log (m); T (font != NULL, "layout run has a fontconfig font"); }
     cairo_move_to (cr, 4, 4); pango_cairo_show_layout (cr, lay); cairo_surface_flush (s);
     d = cairo_image_surface_get_data (s); st = cairo_image_surface_get_stride (s);
     for (y = 0; y < 48; y++) for (x = 0; x < 220; x++) if ((*(unsigned *) (d + y * st + 4 * x) & 0xff) < 128) dark++;
