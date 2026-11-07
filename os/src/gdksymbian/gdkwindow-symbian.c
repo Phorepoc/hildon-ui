@@ -45,7 +45,7 @@ gdk_window_impl_symbian_finalize (GObject *object)
 {
   GdkWindowImplSymbian *impl = (GdkWindowImplSymbian *) object;
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
-  if (impl->properties) g_hash_table_destroy (impl->properties);
+  if (impl->properties) { g_hash_table_destroy (impl->properties); impl->properties = NULL; }
   if (impl->shape) gdk_region_destroy (impl->shape);
   G_OBJECT_CLASS (gdk_window_impl_symbian_parent_class)->finalize (object);
 }
@@ -262,7 +262,6 @@ static void impl_set_cursor (GdkWindow *window, GdkCursor *cursor)
   GdkWindowImplSymbian *impl = WIMPL (window);
   if (cursor) gdk_cursor_ref (cursor);
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
-  if (impl->properties) g_hash_table_destroy (impl->properties);
   impl->cursor = cursor;
 }
 

@@ -50,7 +50,7 @@ gdk_gc_symbian_finalize (GObject *object)
   if (g->clip_mask) g_object_unref (g->clip_mask);
   if (g->clip_region) gdk_region_destroy (g->clip_region);
   g_free (g->dashes);
-  if (GDK_GC (g)->colormap) g_object_unref (GDK_GC (g)->colormap);
+
   G_OBJECT_CLASS (gdk_gc_symbian_parent_class)->finalize (object);
 }
 
