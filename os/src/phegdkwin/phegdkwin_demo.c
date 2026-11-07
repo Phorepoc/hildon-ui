@@ -47,7 +47,7 @@ paint (GdkWindow *w, GdkRegion *region)
   text (cr, "Sans 16", "a real GdkWindow", mg + W * 0.05, cy + ch * 0.34, 0.9);
   text (cr, "Sans 16", "GDK 2.24 + Symbian backend", mg + W * 0.05, cy + ch * 0.50, 0.9);
   text (cr, "Sans 12", "cairo, Pango, gdk-pixbuf", mg + W * 0.05, cy + ch * 0.70, 0.7);
-  if (scaled) { gdk_cairo_set_source_pixbuf (cr, scaled, W * 0.2, H * 0.72); cairo_paint (cr); }
+  if (scaled) { gdk_cairo_set_source_pixbuf (cr, scaled, W * 0.2, H * 0.775); cairo_paint (cr); }
   round_rect (cr, box.x, box.y, box.width, box.height, 8); cairo_set_source_rgba (cr, 0.05, 0.4, 0.2, 0.55); cairo_fill (cr);
   g_snprintf (buf, sizeof buf, "ticks %d   keys %d   taps %d", ticks, keys, taps);
   text (cr, "Sans 14", buf, box.x + 14, box.y + 8, 1.0);
@@ -56,10 +56,10 @@ paint (GdkWindow *w, GdkRegion *region)
 
   /* the deprecated GdkGC / GdkFont API on the same window, clipped to the expose region (XOR twice would undo itself) */
   gdk_gc_set_clip_region (xor_gc, region); gdk_gc_set_clip_region (stipple_gc, region);
-  gdk_draw_rectangle (w, stipple_gc, TRUE, (gint) (W * 0.07), (gint) (H * 0.62), (gint) (W * 0.86), 12);                            /* opaque stippled: red / blue dots */
-  gdk_draw_rectangle (w, xor_gc, TRUE, (gint) (W * 0.07), (gint) (H * 0.66), (gint) (W * 0.86), 12);                               /* XOR: inverts what is below (the gradient) */
+  gdk_draw_rectangle (w, stipple_gc, TRUE, (gint) (W * 0.07), (gint) (H * 0.665), (gint) (W * 0.86), 12);                           /* opaque stippled: red / blue dots */
+  gdk_draw_rectangle (w, xor_gc, TRUE, (gint) (W * 0.07), (gint) (H * 0.71), (gint) (W * 0.86), 12);                                /* XOR: inverts what is below (the gradient) */
   if (font) { GdkGC *tg = gdk_gc_new (w); GdkColor c = { 0xffffff, 0xffff, 0xffff, 0xffff }; gdk_gc_set_clip_region (tg, region); gdk_gc_set_foreground (tg, &c);
-    gdk_draw_string (w, font, tg, (gint) (W * 0.07), (gint) (H * 0.62) - 6, "GdkFont over Pango (gdk_draw_string)"); g_object_unref (tg); }
+    gdk_draw_string (w, font, tg, (gint) (W * 0.07), (gint) (H * 0.635), "GdkFont over Pango (gdk_draw_string)"); g_object_unref (tg); }
 }
 
 static void
@@ -102,6 +102,49 @@ static guint32
 pixel_at (GdkPixmap *pm, gint x, gint y)
 {
   GdkImage *im = gdk_drawable_get_image (GDK_DRAWABLE (pm), x, y, 1, 1); guint32 p = gdk_image_get_pixel (im, 0, 0); g_object_unref (im); return p & 0x00ffffff;
+}
+
+/* the window manager facing API: hints, layers, states, geometry limits, grabs (acted on by the backend itself: there is no window manager) */
+static void
+selftest_windows (void)
+{
+  GdkWindowAttr a; GdkWindow *t; GdkGeometry g; gint w, h, before = st_fail; GList *stack, *last; GdkWMDecoration dec;
+  memset (&a, 0, sizeof a);
+  a.window_type = GDK_WINDOW_TOPLEVEL; a.wclass = GDK_INPUT_OUTPUT; a.x = 10; a.y = 10; a.width = 100; a.height = 80; a.event_mask = GDK_STRUCTURE_MASK;
+  t = gdk_window_new (NULL, &a, GDK_WA_X | GDK_WA_Y);
+  gdk_window_set_type_hint (t, GDK_WINDOW_TYPE_HINT_DIALOG); CHECK (gdk_window_get_type_hint (t) == GDK_WINDOW_TYPE_HINT_DIALOG, "type hint round trip");
+  CHECK (!gdk_window_get_decorations (t, &dec), "decorations unset until asked"); gdk_window_set_decorations (t, GDK_DECOR_BORDER);
+  CHECK (gdk_window_get_decorations (t, &dec) && dec == GDK_DECOR_BORDER, "decorations round trip");
+  g.min_width = 120; g.min_height = 90; gdk_window_set_geometry_hints (t, &g, GDK_HINT_MIN_SIZE); gdk_window_resize (t, 50, 50); gdk_drawable_get_size (GDK_DRAWABLE (t), &w, &h);
+  CHECK (w == 120 && h == 90, "geometry hints: minimum size is enforced");
+  g.max_width = 200; g.max_height = 150; gdk_window_set_geometry_hints (t, &g, GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE); gdk_window_resize (t, 500, 500); gdk_drawable_get_size (GDK_DRAWABLE (t), &w, &h);
+  CHECK (w == 200 && h == 150, "geometry hints: maximum size is enforced");
+  gdk_window_show (t); CHECK (!(gdk_window_get_state (t) & GDK_WINDOW_STATE_WITHDRAWN), "mapped: not withdrawn");
+  g.max_width = 0; g.max_height = 0; gdk_window_set_geometry_hints (t, &g, GDK_HINT_MIN_SIZE);                      /* a maximum size would (rightly) keep maximize from filling the screen */
+  gdk_window_maximize (t); gdk_drawable_get_size (GDK_DRAWABLE (t), &w, &h);
+  CHECK ((gdk_window_get_state (t) & GDK_WINDOW_STATE_MAXIMIZED) && w == sw && h == sh, "maximize: screen sized, state set");
+  gdk_window_unmaximize (t); gdk_drawable_get_size (GDK_DRAWABLE (t), &w, &h);
+  CHECK (!(gdk_window_get_state (t) & GDK_WINDOW_STATE_MAXIMIZED) && w == 200 && h == 150, "unmaximize: the saved size is back, state cleared");
+  gdk_window_fullscreen (t); CHECK ((gdk_window_get_state (t) & GDK_WINDOW_STATE_FULLSCREEN) != 0, "fullscreen state"); gdk_window_unfullscreen (t);
+  gdk_window_iconify (t); stack = gdk_screen_get_window_stack (gdk_screen_get_default ()); last = g_list_last (stack);
+  CHECK ((gdk_window_get_state (t) & GDK_WINDOW_STATE_ICONIFIED) && last && last->data != t, "iconify: state set, off the stack");
+  g_list_foreach (stack, (GFunc) g_object_unref, NULL); g_list_free (stack);
+  gdk_window_deiconify (t); stack = gdk_screen_get_window_stack (gdk_screen_get_default ()); last = g_list_last (stack);
+  CHECK (!(gdk_window_get_state (t) & GDK_WINDOW_STATE_ICONIFIED) && last && last->data == t, "deiconify: back on top");
+  g_list_foreach (stack, (GFunc) g_object_unref, NULL); g_list_free (stack);
+  gdk_window_set_keep_above (win, TRUE); gdk_window_raise (t);
+  stack = gdk_screen_get_window_stack (gdk_screen_get_default ()); last = g_list_last (stack);
+  CHECK (last && last->data == win && (gdk_window_get_state (win) & GDK_WINDOW_STATE_ABOVE), "keep above: stays on top of a later raised window");
+  g_list_foreach (stack, (GFunc) g_object_unref, NULL); g_list_free (stack);
+  gdk_window_set_keep_above (win, FALSE); gdk_window_raise (t);
+  stack = gdk_screen_get_window_stack (gdk_screen_get_default ()); last = g_list_last (stack);
+  CHECK (last && last->data == t, "layer cleared: the raised window is on top");
+  g_list_foreach (stack, (GFunc) g_object_unref, NULL); g_list_free (stack);
+  CHECK (gdk_keyboard_grab (t, FALSE, GDK_CURRENT_TIME) == GDK_GRAB_SUCCESS, "keyboard grab"); gdk_keyboard_ungrab (GDK_CURRENT_TIME);
+  gdk_error_trap_push (); CHECK (gdk_error_trap_pop () == 0, "error trap");
+  { GdkRectangle fr; gdk_window_get_frame_extents (t, &fr); CHECK (fr.width == 200 && fr.height == 150, "frame extents = window rectangle"); }
+  gdk_window_destroy (t);
+  LOG ("[phegdkwin] window API selftest done: %d failed", st_fail - before);
 }
 
 static void
@@ -179,6 +222,7 @@ phe_gdk_demo_main (void)
   gdk_event_handler_set (handler, NULL, NULL);
   selftest ();
   gdk_window_show (win);
+  selftest_windows ();
   LOG ("[phegdkwin] window shown (id 0x%x, visible %d)", (guint) (gsize) win, gdk_window_is_visible (win));
   g_timeout_add (400, on_tick, NULL); g_timeout_add (2000, on_stats, NULL);
   loop = g_main_loop_new (NULL, FALSE);

@@ -37,7 +37,7 @@ printf '#ifndef GSEAL
 #define GSEAL(ident) ident   /* GLib dropped GSEAL in 2.4x; GTK 2.24 still uses it in its public structs */
 #endif
 ' > /wk/gdk-x32/gtkcompat.h
-SRC="gdk gdkapplaunchcontext gdkcairo gdkcolor gdkcursor gdkdisplay gdkdisplaymanager gdkdnd gdkdraw gdkevents gdkfont gdkgc gdkglobals gdkimage gdkkeys gdkkeyuni gdkoffscreenwindow gdkpango gdkpixbuf-drawable gdkpixbuf-render gdkpixmap gdkpolyreg-generic gdkrectangle gdkregion-generic gdkrgb gdkscreen gdkselection gdkvisual gdkwindow gdkwindowimpl gdkenumtypes gdkmarshalers"
+SRC="gdk gdkkeynames gdkapplaunchcontext gdkcairo gdkcolor gdkcursor gdkdisplay gdkdisplaymanager gdkdnd gdkdraw gdkevents gdkfont gdkgc gdkglobals gdkimage gdkkeys gdkkeyuni gdkoffscreenwindow gdkpango gdkpixbuf-drawable gdkpixbuf-render gdkpixmap gdkpolyreg-generic gdkrectangle gdkregion-generic gdkrgb gdkscreen gdkselection gdkvisual gdkwindow gdkwindowimpl gdkenumtypes gdkmarshalers"
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
 FF="-O2 -g0 -w -fno-pic -I/h/overlay -include /h/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -DHAVE_CONFIG_H -DGDK_COMPILATION -DG_LOG_DOMAIN=\"Gdk\" -DDISABLE_VISIBILITY -DGDK_DISABLE_DEPRECATION_WARNINGS \
  -I/wk/gdk-x32 -I$G -I$G/gdk $X32 -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/pixman-0.42.2/pixman -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/harfbuzz-$HARFBUZZ_VER/src -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32"

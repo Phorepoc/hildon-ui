@@ -68,7 +68,16 @@ void _gdk_visual_init (GdkScreen *screen);
 void _gdk_windowing_window_init (GdkScreen *screen);        /* gdkwindow-symbian.c: creates the root GdkWindow */
 void _gdk_events_init (void);                               /* gdkevents-symbian.c: attaches the WSERV event source */
 void _gdk_input_init (void);
-void _gdk_symbian_window_hooks (void);                      /* gdkdrawable-symbian.c: wraps the window class's ref_cairo_surface so direct cairo drawing is presented */
+void _gdk_symbian_window_hooks (void);
+gboolean _gdk_symbian_expose_box (GdkRectangle *box);
+void _gdk_symbian_stack_raise (GdkWindow *window);           /* gdkwindow-symbian.c: put a toplevel on top of its layer (and its transients above it) */
+void _gdk_symbian_stack_lower (GdkWindow *window);
+void _gdk_symbian_focus_update (void);
+void _gdk_symbian_drag_begin (GdkWindow *window, gint mode, gint root_x, gint root_y);   /* gdkevents-symbian.c: interactive move (mode -1) or resize by edge (GdkWindowEdge) */
+void _gdk_symbian_pointer_warp (GdkDisplay *display, gint x, gint y);
+GdkWindow *_gdk_symbian_focus_window (void);                 /* the toplevel that holds the keyboard focus, or NULL */
+void _gdk_symbian_inject_key (GdkWindow *window, guint keyval, guint state, gboolean press);                       /* gdk_test_simulate_key */
+void _gdk_symbian_inject_button (GdkWindow *window, gint x, gint y, guint button, guint state, gboolean press);   /* gdk_test_simulate_button */                      /* gdkdrawable-symbian.c: wraps the window class's ref_cairo_surface so direct cairo drawing is presented */
 void _gdk_symbian_screen_resized (GdkScreen *screen, int width, int height);
 
 
@@ -102,6 +111,13 @@ typedef struct _GdkWindowImplSymbian {
   GdkEventMask event_mask;
   gboolean mapped;
   GHashTable *properties;         /* window properties (gdkproperty-symbian.c) */
+  /* window manager hints (gdkwinhints-symbian.c): there is no window manager, so this backend acts on them itself (stacking layers, transient stacking, focus choice, geometry limits, states) */
+  GdkWindowTypeHint type_hint; GdkWindow *transient_for; GdkWMDecoration decorations; gboolean has_decorations; gchar *role, *startup_id;
+  GdkGeometry geometry; GdkWindowHints geom_mask; GList *icon_list;
+  gboolean skip_focus_once;       /* mapped with focus-on-map off: not given the keyboard focus until gdk_window_focus () asks for it */
+  gboolean accept_focus, focus_on_map, override_redirect, modal, urgent, skip_taskbar, skip_pager;
+  gint layer;                     /* -1 keep below, 0 normal, 1 keep above (modal and transient windows are kept above what they belong to) */
+  gboolean saved_valid; gint save_x, save_y, save_w, save_h;      /* the geometry to return to from maximized / fullscreen */
   GdkRegion *shape;               /* window shape set by gdk_window_shape_combine_region: kept for GdkWindow bookkeeping, WSERV windows stay rectangular */
 } GdkWindowImplSymbian;
 typedef struct { GdkDrawableImplSymbianClass parent_class; } GdkWindowImplSymbianClass;

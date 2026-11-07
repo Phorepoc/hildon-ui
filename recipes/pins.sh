@@ -51,3 +51,6 @@ GDKPIXBUF_URL=https://download.gnome.org/sources/gdk-pixbuf/2.36/gdk-pixbuf-$GDK
 GTK_VER=2.24.33
 GTK_SHA256=ac2ac757f5942d318a311a54b0c80b5ef295f299c2a73c632f6bfb1ff49cc6da   # = download.gnome.org gtk+-2.24.33.sha256sum (verified 2026-11-07); LGPL 2.1+
 GTK_URL=https://download.gnome.org/sources/gtk+/2.24/gtk+-$GTK_VER.tar.xz
+ATK_VER=2.38.0
+ATK_SHA256=ac4de2a4ef4bd5665052952fe169657e65e895c5057dffb3c2a810f6191a0c36   # = download.gnome.org atk-2.38.0.sha256sum; SHA512 dffd0a08...2c77 = Gentoo Manifest (verified 2026-11-07); LGPL 2+; GTK 2.24 needs atk >= 2.10
+ATK_URL=https://download.gnome.org/sources/atk/2.38/atk-$ATK_VER.tar.xz

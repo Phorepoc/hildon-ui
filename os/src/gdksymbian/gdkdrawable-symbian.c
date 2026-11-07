@@ -431,7 +431,8 @@ window_mark_dirty (GdkDrawableImplSymbian *impl, gint x, gint y, gint w, gint h)
 
 /* Direct drawing on a window: gdk_cairo_create (window) outside a paint hands out the surface of the window itself (a rectangle of the display bitmap), and cairo then draws into the bitmap
  * with nothing to tell this backend which pixels changed. The window class's ref_cairo_surface is wrapped (installed by _gdk_symbian_window_hooks at display open): a request for the direct
- * surface marks the whole native window dirty, so the next flush presents it. (A finer rectangle would need the clip extents of the cairo context, which GDK does not report.) */
+ * surface marks the exposed region (see _gdk_windowing_window_process_updates_recurse) or, outside an expose, the whole native window dirty, so the next flush presents it. */
+gboolean _gdk_symbian_expose_box (GdkRectangle *box);
 static cairo_surface_t *(*orig_ref_cairo_surface) (GdkDrawable *drawable) = NULL;
 
 static cairo_surface_t *
@@ -440,7 +441,9 @@ window_ref_cairo_surface_marking (GdkDrawable *drawable)
   cairo_surface_t *s = orig_ref_cairo_surface (drawable); GdkWindowObject *p = GDK_WINDOW_OBJECT (drawable);
   if (s && !p->paint_stack && p->impl_window && p->impl_window->impl && GDK_IS_DRAWABLE_IMPL_SYMBIAN (p->impl_window->impl)) {
     GdkDrawableImplSymbian *impl = GDK_DRAWABLE_IMPL_SYMBIAN (p->impl_window->impl);
-    window_mark_dirty (impl, 0, 0, impl->width, impl->height);
+    GdkRectangle box;
+    if (_gdk_symbian_expose_box (&box)) window_mark_dirty (impl, box.x, box.y, box.width, box.height);        /* inside an expose: the exposed region */
+    else window_mark_dirty (impl, 0, 0, impl->width, impl->height);                                              /* direct drawing with no bound: the whole window */
   }
   return s;
 }

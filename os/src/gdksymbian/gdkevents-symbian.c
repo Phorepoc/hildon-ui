@@ -146,8 +146,18 @@ keysym_of (gint code, gint scancode)
 
 static GdkWindow *focus_window = NULL;            /* the toplevel that gets key events: the topmost mapped one */
 
+/* the keyboard focus goes to the topmost mapped toplevel that accepts it: override-redirect windows and temporary ones (menus, tooltips) do not take it */
 static GdkWindow *
-top_toplevel (void) { GList *s = g_list_last (_gdk_symbian_toplevel_stack ()); return s ? s->data : _gdk_parent_root; }
+top_toplevel (void)
+{
+  GList *s;
+  for (s = g_list_last (_gdk_symbian_toplevel_stack ()); s; s = s->prev) {
+    GdkWindowImplSymbian *wi = (GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (s->data)->impl;
+    if (wi->override_redirect || !wi->accept_focus || wi->skip_focus_once || GDK_WINDOW_OBJECT (s->data)->window_type == GDK_WINDOW_TEMP) continue;
+    return s->data;
+  }
+  return _gdk_parent_root;
+}
 
 static void
 queue_event (GdkDisplay *display, GdkEvent *event)
@@ -186,6 +196,7 @@ static void
 queue_key (GdkDisplay *display, gboolean press, guint keyval, gint scancode)
 {
   GdkEvent *ev = gdk_event_new (press ? GDK_KEY_PRESS : GDK_KEY_RELEASE); GdkWindow *w = focus_window ? focus_window : top_toplevel (); guint32 ucs;
+  if (display->keyboard_grab.window && !display->keyboard_grab.owner_events) w = display->keyboard_grab.window;    /* a keyboard grab without owner events sends every key to the grab window */
   ev->key.window = g_object_ref (w); ev->key.send_event = FALSE; ev->key.time = now_ms ();
   ev->key.state = key_state | (caps_lock ? GDK_LOCK_MASK : 0) | GDK_DISPLAY_SYMBIAN (display)->pointer_state;
   ev->key.keyval = keyval; ev->key.hardware_keycode = scancode; ev->key.group = 0; ev->key.is_modifier = (scancode >= 0x12 && scancode <= 0x17) || scancode == 0x1a;
@@ -209,8 +220,58 @@ translate_key (GdkDisplay *display, const PheWsEvent *e)
   kstate.last_keyval = 0; modifier_update (e->scancode, FALSE);
 }
 
+/* ---- interactive move / resize (gdk_window_begin_move_drag / begin_resize_drag): with no window manager the backend follows the pointer itself until the button goes up ---- */
+static struct { gboolean active; GdkWindow *window; gint mode; gint start_x, start_y; gint wx, wy, ww, wh; } idrag;
+
+void
+_gdk_symbian_drag_begin (GdkWindow *window, gint mode, gint root_x, gint root_y)
+{
+  gint ox, oy, w, h;
+  gdk_window_get_origin (window, &ox, &oy); gdk_drawable_get_size (GDK_DRAWABLE (window), &w, &h);
+  idrag.active = TRUE; idrag.window = window; idrag.mode = mode; idrag.start_x = root_x; idrag.start_y = root_y; idrag.wx = ox; idrag.wy = oy; idrag.ww = w; idrag.wh = h;
+}
+
+static void
+drag_motion (gint x, gint y)
+{
+  gint dx = x - idrag.start_x, dy = y - idrag.start_y, nx = idrag.wx, ny = idrag.wy, nw = idrag.ww, nh = idrag.wh;
+  if (GDK_WINDOW_DESTROYED (idrag.window)) { idrag.active = FALSE; return; }
+  if (idrag.mode < 0) { nx += dx; ny += dy; }
+  else switch ((GdkWindowEdge) idrag.mode) {
+    case GDK_WINDOW_EDGE_NORTH_WEST: nx += dx; ny += dy; nw -= dx; nh -= dy; break;
+    case GDK_WINDOW_EDGE_NORTH: ny += dy; nh -= dy; break;
+    case GDK_WINDOW_EDGE_NORTH_EAST: ny += dy; nw += dx; nh -= dy; break;
+    case GDK_WINDOW_EDGE_WEST: nx += dx; nw -= dx; break;
+    case GDK_WINDOW_EDGE_EAST: nw += dx; break;
+    case GDK_WINDOW_EDGE_SOUTH_WEST: nx += dx; nw -= dx; nh += dy; break;
+    case GDK_WINDOW_EDGE_SOUTH: nh += dy; break;
+    case GDK_WINDOW_EDGE_SOUTH_EAST: nw += dx; nh += dy; break;
+  }
+  if (idrag.mode < 0) gdk_window_move (idrag.window, nx, ny); else gdk_window_move_resize (idrag.window, nx, ny, MAX (nw, 1), MAX (nh, 1));
+}
+
+void
+_gdk_symbian_pointer_warp (GdkDisplay *display, gint x, gint y)
+{
+  PheWsEvent e; memset (&e, 0, sizeof e); e.type = PHE_EV_POINTER; e.ptype = 7; e.x = x; e.y = y;
+  { extern void _gdk_symbian_translate_pointer (GdkDisplay *, const PheWsEvent *); _gdk_symbian_translate_pointer (display, &e); }
+}
+
+static void translate_pointer_inner (GdkDisplay *display, const PheWsEvent *e);
+void _gdk_symbian_translate_pointer (GdkDisplay *display, const PheWsEvent *e) { translate_pointer_inner (display, e); }
+
 static void
 translate_pointer (GdkDisplay *display, const PheWsEvent *e)
+{
+  if (idrag.active) {
+    if (e->ptype == 6 || e->ptype == 7) drag_motion (e->x, e->y);
+    else if (e->ptype == 1) idrag.active = FALSE;                              /* button up ends the interactive move or resize */
+  }
+  translate_pointer_inner (display, e);
+}
+
+static void
+translate_pointer_inner (GdkDisplay *display, const PheWsEvent *e)
 {
   GdkDisplaySymbian *d = GDK_DISPLAY_SYMBIAN (display); GdkWindow *win; gint wx = 0, wy = 0; GdkEvent *ev; guint before = d->pointer_state;
   d->pointer_x = e->x; d->pointer_y = e->y;
@@ -296,6 +357,29 @@ _gdk_events_init (void)
 void _gdk_windowing_event_data_copy (const GdkEvent *src, GdkEvent *dst) { (void) src; (void) dst; }   /* this backend attaches no data of its own to an event: nothing to copy */
 void _gdk_windowing_event_data_free (GdkEvent *event) { (void) event; }                               /* ... and nothing to free */
 
+/* ---- client message filters (gdk_add_client_message_filter): called for client messages of a type before they are delivered ---- */
+typedef struct { GdkAtom message_type; GdkFilterFunc func; gpointer data; } ClientFilter;
+static GSList *client_filters = NULL;
+void gdk_display_add_client_message_filter (GdkDisplay *display, GdkAtom message_type, GdkFilterFunc func, gpointer data)
+{ ClientFilter *f = g_new (ClientFilter, 1); (void) display; f->message_type = message_type; f->func = func; f->data = data; client_filters = g_slist_append (client_filters, f); }
+void gdk_add_client_message_filter (GdkAtom message_type, GdkFilterFunc func, gpointer data) { gdk_display_add_client_message_filter (gdk_display_get_default (), message_type, func, data); }
+
+/* returns FALSE when a filter removed the event */
+static gboolean
+run_client_filters (GdkEvent *ev)
+{
+  GSList *l;
+  for (l = client_filters; l; l = l->next) {
+    ClientFilter *f = l->data;
+    if (f->message_type == ev->client.message_type) {
+      GdkFilterReturn r = f->func ((GdkXEvent *) ev, ev, f->data);
+      if (r == GDK_FILTER_REMOVE) return FALSE;
+      if (r == GDK_FILTER_TRANSLATE) return TRUE;                              /* the filter filled in the GdkEvent itself */
+    }
+  }
+  return TRUE;
+}
+
 /* Client messages go to windows of this process (there are no other GDK clients on the display): the target is the native id of a window, which is its pointer. */
 gboolean
 gdk_event_send_client_message_for_display (GdkDisplay *display, GdkEvent *event, guint32 xid)
@@ -307,6 +391,54 @@ gdk_event_send_client_message_for_display (GdkDisplay *display, GdkEvent *event,
   { GdkEvent *copy = gdk_event_copy (event);
     if (copy->any.window) g_object_unref (copy->any.window);
     copy->any.window = g_object_ref (win); copy->any.send_event = TRUE;
-    gdk_event_put (copy); gdk_event_free (copy); }
+    if (run_client_filters (copy)) gdk_event_put (copy);
+    gdk_event_free (copy); }
   return TRUE;
 }
+
+GdkWindow *_gdk_symbian_focus_window (void) { return focus_window && !GDK_WINDOW_DESTROYED (focus_window) && focus_window != _gdk_parent_root ? focus_window : NULL; }
+
+/* ---- synthetic input for gdk_test_simulate_*: the same events a key or tap from the window server becomes ---- */
+void
+_gdk_symbian_inject_key (GdkWindow *window, guint keyval, guint state, gboolean press)
+{
+  GdkDisplay *display = gdk_window_get_display (window);
+  GdkWindow *saved = focus_window; guint saved_state = key_state;
+  focus_window = window; key_state = state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK | GDK_MOD1_MASK);
+  queue_key (display, press, keyval, 0);
+  focus_window = saved; key_state = saved_state;
+}
+
+void
+_gdk_symbian_inject_button (GdkWindow *window, gint x, gint y, guint button, guint state, gboolean press)
+{
+  GdkDisplay *display = gdk_window_get_display (window); GdkDisplaySymbian *d = GDK_DISPLAY_SYMBIAN (display);
+  GdkEvent *ev = gdk_event_new (press ? GDK_BUTTON_PRESS : GDK_BUTTON_RELEASE); gint ox = 0, oy = 0;
+  gdk_window_get_origin (window, &ox, &oy);
+  ev->button.window = g_object_ref (window); ev->button.send_event = FALSE; ev->button.time = now_ms (); ev->button.device = display->core_pointer; ev->button.axes = NULL;
+  ev->button.x = x; ev->button.y = y; ev->button.x_root = ox + x; ev->button.y_root = oy + y; ev->button.button = button;
+  ev->button.state = state; d->pointer_x = ox + x; d->pointer_y = oy + y;
+  if (button >= 1 && button <= 5) { guint m = GDK_BUTTON1_MASK << (button - 1); if (press) d->pointer_state |= m; else d->pointer_state &= ~m; }
+  queue_event (display, ev);
+  if (press) _gdk_event_button_generate (display, ev);
+}
+
+gboolean
+gdk_test_simulate_key (GdkWindow *window, gint x, gint y, guint keyval, GdkModifierType modifiers, GdkEventType key_pressrelease)
+{
+  g_return_val_if_fail (GDK_IS_WINDOW (window), FALSE);
+  (void) x; (void) y;
+  _gdk_symbian_inject_key (window, keyval, modifiers, key_pressrelease == GDK_KEY_PRESS);
+  return TRUE;
+}
+
+gboolean
+gdk_test_simulate_button (GdkWindow *window, gint x, gint y, guint button, GdkModifierType modifiers, GdkEventType button_pressrelease)
+{
+  g_return_val_if_fail (GDK_IS_WINDOW (window), FALSE);
+  _gdk_symbian_inject_button (window, x, y, button, modifiers, button_pressrelease == GDK_BUTTON_PRESS);
+  return TRUE;
+}
+
+/* everything is presented by the time the display is synchronised */
+void gdk_test_render_sync (GdkWindow *window) { g_return_if_fail (GDK_IS_WINDOW (window)); gdk_window_process_all_updates (); phe_ws_sync (); }

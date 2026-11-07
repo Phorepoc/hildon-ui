@@ -38,7 +38,7 @@ G_DEFINE_TYPE_WITH_CODE (GdkWindowImplSymbian, gdk_window_impl_symbian, GDK_TYPE
 
 static GHashTable *dirty_table = NULL;               /* GdkWindow* -> DirtyInfo* */
 
-static void gdk_window_impl_symbian_init (GdkWindowImplSymbian *impl) { impl->event_mask = 0; }
+static void gdk_window_impl_symbian_init (GdkWindowImplSymbian *impl) { impl->event_mask = 0; impl->accept_focus = TRUE; impl->focus_on_map = TRUE; impl->decorations = GDK_DECOR_ALL; }
 
 static void
 gdk_window_impl_symbian_finalize (GObject *object)
@@ -46,6 +46,7 @@ gdk_window_impl_symbian_finalize (GObject *object)
   GdkWindowImplSymbian *impl = (GdkWindowImplSymbian *) object;
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
   if (impl->properties) { g_hash_table_destroy (impl->properties); impl->properties = NULL; }
+  g_free (impl->role); g_free (impl->startup_id); g_list_foreach (impl->icon_list, (GFunc) g_object_unref, NULL); g_list_free (impl->icon_list);
   if (impl->shape) gdk_region_destroy (impl->shape);
   G_OBJECT_CLASS (gdk_window_impl_symbian_parent_class)->finalize (object);
 }
@@ -77,7 +78,12 @@ _gdk_symbian_present (GdkWindow *window, gint x, gint y, gint width, gint height
   gint ax = impl->drawable.abs_x + x, ay = impl->drawable.abs_y + y, x2 = ax + width, y2 = ay + height;
   if (!impl->mapped && GDK_WINDOW_OBJECT (window)->window_type != GDK_WINDOW_ROOT) return;
   ax = MAX (ax, 0); ay = MAX (ay, 0); x2 = MIN (x2, gdk_screen_get_width (screen)); y2 = MIN (y2, gdk_screen_get_height (screen));
-  if (x2 > ax && y2 > ay) phe_ws_present (ax, ay, x2 - ax, y2 - ay);
+  if (x2 > ax && y2 > ay) {
+    static int trace = -1;
+    if (trace < 0) trace = g_getenv ("PHEGDK_TRACE_PRESENT") != NULL;
+    if (trace) { gchar *m = g_strdup_printf ("[phegdk] present %d,%d %dx%d", ax, ay, x2 - ax, y2 - ay); phe_log (m); g_free (m); }
+    phe_ws_present (ax, ay, x2 - ax, y2 - ay);
+  }
 }
 
 /* ---- the root window ---- */
@@ -153,6 +159,38 @@ expose_idle (gpointer data)
   return FALSE;
 }
 
+/* ---- stacking: layers (keep above / below) and transients ---- */
+static void
+stack_insert_in_layer (GdkWindow *window, gboolean top)
+{
+  gint layer = WIMPL (window)->layer; GList *l, *at = NULL;
+  toplevel_stack = g_list_remove (toplevel_stack, window);
+  if (top) { for (l = toplevel_stack; l; l = l->next) if (WIMPL (l->data)->layer > layer) { at = l; break; } }        /* before the first window of a higher layer */
+  else { for (l = toplevel_stack; l; l = l->next) if (WIMPL (l->data)->layer >= layer) { at = l; break; } }          /* before the first window of its own layer */
+  toplevel_stack = g_list_insert_before (toplevel_stack, at, window);
+}
+
+void
+_gdk_symbian_stack_raise (GdkWindow *window)
+{
+  GList *l, *copy;
+  stack_insert_in_layer (window, TRUE);
+  copy = g_list_copy (toplevel_stack);                                   /* the transients of a raised window stay above it */
+  for (l = copy; l; l = l->next) if (l->data != window && WIMPL (l->data)->transient_for == window) _gdk_symbian_stack_raise (l->data);
+  g_list_free (copy);
+}
+void _gdk_symbian_stack_lower (GdkWindow *window) { stack_insert_in_layer (window, FALSE); }
+
+/* a MAP / UNMAP event for a native window that selected structure events (what a window server's MapNotify / UnmapNotify is) */
+static void
+queue_map_event (GdkWindow *window, gboolean map)
+{
+  GdkEvent *ev;
+  if (!(WIMPL (window)->event_mask & GDK_STRUCTURE_MASK)) return;
+  ev = gdk_event_new (map ? GDK_MAP : GDK_UNMAP); ev->any.window = g_object_ref (window); ev->any.send_event = FALSE;
+  gdk_event_put (ev); gdk_event_free (ev);
+}
+
 /* ---- GdkWindowImplIface ---- */
 static void
 impl_show (GdkWindow *window, gboolean already_mapped)
@@ -160,9 +198,8 @@ impl_show (GdkWindow *window, gboolean already_mapped)
   GdkWindowImplSymbian *impl = WIMPL (window);
   (void) already_mapped;
   impl->mapped = TRUE;
-  if (GDK_WINDOW_OBJECT (window)->window_type != GDK_WINDOW_CHILD) {
-    toplevel_stack = g_list_remove (toplevel_stack, window); toplevel_stack = g_list_append (toplevel_stack, window);
-  }
+  if (GDK_WINDOW_OBJECT (window)->window_type != GDK_WINDOW_CHILD) _gdk_symbian_stack_raise (window);
+  queue_map_event (window, TRUE);
   gdk_threads_add_idle_full (GDK_PRIORITY_REDRAW - 1, expose_idle, g_object_ref (window), NULL);     /* a newly mapped window gets its first expose */
 }
 
@@ -170,7 +207,7 @@ static void
 impl_hide (GdkWindow *window)
 {
   GdkWindowImplSymbian *impl = WIMPL (window); gint x = impl->drawable.abs_x, y = impl->drawable.abs_y, w = impl->drawable.width, h = impl->drawable.height;
-  impl->mapped = FALSE;
+  impl->mapped = FALSE; queue_map_event (window, FALSE);
   if (g_list_find (toplevel_stack, window)) { toplevel_stack = g_list_remove (toplevel_stack, window); repaint_area (x, y, w, h, window); }
 }
 static void impl_withdraw (GdkWindow *window) { impl_hide (window); }
@@ -180,7 +217,7 @@ impl_raise (GdkWindow *window)
 {
   GdkWindowImplSymbian *impl = WIMPL (window);
   if (!g_list_find (toplevel_stack, window)) return;
-  toplevel_stack = g_list_remove (toplevel_stack, window); toplevel_stack = g_list_append (toplevel_stack, window);
+  _gdk_symbian_stack_raise (window);
   if (impl->mapped) gdk_window_invalidate_rect (window, NULL, TRUE);
 }
 
@@ -189,7 +226,7 @@ impl_lower (GdkWindow *window)
 {
   GdkWindowImplSymbian *impl = WIMPL (window);
   if (!g_list_find (toplevel_stack, window)) return;
-  toplevel_stack = g_list_remove (toplevel_stack, window); toplevel_stack = g_list_prepend (toplevel_stack, window);
+  _gdk_symbian_stack_lower (window);
   repaint_area (impl->drawable.abs_x, impl->drawable.abs_y, impl->drawable.width, impl->drawable.height, NULL);    /* whatever was below shows again, in stack order */
 }
 
@@ -220,7 +257,15 @@ impl_move_resize (GdkWindow *window, gboolean with_move, gint x, gint y, gint wi
     else { GdkWindowImplSymbian *pi = (GdkWindowImplSymbian *) private->parent->impl; impl->drawable.abs_x = pi->drawable.abs_x + x; impl->drawable.abs_y = pi->drawable.abs_y + y; }
   }
   if (!(width < 0 && height < 0)) {
-    private->width = impl->drawable.width = MAX (1, width); private->height = impl->drawable.height = MAX (1, height);
+    gint w = MAX (1, width), h = MAX (1, height);
+    if (impl->geom_mask & GDK_HINT_MIN_SIZE) { w = MAX (w, impl->geometry.min_width); h = MAX (h, impl->geometry.min_height); }
+    if (impl->geom_mask & GDK_HINT_MAX_SIZE) { w = MIN (w, impl->geometry.max_width); h = MIN (h, impl->geometry.max_height); }
+    if (impl->geom_mask & GDK_HINT_RESIZE_INC) {                      /* sizes are base + n * increment */
+      gint bw = (impl->geom_mask & GDK_HINT_BASE_SIZE) ? impl->geometry.base_width : 0, bh = (impl->geom_mask & GDK_HINT_BASE_SIZE) ? impl->geometry.base_height : 0;
+      if (impl->geometry.width_inc > 1 && w > bw) w = bw + ((w - bw) / impl->geometry.width_inc) * impl->geometry.width_inc;
+      if (impl->geometry.height_inc > 1 && h > bh) h = bh + ((h - bh) / impl->geometry.height_inc) * impl->geometry.height_inc;
+    }
+    private->width = impl->drawable.width = w; private->height = impl->drawable.height = h;
   }
   if (impl->mapped && toplevel && (ox != impl->drawable.abs_x || oy != impl->drawable.abs_y || ow != impl->drawable.width || oh != impl->drawable.height))
     repaint_area (ox, oy, ow, oh, window);       /* what the old rectangle covered; the core exposes the new/enlarged area of this window */
@@ -332,7 +377,23 @@ gdk_window_impl_symbian_iface_init (GdkWindowImplIface *iface)
 /* ---- _gdk_windowing_* of gdkinternals.h that concern windows ---- */
 void _gdk_windowing_before_process_all_updates (void) { }
 void _gdk_windowing_after_process_all_updates (void) { _gdk_symbian_flush_dirty (); }       /* everything painted in this update cycle goes to the window server now */
-void _gdk_windowing_window_process_updates_recurse (GdkWindow *window, GdkRegion *region) { _gdk_window_process_updates_recurse (window, region); }
+/* The mechanism for the dirty rectangle of direct cairo drawing: while GDK exposes a region of a window (this function is the only entry for it), everything an expose handler draws lies inside that
+ * region, so the surface request made during it (gdkdrawable-symbian.c, window_ref_cairo_surface_marking) marks exactly the clip box of the region, in the coordinates of the native window.
+ * (cairo's surface observer was considered: its callbacks carry no extents, only the surface.) Outside an expose nothing bounds the drawing and the whole window is marked. */
+static gboolean expose_active = FALSE; static GdkRectangle expose_box;
+gboolean _gdk_symbian_expose_box (GdkRectangle *box) { if (expose_active) *box = expose_box; return expose_active; }
+
+void
+_gdk_windowing_window_process_updates_recurse (GdkWindow *window, GdkRegion *region)
+{
+  gboolean old_active = expose_active; GdkRectangle old_box = expose_box, box; GdkWindowObject *p = GDK_WINDOW_OBJECT (window);
+  gdk_region_get_clipbox (region, &box);
+  box.x += p->abs_x; box.y += p->abs_y;                      /* the region is in @window's coordinates, the dirty rectangles in those of its native window */
+  if (old_active) gdk_rectangle_union (&old_box, &box, &box);
+  expose_box = box; expose_active = TRUE;
+  _gdk_window_process_updates_recurse (window, region);
+  expose_active = old_active; expose_box = old_box;
+}
 void _gdk_windowing_window_beep (GdkWindow *window) { (void) window; gdk_display_beep (_gdk_display); }
 void _gdk_windowing_window_destroy_foreign (GdkWindow *window) { (void) window; }          /* there are no foreign windows */
 GdkWindow *gdk_window_foreign_new_for_display (GdkDisplay *display, GdkNativeWindow anid) { (void) display; (void) anid; return NULL; }   /* a window of another process cannot be wrapped here */

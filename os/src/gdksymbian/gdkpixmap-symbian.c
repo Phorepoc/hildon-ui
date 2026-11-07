@@ -14,6 +14,24 @@ static void gdk_pixmap_impl_symbian_init (GdkPixmapImplSymbian *p) { (void) p; }
 static void gdk_pixmap_impl_symbian_class_init (GdkPixmapImplSymbianClass *c) { (void) c; }
 GType _gdk_pixmap_impl_get_type (void) { return gdk_pixmap_impl_symbian_get_type (); }
 
+/* native pixmap ids are the addresses of the pixmaps (everything lives in this process), registered while the pixmap exists */
+static GHashTable *pixmap_registry = NULL;
+static void pixmap_gone (gpointer data, GObject *where) { (void) data; g_hash_table_remove (pixmap_registry, where); }
+
+GdkPixmap *
+gdk_pixmap_lookup (GdkNativeWindow anid)
+{
+  GdkPixmap *p = pixmap_registry ? g_hash_table_lookup (pixmap_registry, (gpointer) (gsize) anid) : NULL;
+  return p;
+}
+GdkPixmap *gdk_pixmap_lookup_for_display (GdkDisplay *display, GdkNativeWindow anid) { g_return_val_if_fail (GDK_IS_DISPLAY (display), NULL); return gdk_pixmap_lookup (anid); }
+
+/* a "foreign" pixmap of another client cannot exist in a single-process window system: an id names one of ours or nothing; the reference is the caller's */
+GdkPixmap *gdk_pixmap_foreign_new (GdkNativeWindow anid) { GdkPixmap *p = gdk_pixmap_lookup (anid); return p ? g_object_ref (p) : NULL; }
+GdkPixmap *gdk_pixmap_foreign_new_for_display (GdkDisplay *display, GdkNativeWindow anid) { g_return_val_if_fail (GDK_IS_DISPLAY (display), NULL); return gdk_pixmap_foreign_new (anid); }
+GdkPixmap *gdk_pixmap_foreign_new_for_screen (GdkScreen *screen, GdkNativeWindow anid, gint width, gint height, gint depth)
+{ GdkPixmap *p; (void) width; (void) height; (void) depth; g_return_val_if_fail (GDK_IS_SCREEN (screen), NULL); p = gdk_pixmap_lookup (anid); return p ? g_object_ref (p) : NULL; }
+
 GdkPixmap *
 _gdk_pixmap_new (GdkDrawable *drawable, gint width, gint height, gint depth)
 {
@@ -31,6 +49,8 @@ _gdk_pixmap_new (GdkDrawable *drawable, gint width, gint height, gint depth)
     default: g_message ("gdk-symbian: pixmaps of depth %d are not supported (1, 24 and 32 are)", depth); return NULL;
   }
   pixmap = g_object_new (gdk_pixmap_get_type (), NULL); priv = GDK_PIXMAP_OBJECT (pixmap);
+  if (!pixmap_registry) pixmap_registry = g_hash_table_new (g_direct_hash, g_direct_equal);
+  g_hash_table_insert (pixmap_registry, pixmap, pixmap); g_object_weak_ref (G_OBJECT (pixmap), pixmap_gone, NULL);
   impl = g_object_new (_gdk_pixmap_impl_get_type (), NULL); priv->impl = GDK_DRAWABLE (impl);
   impl->wrapper = GDK_DRAWABLE (pixmap); impl->width = width; impl->height = height; impl->depth = depth;
   impl->surface = cairo_image_surface_create (fmt, width, height);

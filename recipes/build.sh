@@ -3,7 +3,7 @@
 #
 #   REPO=<Symbian-ReverseEngineered checkout>  bash recipes/build.sh [steps]
 #
-# steps (default: all, in order):  fetch  tools  native  config  objects  gio  freetype  pixman  cxxhdr  hb  zlibpng  fontconfig  cairo  pango  pixbuf  gdk  gdkbackend  archives  defs  images  boot
+# steps (default: all, in order):  fetch  tools  native  config  objects  gio  freetype  pixman  cxxhdr  hb  zlibpng  fontconfig  cairo  pango  pixbuf  atk  gdk  gdkbackend  archives  defs  images  boot
 #   fetch    download + verify the pinned tarballs (recipes/pins.sh)               -> dl/
 #   tools    the x32 pure-Open-C compiler wrappers (pp-gcc) + Open C's export list -> volume
 #   native   native configure + build of libffi and GLib (generated sources, ffi.h)
@@ -19,7 +19,7 @@
 set -eu
 # (the tools step mounts the main repo read-WRITE: openc_cflags.py writes .mmp-build there; every other step is read-only)
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}
-STEPS=${*:-fetch tools native config objects gio freetype pixman cxxhdr hb zlibpng fontconfig cairo pango pixbuf gdk gdkbackend archives defs images boot}
+STEPS=${*:-fetch tools native config objects gio freetype pixman cxxhdr hb zlibpng fontconfig cairo pango pixbuf atk gdk gdkbackend archives defs images boot}
 OUTD=$REPO/.phorepoc-x86-build/hildon; mkdir -p "$OUTD"
 IMG=phorepoc-x86
 dr() { MSYS_NO_PATHCONV=1 docker.exe run --rm --name "hildon-$1" -e JOBS="${JOBS:-8}" -v "$HERE":/h -v "$REPO":/repo:ro -v "$OUTD":/o -v "$VOL":/wk $IMG "${@:2}"; }
@@ -42,6 +42,7 @@ has cairo    && { echo "== cairo";    dr c2 bash /h/recipes/build_cairo_x32.sh |
 has archives && { echo "== archives"; dr a1 bash /h/recipes/package_x32.sh; }
 has pango    && { echo "== pango";    dr pg1 bash /h/recipes/build_pango_x32.sh | tail -6; }
 has gdk      && { echo "== gdk core";  dr gd1 bash /h/recipes/build_gdk_x32.sh | tail -3; }
+has atk       && { echo "== atk";        dr atk bash /h/recipes/build_atk_x32.sh | tail -25; }
 has gdkbackend && { echo "== gdk backend"; dr gd2 bash /h/recipes/build_gdk_backend_x32.sh | tail -4; }
 has pixbuf   && { echo "== pixbuf";   dr px1 bash /h/recipes/build_pixbuf_x32.sh | tail -4; }
 has defs     && { echo "== defs";     dr d1 python3 /h/recipes/gen_defs.py /o /h/os/src; }
