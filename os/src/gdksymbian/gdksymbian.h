@@ -100,6 +100,7 @@ typedef struct _GdkWindowImplSymbian {
   GdkCursor *cursor;
   GdkEventMask event_mask;
   gboolean mapped;
+  GHashTable *properties;         /* window properties (gdkproperty-symbian.c) */
   GdkRegion *shape;               /* window shape set by gdk_window_shape_combine_region: kept for GdkWindow bookkeeping, WSERV windows stay rectangular */
 } GdkWindowImplSymbian;
 typedef struct { GdkDrawableImplSymbianClass parent_class; } GdkWindowImplSymbianClass;

@@ -22,6 +22,7 @@ GList *_gdk_symbian_toplevel_stack (void) { return toplevel_stack; }
 typedef struct { gboolean dirty; GdkRectangle rect; } DirtyInfo;
 #define WIMPL(w) ((GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (w)->impl)
 void _gdk_symbian_flush_dirty (void);
+void _gdk_selection_window_destroyed (GdkWindow *window);
 
 /* ---- native window ids: the id of a window is its pointer (it fits 32 bits on this ABI); used for client messages, selections and drag and drop ---- */
 static GHashTable *window_table = NULL;
@@ -44,6 +45,7 @@ gdk_window_impl_symbian_finalize (GObject *object)
 {
   GdkWindowImplSymbian *impl = (GdkWindowImplSymbian *) object;
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
+  if (impl->properties) g_hash_table_destroy (impl->properties);
   if (impl->shape) gdk_region_destroy (impl->shape);
   G_OBJECT_CLASS (gdk_window_impl_symbian_parent_class)->finalize (object);
 }
@@ -260,6 +262,7 @@ static void impl_set_cursor (GdkWindow *window, GdkCursor *cursor)
   GdkWindowImplSymbian *impl = WIMPL (window);
   if (cursor) gdk_cursor_ref (cursor);
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
+  if (impl->properties) g_hash_table_destroy (impl->properties);
   impl->cursor = cursor;
 }
 
@@ -305,7 +308,7 @@ impl_destroy (GdkWindow *window, gboolean recursing, gboolean foreign_destroy)
 {
   GdkWindowImplSymbian *impl = WIMPL (window); gint x = impl->drawable.abs_x, y = impl->drawable.abs_y, w = impl->drawable.width, h = impl->drawable.height; gboolean was = g_list_find (toplevel_stack, window) != NULL;
   (void) foreign_destroy;
-  toplevel_stack = g_list_remove (toplevel_stack, window); unregister_window (window);
+  toplevel_stack = g_list_remove (toplevel_stack, window); unregister_window (window); _gdk_selection_window_destroyed (window);
   if (dirty_table) { gpointer d = g_hash_table_lookup (dirty_table, window); if (d) { g_hash_table_remove (dirty_table, window); g_free (d); } }
   if (was && !recursing) repaint_area (x, y, w, h, window);
   impl->mapped = FALSE;
