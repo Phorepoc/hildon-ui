@@ -7,6 +7,7 @@
  * only prepare/check. */
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include "phegdk.h"
 
 G_DEFINE_TYPE (PheGdkScreen, phe_gdk_screen, G_TYPE_OBJECT)
@@ -72,10 +73,11 @@ static int translate (const PheWsEvent *e, PheGdkEvent out[2])
 }
 
 static gboolean ws_prepare (GSource *s, gint *timeout) { ((PheWsSource *) s)->display->iterations++; *timeout = -1; return phe_ws_pending () != 0; }
-static gboolean ws_check (GSource *s) { (void) s; return phe_ws_pending () != 0; }
+static gboolean ws_check (GSource *s) { PheGdkDisplay *d = ((PheWsSource *) s)->display; return (d->wake.revents & G_IO_IN) != 0 || phe_ws_pending () != 0; }
 static gboolean ws_dispatch (GSource *s, GSourceFunc cb, gpointer data)
 {
-  PheGdkDisplay *d = ((PheWsSource *) s)->display; PheWsEvent ev; PheGdkEvent ge[2]; GList *l; int n = 0, k, nev; (void) cb; (void) data;
+  PheGdkDisplay *d = ((PheWsSource *) s)->display; PheWsEvent ev; PheGdkEvent ge[2]; GList *l; int n = 0, k, nev; char sink[64]; (void) cb; (void) data;
+  while (read (d->wake.fd, sink, sizeof sink) > 0) ;                          /* empty the wake-up pipe (non-blocking), then the queue */
   while (n < 64 && phe_ws_poll (&ev)) {
     n++;
     if (ev.type == PHE_EV_REDRAW) {            /* the window server lost part of the screen: re-present that rectangle from the backing bitmap */
@@ -87,15 +89,6 @@ static gboolean ws_dispatch (GSource *s, GSourceFunc cb, gpointer data)
 }
 static GSourceFuncs ws_funcs = { ws_prepare, ws_check, ws_dispatch, NULL, NULL, NULL };
 
-/* the loop's poll function: look (non-blocking) at the GLib fds, and if nothing is ready sleep in Symbian's own wait, so a WSERV completion wakes it at once */
-static gint ws_poll_func (GPollFD *fds, guint nfds, gint timeout)
-{
-  gint r = g_poll (fds, nfds, 0);
-  if (r != 0 || timeout == 0) return r;
-  phe_ws_wait (timeout);
-  return g_poll (fds, nfds, 0);
-}
-
 PheGdkDisplay *phe_gdk_display_open (void)
 {
   PheGdkDisplay *d = g_object_new (PHE_TYPE_GDK_DISPLAY, NULL); PheGdkScreen *s = g_object_new (PHE_TYPE_GDK_SCREEN, NULL);
@@ -103,8 +96,9 @@ PheGdkDisplay *phe_gdk_display_open (void)
   if (phe_ws_init (&px, &w, &h, &st) != 0) { phe_log ("[phegdkwin] phe_ws_init failed"); return NULL; }
   d->screen = s; s->display = d; s->width = w; s->height = h; d->pixels = px; d->stride = st;
   d->source = g_source_new (&ws_funcs, sizeof (PheWsSource)); ((PheWsSource *) d->source)->display = d;
-  g_source_attach (d->source, NULL); g_main_context_set_poll_func (NULL, ws_poll_func);
-  snprintf (m, sizeof m, "[phegdkwin] display open: screen %dx%d, WSERV source attached (sleeping poll)", w, h); phe_log (m);
+  d->wake.fd = phe_ws_wake_fd (); d->wake.events = G_IO_IN; d->wake.revents = 0; g_source_add_poll (d->source, &d->wake);
+  g_source_attach (d->source, NULL);
+  snprintf (m, sizeof m, "[phegdkwin] display open: screen %dx%d, WSERV source attached (helper thread + wake-up pipe fd %d)", w, h, d->wake.fd); phe_log (m);
   return d;
 }
 PheGdkScreen *phe_gdk_display_get_screen (PheGdkDisplay *d) { return d->screen; }
