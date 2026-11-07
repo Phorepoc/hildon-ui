@@ -8,8 +8,14 @@
 #include "gdkinternals.h"
 #include "gdkpixmap.h"
 #include "gdkregion.h"
+#include "gdkraster.h"
 
 static const cairo_user_data_key_t coverage_key;
+G_STATIC_ASSERT (GDK_COPY == PHE_FN_COPY && GDK_INVERT == PHE_FN_INVERT && GDK_XOR == PHE_FN_XOR && GDK_CLEAR == PHE_FN_CLEAR && GDK_AND == PHE_FN_AND &&
+                 GDK_AND_REVERSE == PHE_FN_AND_REVERSE && GDK_AND_INVERT == PHE_FN_AND_INVERT && GDK_NOOP == PHE_FN_NOOP && GDK_OR == PHE_FN_OR && GDK_EQUIV == PHE_FN_EQUIV &&
+                 GDK_OR_REVERSE == PHE_FN_OR_REVERSE && GDK_COPY_INVERT == PHE_FN_COPY_INVERT && GDK_OR_INVERT == PHE_FN_OR_INVERT && GDK_NAND == PHE_FN_NAND &&
+                 GDK_NOR == PHE_FN_NOR && GDK_SET == PHE_FN_SET);
+G_STATIC_ASSERT (GDK_SOLID == PHE_FILL_SOLID && GDK_TILED == PHE_FILL_TILED && GDK_STIPPLED == PHE_FILL_STIPPLED && GDK_OPAQUE_STIPPLED == PHE_FILL_OPAQUE_STIPPLED);
 typedef struct _GdkGCSymbian {
   GdkGC parent_instance;
   GdkColor fg, bg;
@@ -209,78 +215,29 @@ apply_coverage (GdkGCSymbian *g, GdkGC *gc, cairo_t *cr)
   }
 }
 
-guint32
-_gdk_symbian_apply_function (GdkFunction f, guint32 s, guint32 d)
-{
-  switch (f) {
-    case GDK_CLEAR: return 0;
-    case GDK_AND: return s & d;
-    case GDK_AND_REVERSE: return s & ~d;
-    case GDK_COPY: return s;
-    case GDK_AND_INVERT: return ~s & d;
-    case GDK_NOOP: return d;
-    case GDK_XOR: return s ^ d;
-    case GDK_OR: return s | d;
-    case GDK_NOR: return ~(s | d);
-    case GDK_EQUIV: return ~(s ^ d);
-    case GDK_INVERT: return ~d;
-    case GDK_OR_REVERSE: return s | ~d;
-    case GDK_COPY_INVERT: return ~s;
-    case GDK_OR_INVERT: return ~s | d;
-    case GDK_NAND: return ~(s & d);
-    case GDK_SET: return 0xffffffffu;
-  }
-  return s;
-}
-
-/* One bit of a bitmap/stipple surface (A8, nonzero = 1) at (x, y), repeated over the plane with the tile/stipple origin. */
-typedef struct { const guchar *data; gint stride, w, h; } Plane;
-static gboolean
-plane_open (Plane *pl, GdkPixmap *pm)
-{
-  cairo_surface_t *s = pm ? _gdk_drawable_ref_cairo_surface (pm) : NULL;
-  if (!s) return FALSE;
-  cairo_surface_flush (s);
-  pl->data = cairo_image_surface_get_data (s); pl->stride = cairo_image_surface_get_stride (s); pl->w = cairo_image_surface_get_width (s); pl->h = cairo_image_surface_get_height (s);
-  cairo_surface_destroy (s);               /* the pixmap keeps its surface alive; the data pointer stays valid while the pixmap does */
-  return pl->data != NULL;
-}
-static guint32
-plane_pixel (const Plane *pl, gint x, gint y, gint bpp)
-{
-  gint px = ((x % pl->w) + pl->w) % pl->w, py = ((y % pl->h) + pl->h) % pl->h;
-  const guchar *p = pl->data + py * pl->stride + px * bpp;
-  return bpp == 1 ? (p[0] ? 1 : 0) : *(const guint32 *) p;
-}
+guint32 _gdk_symbian_apply_function (GdkFunction f, guint32 s, guint32 d) { return phe_raster_function (f, s, d); }
 
 /* @dst: pixel (0,0) of the drawable inside its surface data; the loop covers x in [x0,x1), y in [y0,y1) in drawable coordinates; @cov has the drawable's size */
 void
 _gdk_symbian_raster_combine (GdkGC *gc, guchar *dst, gint dst_stride, gint depth, gint x0, gint y0, gint x1, gint y1, cairo_surface_t *cov)
 {
-  GdkGCSymbian *g = GDK_GC_SYMBIAN (gc); Plane tile, stip, mask; gboolean has_tile = FALSE, has_stip = FALSE, has_mask = FALSE;
-  const guchar *cd; gint cs, x, y; guint32 fg = g->fg.pixel, bg = g->bg.pixel, keep = depth == 24 ? 0x00ffffffu : 0xffffffffu;
-  cairo_surface_flush (cov); cd = cairo_image_surface_get_data (cov); cs = cairo_image_surface_get_stride (cov);
-  if (depth == 1) { fg &= 1; bg &= 1; keep = 1; } else if (depth == 32) { fg |= 0xff000000u; bg |= 0xff000000u; }
-  if (g->fill == GDK_TILED && g->tile) has_tile = plane_open (&tile, g->tile);
-  if ((g->fill == GDK_STIPPLED || g->fill == GDK_OPAQUE_STIPPLED) && g->stipple) has_stip = plane_open (&stip, g->stipple);
-  if (g->clip_mask) has_mask = plane_open (&mask, g->clip_mask);
-  for (y = y0; y < y1; y++) for (x = x0; x < x1; x++) {
-    guint32 s, d; guchar *dp;
-    if (cd[y * cs + x] < 128) continue;
-    if (has_mask) {                                                  /* outside the clip mask = not drawn (the mask is not repeated) */
-      gint mx = x - gc->clip_x_origin, my = y - gc->clip_y_origin;
-      if (mx < 0 || my < 0 || mx >= mask.w || my >= mask.h || !mask.data[my * mask.stride + mx]) continue;
-    }
-    if (has_stip) {
-      gboolean bit = plane_pixel (&stip, x - gc->ts_x_origin, y - gc->ts_y_origin, 1);
-      if (g->fill == GDK_STIPPLED && !bit) continue;                  /* stippled: only the 1 bits are drawn */
-      s = bit ? fg : bg;                                              /* opaque stippled: 1 -> foreground, 0 -> background */
-    } else if (has_tile) s = plane_pixel (&tile, x - gc->ts_x_origin, y - gc->ts_y_origin, depth == 1 ? 1 : 4) | (depth == 32 ? 0 : 0);
-    else s = fg;
-    dp = dst + y * dst_stride + (depth == 1 ? x : 4 * x);
-    if (depth == 1) { d = dp[0] ? 1 : 0; dp[0] = (_gdk_symbian_apply_function (g->function, s & 1, d) & 1) ? 0xff : 0x00; }
-    else { guint32 *p32 = (guint32 *) dp; d = *p32; *p32 = (_gdk_symbian_apply_function (g->function, s, d) & keep) | (d & ~keep); }
-  }
+  GdkGCSymbian *g = GDK_GC_SYMBIAN (gc); PheRasterState st; cairo_surface_t *ts = NULL, *ss = NULL, *ms = NULL;
+  memset (&st, 0, sizeof st);
+  st.function = g->function; st.depth = depth; st.fg = g->fg.pixel; st.bg = g->bg.pixel; st.fill = g->fill;
+  st.ts_x = gc->ts_x_origin; st.ts_y = gc->ts_y_origin; st.clip_x = gc->clip_x_origin; st.clip_y = gc->clip_y_origin;
+#define OPEN_PLANE(field, has, pixmap) do { cairo_surface_t *s_ = (pixmap) ? _gdk_drawable_ref_cairo_surface (pixmap) : NULL; \
+    if (s_) { cairo_surface_flush (s_); st.field.data = cairo_image_surface_get_data (s_); st.field.stride = cairo_image_surface_get_stride (s_); \
+              st.field.w = cairo_image_surface_get_width (s_); st.field.h = cairo_image_surface_get_height (s_); st.has = st.field.data != NULL; } \
+    field##_s = s_; } while (0)
+  if (g->fill == GDK_TILED) { cairo_surface_t *tile_s; OPEN_PLANE (tile, has_tile, g->tile); ts = tile_s; }
+  if (g->fill == GDK_STIPPLED || g->fill == GDK_OPAQUE_STIPPLED) { cairo_surface_t *stipple_s; OPEN_PLANE (stipple, has_stipple, g->stipple); ss = stipple_s; }
+  if (g->clip_mask) { cairo_surface_t *mask_s; OPEN_PLANE (mask, has_mask, g->clip_mask); ms = mask_s; }
+#undef OPEN_PLANE
+  cairo_surface_flush (cov);
+  phe_raster_combine (&st, dst, dst_stride, x0, y0, x1, y1, cairo_image_surface_get_data (cov), cairo_image_surface_get_stride (cov));
+  if (ts) cairo_surface_destroy (ts);
+  if (ss) cairo_surface_destroy (ss);
+  if (ms) cairo_surface_destroy (ms);
 }
 
 void

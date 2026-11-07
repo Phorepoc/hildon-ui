@@ -16,7 +16,7 @@
 /* ---- scancodes -> keyvals (e32keys.h TStdScanCode), the keymap of the device: group 0, level 0 = unshifted, level 1 = shifted ---- */
 typedef struct { guint8 code; guint16 lo; guint16 hi; } KeyEntry;
 #define K(c, l, h) { c, l, h }
-static const KeyEntry keytable[] = {
+static const KeyEntry keytable[] = {   /* sorted by nothing: looked up linearly */
   K (0x01, GDK_KEY_BackSpace, GDK_KEY_BackSpace), K (0x02, GDK_KEY_Tab, GDK_KEY_ISO_Left_Tab), K (0x03, GDK_KEY_Return, GDK_KEY_Return), K (0x04, GDK_KEY_Escape, GDK_KEY_Escape),
   K (0x05, GDK_KEY_space, GDK_KEY_space), K (0x06, GDK_KEY_Print, GDK_KEY_Print), K (0x07, GDK_KEY_Pause, GDK_KEY_Pause), K (0x08, GDK_KEY_Home, GDK_KEY_Home),
   K (0x09, GDK_KEY_End, GDK_KEY_End), K (0x0a, GDK_KEY_Page_Up, GDK_KEY_Page_Up), K (0x0b, GDK_KEY_Page_Down, GDK_KEY_Page_Down), K (0x0c, GDK_KEY_Insert, GDK_KEY_Insert),
@@ -33,6 +33,18 @@ static const KeyEntry keytable[] = {
   K (0x59, GDK_KEY_y, GDK_KEY_Y), K (0x5a, GDK_KEY_z, GDK_KEY_Z),
   K (0x60, GDK_KEY_F1, GDK_KEY_F1), K (0x61, GDK_KEY_F2, GDK_KEY_F2), K (0x62, GDK_KEY_F3, GDK_KEY_F3), K (0x63, GDK_KEY_F4, GDK_KEY_F4), K (0x64, GDK_KEY_F5, GDK_KEY_F5), K (0x65, GDK_KEY_F6, GDK_KEY_F6),
   K (0x66, GDK_KEY_F7, GDK_KEY_F7), K (0x67, GDK_KEY_F8, GDK_KEY_F8), K (0x68, GDK_KEY_F9, GDK_KEY_F9), K (0x69, GDK_KEY_F10, GDK_KEY_F10), K (0x6a, GDK_KEY_F11, GDK_KEY_F11), K (0x6b, GDK_KEY_F12, GDK_KEY_F12),
+  K (0x6c, GDK_KEY_F13, GDK_KEY_F13), K (0x6d, GDK_KEY_F14, GDK_KEY_F14), K (0x6e, GDK_KEY_F15, GDK_KEY_F15), K (0x6f, GDK_KEY_F16, GDK_KEY_F16), K (0x70, GDK_KEY_F17, GDK_KEY_F17), K (0x71, GDK_KEY_F18, GDK_KEY_F18),
+  K (0x72, GDK_KEY_F19, GDK_KEY_F19), K (0x73, GDK_KEY_F20, GDK_KEY_F20), K (0x74, GDK_KEY_F21, GDK_KEY_F21), K (0x75, GDK_KEY_F22, GDK_KEY_F22), K (0x76, GDK_KEY_F23, GDK_KEY_F23), K (0x77, GDK_KEY_F24, GDK_KEY_F24),
+  /* punctuation (EStdKeyComma .. EStdKeyEquals; the names are those of e32keys.h, the shifted symbols those of the standard layout) */
+  K (0x79, GDK_KEY_comma, GDK_KEY_less), K (0x7a, GDK_KEY_period, GDK_KEY_greater), K (0x7b, GDK_KEY_slash, GDK_KEY_question), K (0x7c, GDK_KEY_backslash, GDK_KEY_bar),
+  K (0x7d, GDK_KEY_semicolon, GDK_KEY_colon), K (0x7e, GDK_KEY_apostrophe, GDK_KEY_quotedbl), K (0x7f, GDK_KEY_numbersign, GDK_KEY_asciitilde),
+  K (0x80, GDK_KEY_bracketleft, GDK_KEY_braceleft), K (0x81, GDK_KEY_bracketright, GDK_KEY_braceright), K (0x82, GDK_KEY_minus, GDK_KEY_underscore), K (0x83, GDK_KEY_equal, GDK_KEY_plus),
+  /* numeric keypad (EStdKeyNkp*) */
+  K (0x84, GDK_KEY_KP_Divide, GDK_KEY_KP_Divide), K (0x85, GDK_KEY_KP_Multiply, GDK_KEY_KP_Multiply), K (0x86, GDK_KEY_KP_Subtract, GDK_KEY_KP_Subtract), K (0x87, GDK_KEY_KP_Add, GDK_KEY_KP_Add),
+  K (0x88, GDK_KEY_KP_Enter, GDK_KEY_KP_Enter), K (0x89, GDK_KEY_KP_1, GDK_KEY_KP_End), K (0x8a, GDK_KEY_KP_2, GDK_KEY_KP_Down), K (0x8b, GDK_KEY_KP_3, GDK_KEY_KP_Page_Down),
+  K (0x8c, GDK_KEY_KP_4, GDK_KEY_KP_Left), K (0x8d, GDK_KEY_KP_5, GDK_KEY_KP_Begin), K (0x8e, GDK_KEY_KP_6, GDK_KEY_KP_Right), K (0x8f, GDK_KEY_KP_7, GDK_KEY_KP_Home),
+  K (0x90, GDK_KEY_KP_8, GDK_KEY_KP_Up), K (0x91, GDK_KEY_KP_9, GDK_KEY_KP_Page_Up), K (0x92, GDK_KEY_KP_0, GDK_KEY_KP_Insert), K (0x93, GDK_KEY_KP_Decimal, GDK_KEY_KP_Delete),
+  K (0x94, GDK_KEY_Menu, GDK_KEY_Menu), K (0x9f, GDK_KEY_Help, GDK_KEY_Help),
 };
 #undef K
 #define N_KEYS ((gint) G_N_ELEMENTS (keytable))

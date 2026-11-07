@@ -13,6 +13,7 @@
 #include "gdkinternals.h"
 #include "gdkregion.h"
 #include "gdkpixbuf.h"
+#include "gdkraster.h"
 
 GdkGC *_gdk_symbian_gc_new (GdkDrawable *drawable, GdkGCValues *values, GdkGCValuesMask mask, gint depth);
 
@@ -262,29 +263,16 @@ gdk_drawable_impl_symbian_draw_trapezoids (GdkDrawable *d, GdkGC *gc, GdkTrapezo
 }
 
 /* Per-pixel copy of a source (cairo image surface data or GdkImage memory) with the raster function and clip of the GC: used when the function is not COPY and when the source is a
- * bitmap (XCopyPlane semantics: a 1 bit becomes the foreground pixel, a 0 bit the background pixel). */
-static void
-put_function_pixel (guchar *dst, gint stride, gint depth, gint x, gint y, GdkFunction f, guint32 s)
-{
-  guchar *dp = dst + y * stride + (depth == 1 ? x : 4 * x);
-  if (depth == 1) { guint32 d = dp[0] ? 1 : 0; dp[0] = (_gdk_symbian_apply_function (f, s & 1, d) & 1) ? 0xff : 0x00; }
-  else { guint32 *p32 = (guint32 *) dp, d = *p32, keep = depth == 24 ? 0x00ffffffu : 0xffffffffu; *p32 = (_gdk_symbian_apply_function (f, s, d) & keep) | (d & ~keep); }
-}
+ * bitmap (XCopyPlane semantics: a 1 bit becomes the foreground pixel, a 0 bit the background pixel). The pixel math is gdkraster.c (unit-tested on the host). */
+static int clip_cb (void *gc, int x, int y) { return _gdk_symbian_gc_clip_test (gc, x, y); }
 
 static void
 copy_pixels (GdkDrawableImplSymbian *impl, GdkGC *gc, const guchar *sd, gint sstride, gint sw, gint sh, gboolean src_is_bitmap, gint xsrc, gint ysrc, gint xdest, gint ydest, gint width, gint height)
 {
-  guchar *dst; gint stride, x0, y0, x1, y1, x, y; GdkFunction f = _gdk_symbian_gc_function (gc); guint32 fg, bg;
-  if (f == GDK_NOOP || !raster_target (impl, &dst, &stride, &x0, &y0, &x1, &y1)) return;
+  guchar *dst; gint stride, x0, y0, x1, y1; guint32 fg, bg;
+  if (_gdk_symbian_gc_function (gc) == GDK_NOOP || !raster_target (impl, &dst, &stride, &x0, &y0, &x1, &y1)) return;
   _gdk_symbian_gc_pixels (gc, &fg, &bg);
-  if (impl->depth == 32) { fg |= 0xff000000u; bg |= 0xff000000u; }
-  for (y = 0; y < height; y++) for (x = 0; x < width; x++) {
-    gint dx = xdest + x, dy = ydest + y, sx = xsrc + x, sy = ysrc + y; guint32 s;
-    if (dx < x0 || dx >= x1 || dy < y0 || dy >= y1 || sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue;
-    if (!_gdk_symbian_gc_clip_test (gc, dx, dy)) continue;
-    s = src_is_bitmap ? (sd[sy * sstride + sx] ? fg : bg) : *(const guint32 *) (sd + sy * sstride + 4 * sx);
-    put_function_pixel (dst, stride, impl->depth, dx, dy, f, s);
-  }
+  phe_raster_copy (dst, stride, impl->depth, x0, y0, x1, y1, sd, sstride, sw, sh, src_is_bitmap, xsrc, ysrc, xdest, ydest, width, height, _gdk_symbian_gc_function (gc), fg, bg, clip_cb, gc);
   cairo_surface_mark_dirty (impl->surface);
   if (GDK_IS_WINDOW (impl->wrapper)) window_mark_dirty (impl, xdest, ydest, width, height);
 }
