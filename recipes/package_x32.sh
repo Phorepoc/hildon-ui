@@ -51,4 +51,12 @@ if ls /wk/gtk-x32/gtkwindow.o >/dev/null 2>&1; then
   $CC $CF $INC $GK -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phegtkwin/phegtkwin_demo.c -o /wk/out/gk/phegtkwin_demo.o || echo "GTK DEMO COMPILE FAIL"
   ar rcs $O/libphegtkwin.a /wk/out/gk/*.o; cp /h/os/src/phegtkwin/fonts.conf $O/testdata/phegtkwin_fonts.conf; echo "libphegtkwin.a built"
 fi
+# libhildon (build_hildon_x32.sh) as libphehildon.a, and its demo (public libhildon API) as libphehildonwin.a
+if [ -f /wk/out/libphehildon.a ]; then
+  cp /wk/out/libphehildon.a $O/libphehildon.a; echo "libphehildon.a: $(ar t $O/libphehildon.a | wc -l) members"
+  GT=/wk/gtk+-2.24.33; HI="-I/h/os/src/phehildonwin -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/h/dl/libhildon -I/h/os/src/phehildon/shims -I/wk/gtk-x32 -I/wk/gtk-x32/inc -I$GT -I/wk/atk-2.38.0 -I/wk/gdk-x32 -I$GT/gdk -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/glib-2.56.4/gio"
+  mkdir -p /wk/out/hi; rm -f /wk/out/hi/*.o $O/libphehildonwin.a
+  $CC $CF $INC $HI -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phehildonwin/phehildonwin_demo.c -o /wk/out/hi/phehildonwin_demo.o || echo "HILDON DEMO COMPILE FAIL"
+  ar rcs $O/libphehildonwin.a /wk/out/hi/*.o; cp /h/os/src/phehildonwin/fonts.conf $O/testdata/phehildonwin_fonts.conf; echo "libphehildonwin.a built"
+fi
 mk libpheglibtest.a /wk/out/t/*.o

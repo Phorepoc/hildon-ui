@@ -73,6 +73,7 @@ phe_hildon_demo_main (void)
   app_menu = HILDON_APP_MENU (hildon_app_menu_new ());
   b = hildon_gtk_button_new (HILDON_SIZE_AUTO); gtk_button_set_label (GTK_BUTTON (b), "Settings"); g_signal_connect (b, "clicked", G_CALLBACK (on_menu_item), NULL); hildon_app_menu_append (app_menu, GTK_BUTTON (b));
   b = hildon_gtk_button_new (HILDON_SIZE_AUTO); gtk_button_set_label (GTK_BUTTON (b), "About"); g_signal_connect (b, "clicked", G_CALLBACK (on_menu_item), NULL); hildon_app_menu_append (app_menu, GTK_BUTTON (b));
+  gtk_widget_show_all (GTK_WIDGET (app_menu));
   hildon_window_set_app_menu (HILDON_WINDOW (window), app_menu);
   /* the content: a pannable area with the touch widgets */
   pannable = hildon_pannable_area_new ();

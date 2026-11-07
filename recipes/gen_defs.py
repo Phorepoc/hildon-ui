@@ -5,8 +5,8 @@
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a"), ("phehb", "libphehb.a"), ("phepng", "libphepng.a"), ("phefontconfig", "libphefontconfig.a"), ("phepango", "libphepango.a"), ("phepixbuf", "libphepixbuf.a"), ("pheatk", "libpheatk.a"), ("phegdk", "libphegdk.a"), ("phegtk", "libphegtk.a")]
-OTHER = ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a"]
+LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a"), ("phehb", "libphehb.a"), ("phepng", "libphepng.a"), ("phefontconfig", "libphefontconfig.a"), ("phepango", "libphepango.a"), ("phepixbuf", "libphepixbuf.a"), ("pheatk", "libpheatk.a"), ("phegdk", "libphegdk.a"), ("phegtk", "libphegtk.a"), ("phehildon", "libphehildon.a")]
+OTHER = ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a", "libphehildonwin.a"]
 def nm(a):
     d, u = {}, set()
     for line in subprocess.run(["nm", "-g", "--no-demangle", os.path.join(adir, a)], capture_output=True, text=True).stdout.splitlines():
@@ -21,7 +21,7 @@ for name, a in [l for l in LIBS if l[1] in info]:
     need = set()
     for b, (_, u) in info.items():
         if b != a: need |= u
-    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_|FT_|hb_|png_|Fc|XML_|pango_|gdk_pixbuf_|gdk_pixdata_|gdk_|atk_|gtk_)", n) or n in need))
+    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_|FT_|hb_|png_|Fc|XML_|pango_|gdk_pixbuf_|gdk_pixdata_|gdk_|atk_|gtk_|hildon_)", n) or n in need))
     path = os.path.join(out, name, name + ".def")
     # frozen ABI: a .def that exists is only EXTENDED (new names get the next ordinals, nothing is renumbered or removed); only a missing one is written from scratch
     have, last = set(), 0

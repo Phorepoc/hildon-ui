@@ -5,7 +5,7 @@ set -u
 H=$(cd "$(dirname "$0")/.." && pwd -W); R=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}
 cd "$R"
 MSYS_NO_PATHCONV=1 docker.exe run --rm --name hildon-pk -e ONLY="${ONLY:-}" -e ONLY_LIMIT_MS="${ONLY_LIMIT_MS:-}" -v "$H":/h -v "$R":/repo:ro -v "$R/.phorepoc-x86-build/hildon":/o -v "${VOL:-hildon-wk}":/wk phorepoc-x86 bash /h/recipes/package_x32.sh | tail -1; [ ${PIPESTATUS[0]} = 0 ] || { echo PACKAGE FAILED; exit 1; }
-./ph build pheglib phegobject phegmodule phegthread phepng phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheatk phegdk phegtk phecairowin phegdkwin phegtkwin pheglibtest > .hildon-build.log 2>&1 || { tail -5 .hildon-build.log; exit 1; }
+./ph build pheglib phegobject phegmodule phegthread phepng phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheatk phegdk phegtk phehildon phecairowin phegdkwin phegtkwin phehildonwin pheglibtest > .hildon-build.log 2>&1 || { tail -5 .hildon-build.log; exit 1; }
 ROM_EXCLUDE=pheget,phestore,gsaccessoryplugin FAST=1 BOOT="!${BOOT_EXE:-pheglibtest}" SECONDARY_IMAGE=efile.exe bash tools/make_phorepoc_rom.sh > .hildon-rom.log 2>&1 || { echo ROM FAILED; exit 1; }
 # the timing lock (VMLOCK=<path of vmlock.sh>) is held ONLY around the QEMU boot, released on any exit
 if [ -n "${VMLOCK:-}" ]; then sh "$VMLOCK" acquire hildon; trap 'sh "$VMLOCK" release hildon' EXIT; fi

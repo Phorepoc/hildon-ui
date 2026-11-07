@@ -137,6 +137,11 @@ _gdk_window_impl_new (GdkWindow *window, GdkWindow *real_parent, GdkScreen *scre
   }
   (void) visual;
   if ((attributes_mask & GDK_WA_CURSOR) && attributes->cursor) gdk_window_set_cursor (window, attributes->cursor);
+  if (private->window_type == GDK_WINDOW_TOPLEVEL) {          /* like the X11 backend: every toplevel announces the protocols it takes part in */
+    GdkAtom protocols[3];
+    protocols[0] = gdk_atom_intern_static_string ("WM_DELETE_WINDOW"); protocols[1] = gdk_atom_intern_static_string ("WM_TAKE_FOCUS"); protocols[2] = gdk_atom_intern_static_string ("_NET_WM_PING");
+    gdk_property_change (window, gdk_atom_intern_static_string ("WM_PROTOCOLS"), gdk_atom_intern_static_string ("ATOM"), 32, GDK_PROP_MODE_REPLACE, (const guchar *) protocols, 3);
+  }
 }
 
 /* ---- repainting what a toplevel uncovered: the root background, then the windows below ---- */
@@ -195,11 +200,31 @@ queue_map_event (GdkWindow *window, gboolean map)
 }
 
 /* ---- GdkWindowImplIface ---- */
+/* window placement policy of the window manager this backend is: a window whose _NET_WM_WINDOW_TYPE is the Hildon application menu goes to the top of the screen (its own size request is the
+ * screen width) */
+static gboolean
+is_hildon_app_menu (GdkWindow *window)
+{
+  GdkAtom type; gint fmt = 0, len = 0, i; guchar *data = NULL; gboolean r = FALSE; GdkAtom want = gdk_atom_intern_static_string ("_HILDON_WM_WINDOW_TYPE_APP_MENU");
+  if (!gdk_property_get (window, gdk_atom_intern_static_string ("_NET_WM_WINDOW_TYPE"), GDK_NONE, 0, 64, FALSE, &type, &fmt, &len, &data)) return FALSE;
+  if (fmt == 32) for (i = 0; i + (gint) sizeof (glong) <= len; i += sizeof (glong)) if (*(glong *) (data + i) == (glong) GPOINTER_TO_UINT (want)) r = TRUE;
+  g_free (data);
+  return r;
+}
+
+static void impl_move_resize (GdkWindow *window, gboolean with_move, gint x, gint y, gint width, gint height);
+
 static void
 impl_show (GdkWindow *window, gboolean already_mapped)
 {
   GdkWindowImplSymbian *impl = WIMPL (window);
   (void) already_mapped;
+  if (GDK_WINDOW_OBJECT (window)->window_type == GDK_WINDOW_TOPLEVEL && is_hildon_app_menu (window)) impl_move_resize (window, TRUE, 0, 0, -1, -1);
+  else if (GDK_WINDOW_OBJECT (window)->window_type == GDK_WINDOW_TOPLEVEL && impl->type_hint == GDK_WINDOW_TYPE_HINT_DIALOG) {
+    /* a dialog of a phone is as wide as the screen and centred on it vertically (what the toolkit's own layout expects of the window manager) */
+    gint sw = gdk_screen_get_width (_gdk_screen), sh = gdk_screen_get_height (_gdk_screen), h = impl->drawable.height;
+    impl_move_resize (window, TRUE, 0, MAX (0, (sh - h) / 2), sw, h);
+  }
   impl->mapped = TRUE;
   if (GDK_WINDOW_OBJECT (window)->window_type != GDK_WINDOW_CHILD) _gdk_symbian_stack_raise (window);
   queue_map_event (window, TRUE);

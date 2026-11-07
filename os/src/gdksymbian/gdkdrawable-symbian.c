@@ -146,10 +146,11 @@ clip_occluders (GdkDrawableImplSymbian *impl, cairo_t *cr)
   GdkRegion *r = occluders (impl); GdkRectangle *rects; gint n, k;
   if (!r) return;
   gdk_region_get_rectangles (r, &rects, &n);
-  cairo_save (cr); cairo_new_path (cr);
+  cairo_new_path (cr);
   cairo_rectangle (cr, 0, 0, impl->width, impl->height);
   for (k = 0; k < n; k++) cairo_rectangle (cr, rects[k].x, rects[k].y, rects[k].width, rects[k].height);
-  cairo_set_fill_rule (cr, CAIRO_FILL_RULE_EVEN_ODD); cairo_clip (cr); cairo_restore (cr);
+  cairo_set_fill_rule (cr, CAIRO_FILL_RULE_EVEN_ODD); cairo_clip (cr);                    /* (the clip stays in the state of the context: no save / restore around it) */
+  cairo_set_fill_rule (cr, CAIRO_FILL_RULE_WINDING); cairo_new_path (cr);
   g_free (rects); gdk_region_destroy (r);
 }
 
