@@ -34,6 +34,11 @@ mkdir -p $O/include/pango $O/include/hb $O/include/gdk-pixbuf $O/include/fontcon
 cp $PG/pango/*.h /wk/pango-x32/pango/*.h $O/include/pango/ 2>/dev/null; cp $HB/hb.h $HB/hb-*.h $O/include/hb/ 2>/dev/null; cp /wk/fontconfig-2.14.2/fontconfig/*.h $O/include/fontconfig/
 cp $PX/gdk-pixbuf/gdk-pixbuf.h $PX/gdk-pixbuf/gdk-*.h /wk/pixbuf-x32/gdk-pixbuf/*.h $O/include/gdk-pixbuf/ 2>/dev/null
 mkdir -p $O/include; cp /wk/cairo-1.16.0/src/cairo.h /wk/cairo-1.16.0/src/cairo-ft.h /wk/cairo-1.16.0/src/cairo-deprecated.h /wk/cairo-x32/src/cairo-features.h /wk/cairo-1.16.0/src/cairo-version.h $O/include/ 2>/dev/null; cp -r /wk/freetype-2.13.3/include/. $O/include/ 2>/dev/null
-# the gdk-symbian skeleton demo (C half) as libphegdkwin.a
-[ -f /wk/out/libphepango.a ] && $CC $CF $INC -I/h/os/src/phegdkwin -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/pixbuf-x32/gdk-pixbuf -I/wk/glib-2.56.4/gio -c /h/os/src/phegdkwin/phegdkwin_paint.c -o /wk/out/phegdkwin_paint.o && rm -f $O/libphegdkwin.a && ar rcs $O/libphegdkwin.a /wk/out/phegdkwin_paint.o && cp /h/os/src/phegdkwin/fonts.conf $O/testdata/phegdkwin_fonts.conf && echo "libphegdkwin.a built"
+# the gdk-symbian skeleton (C half: phegdk_display.c = classes + WSERV main-loop source, phegdkwin_demo.c) as libphegdkwin.a
+if [ -f /wk/out/libphepango.a ]; then
+  GD="-I/h/os/src/phegdkwin -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/pixbuf-x32/gdk-pixbuf -I/wk/glib-2.56.4/gio"
+  mkdir -p /wk/out/gd; rm -f /wk/out/gd/*.o $O/libphegdkwin.a
+  for f in phegdk_display phegdkwin_demo; do $CC $CF $INC $GD -c /h/os/src/phegdkwin/$f.c -o /wk/out/gd/$f.o || echo "GDK COMPILE FAIL $f"; done
+  ar rcs $O/libphegdkwin.a /wk/out/gd/*.o; cp /h/os/src/phegdkwin/fonts.conf $O/testdata/phegdkwin_fonts.conf; echo "libphegdkwin.a: $(ar t $O/libphegdkwin.a | wc -l) members"
+fi
 mk libpheglibtest.a /wk/out/t/*.o
