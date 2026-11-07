@@ -227,6 +227,7 @@ int phe_glib_child (int argc, char **argv)
   for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
                              else if (cargc < 14) cargv[++cargc] = argv[i];
   cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
+  { const char *wd0 = phe_writable_dir (); static char wdb[64]; snprintf (wdb, sizeof wdb, "%s", wd0); if (strlen (wdb) > 3) wdb[strlen (wdb) - 1] = 0; chdir (wdb); }   /* keyfile.c test_save makes a file in the CURRENT directory (g_mkstemp ("key_file_XXXXXX")) */
   setenv ("G_TEST_SRCDIR", "z:/resource/pheglibtest", 1); { static char td[64]; snprintf (td, sizeof td, "%s", phe_writable_dir ()); if (strlen (td) > 1) td[strlen (td) - 1] = 0; setenv ("TMPDIR", td, 1); } phe_front_on = name && (!strcmp (name, "strfuncs") || !strcmp (name, "keyfile") || !strcmp (name, "mainloop"));   /* the data files of the test programs (keyfile): rom_data of the registry key */
   if (name && !strcmp (name, "exit0")) return 0;
   if (name && !strcmp (name, "keyfile"))   /* why does g_file_open_tmp fail in keyfile.c test_save? */

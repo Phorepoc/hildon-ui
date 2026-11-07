@@ -5,13 +5,29 @@
 [pheglib] gio: GKeyFile through a file: load=1 key=[value] n=42 -
 [pheglib] gio: delete ok=1 exists_after=0
 [pheglib] probe dbl pow(2,-1024.1): libc[5.1901682964836274e-309] strtod_back_eq=1 | glib[5.1901682964836274e-309] g_ascii_strtod_back_eq=1 | same_string=1
-[pheglib] glib/tests/queue: no exit within 100 s, killed -- VERDICT=TIMEOUT
+[pheglib] glib/tests/queue: exit_status=0 (type 0 reason 0) VERDICT=PASS
 [pheglib] glib/tests/array: exit_status=0 (type 0 reason 0) VERDICT=PASS
 [pheglib] glib/tests/strfuncs: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib] glib/tests/keyfile: exit_status=256 (type 0 reason 1) VERDICT=FAIL
+[pheglib] keyfile tmp diag: getenv(TMPDIR)=[c:/data] g_get_tmp_dir=[c:/data] g_file_open_tmp fd=3 name=[c:/data/phediag23T4X3] err=[-]
+[pheglib] glib/tests/keyfile: exit_status=0 (type 0 reason 0) VERDICT=PASS
 [pheglib] glib/tests/slist: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib] glib/tests/list: exit_status=256 (type 0 reason 1) VERDICT=FAIL
+[pheglib] glib/tests/list: exit_status=0 (type 0 reason 0) VERDICT=PASS
 [pheglib] glib/tests/hash: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib] glib/tests/mainloop: no exit within 100 s, killed -- VERDICT=TIMEOUT
-[pheglib] glib tests: 4 of 8 programs not clean
-[pheglib] DONE fails=4
+[pheglib] /mainloop/basic: 
+[pheglib] /mainloop/timeouts: 
+[pheglib] /mainloop/priorities: 
+[pheglib] /mainloop/invoke: 
+[pheglib] /mainloop/child_sources: 
+[pheglib] /mainloop/recursive_child_sources: 
+[pheglib] /mainloop/swapping_child_sources: 
+[pheglib] /mainloop/blocked_child_sources: 
+[pheglib] /mainloop/source_time: 
+[pheglib] /mainloop/overflow: 
+[pheglib] /mainloop/ready-time: 
+[pheglib] /mainloop/wakeup: 
+[pheglib] /mainloop/remove-invalid: 
+[pheglib] /mainloop/unref-while-pending: 
+[pheglib] /mainloop/unix-fd: 
+[pheglib] glib/tests/mainloop: no exit within its time limit, killed -- VERDICT=TIMEOUT
+[pheglib] glib tests: 1 of 8 programs not clean
+[pheglib] DONE fails=1
