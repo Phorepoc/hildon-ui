@@ -28,7 +28,9 @@ COMPONENTS = {
     "phegmodule": _dll("phegmodule", ["libphegmodule"]),
     "phegthread": _dll("phegthread", ["libphegthread"]),
     "phepixman": _dll("phepixman", ["libphepixman"]),
+    "phefreetype": _dll("phefreetype", ["libphefreetype"]),
     "phecairo": _dll("phecairo", ["libphecairo"]),
+    "phecairowin": dict(mmp=os.path.join(OS_ROOT, "src/phecairowin/phecairowin.mmp"), x32_flags=["-I.hildon/include"]),
     "phegio": dict(_dll("phegio", ["libphegio"]), x32_archives=[".hildon/libphegio.a", "thirdparty/x86/cxxrt/libz.a", "thirdparty/x86/cxxrt/libphcompat.a", "thirdparty/x86/cxxrt/libgcc.a"]),
     # the console test EXE: links the four DLLs through its mmp's LIBRARY line (SSM_TEST=pheglibtest)
     "pheglibtest": dict(mmp=os.path.join(OS_ROOT, "src/pheglibtest/pheglibtest.mmp"), test=True, stack=0x100000,

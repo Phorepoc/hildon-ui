@@ -1,5 +1,8 @@
 /* phe_cairo_test.c -- cairo 1.16.0 (image backend) on the x32 image: fill, stroke, a gradient, a transform and a clip into an ARGB32 surface, checked pixel by pixel. BSD-2-Clause (Phorepoc). */
 #include <cairo.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <cairo-ft.h>
 #include <stdio.h>
 #include <string.h>
 extern void phe_log (const char *msg);
@@ -24,6 +27,31 @@ int phe_cairo_test (void)
     { unsigned left = px (s, 2, 60) & 0xff, mid = px (s, 32, 60) & 0xff, right = px (s, 61, 60) & 0xff; T (left < 12 && mid > 116 && mid < 140 && right > 243, "linear gradient left/mid/right"); } }
   cairo_save (cr); cairo_rectangle (cr, 40, 8, 10, 10); cairo_clip (cr); cairo_translate (cr, 40, 8); cairo_scale (cr, 2, 2); cairo_set_source_rgb (cr, 1, 1, 0); cairo_rectangle (cr, 0, 0, 20, 20); cairo_fill (cr); cairo_restore (cr);
   T (near_ (px (s, 45, 12), 0xffffff00u) && near_ (px (s, 52, 12), 0xff0000ffu), "clip + translate + scale");
+#ifdef CAIRO_HAS_FT_FONT
+  { /* text through cairo-ft: a ROM font (Ubuntu-based "Series 60 Sans") opened by FreeType, glyphs rendered by cairo into black-on-white */
+    FT_Library lib; FT_Face face; int err = FT_Init_FreeType (&lib), dark = 0, x, y;
+    snprintf (m, sizeof m, "freetype: FT_Init_FreeType=%d", err); phe_log (m); T (err == 0, "FT_Init_FreeType");
+    if (err == 0)
+      {
+        err = FT_New_Face (lib, "z:/resource/fonts/s60sans_r.ttf", 0, &face);
+        snprintf (m, sizeof m, "freetype: FT_New_Face(z:/resource/fonts/s60sans_r.ttf)=%d", err); phe_log (m); T (err == 0, "FT_New_Face");
+        if (err == 0)
+          {
+            cairo_surface_t *ts = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 200, 48); cairo_t *tc = cairo_create (ts); cairo_text_extents_t ex; cairo_font_face_t *ff;
+            snprintf (m, sizeof m, "freetype: family [%s] style [%s] glyphs %ld units/em %d", face->family_name ? face->family_name : "-", face->style_name ? face->style_name : "-", (long) face->num_glyphs, (int) face->units_per_EM); phe_log (m);
+            cairo_set_source_rgb (tc, 1, 1, 1); cairo_paint (tc);
+            ff = cairo_ft_font_face_create_for_ft_face (face, 0); cairo_set_font_face (tc, ff); cairo_set_font_size (tc, 28); cairo_set_source_rgb (tc, 0, 0, 0);
+            cairo_text_extents (tc, "Hildon", &ex); cairo_move_to (tc, 6, 34); cairo_show_text (tc, "Hildon"); cairo_surface_flush (ts);
+            for (y = 0; y < 48; y++) for (x = 0; x < 200; x++) if ((px (ts, x, y) & 0xff) < 128) dark++;
+            snprintf (m, sizeof m, "cairo text \"Hildon\": advance %.1f x %.1f, %d dark pixels, status %s", ex.x_advance, ex.height, dark, cairo_status_to_string (cairo_status (tc))); phe_log (m);
+            T (cairo_status (tc) == CAIRO_STATUS_SUCCESS && ex.x_advance > 40 && dark > 150 && dark < 3000, "cairo-ft text renders glyphs");
+            cairo_font_face_destroy (ff); cairo_destroy (tc); cairo_surface_destroy (ts);
+            FT_Done_Face (face);
+          }
+        FT_Done_FreeType (lib);
+      }
+  }
+#endif
   snprintf (m, sizeof m, "cairo %s: %d checks, %d failures", cairo_version_string (), checks, fails); phe_log (m);
   cairo_destroy (cr); cairo_surface_destroy (s);
   return fails;

@@ -6,7 +6,7 @@ CC=/wk/lsc/bin/pp-gcc; X=/wk/x32; S=/wk/glib-2.56.4; O=/o; mkdir -p $O /wk/out/t
 INC="-I$X -I$X/glib -I$S -I$S/glib -I$S/gobject -I$S/gmodule -I/wk/ffi-x32 -I/h/overlay -include /h/overlay/phe_glib_compat.h"
 CF="-O2 -g0 -w -fno-pic -DHAVE_CONFIG_H -DGLIB_STATIC_COMPILATION -DGOBJECT_STATIC_COMPILATION"
 $CC $CF $INC -c /h/overlay/phe_posix_stubs.c -o /wk/out/phe_posix_stubs.o || exit 1
-CAIROFLAG=""; [ -f /wk/cairo-x32/src/cairo-features.h ] && CAIROFLAG="-DPHE_HAVE_CAIRO" && $CC $CF $INC -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -c /h/os/src/pheglibtest/phe_cairo_test.c -o /wk/out/t/phe_cairo_test.o
+CAIROFLAG=""; [ -f /wk/cairo-x32/src/cairo-features.h ] && CAIROFLAG="-DPHE_HAVE_CAIRO" && $CC $CF $INC -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/freetype-2.13.3/include -c /h/os/src/pheglibtest/phe_cairo_test.c -o /wk/out/t/phe_cairo_test.o
 PIX=""; [ -f /wk/pixman-x32/pixman/pixman-version.h ] && PIX="-DPHE_HAVE_PIXMAN" && $CC $CF $INC -I/wk/pixman-0.42.2/pixman -I/wk/pixman-x32/pixman -I/wk/pixman-x32 -c /h/os/src/pheglibtest/phe_pixman_test.c -o /wk/out/t/phe_pixman_test.o
 $CC $CF $INC $PIX $CAIROFLAG ${ONLY:+-DPHE_ONLY=\"$ONLY\" -DPHE_LIMIT_MS=${ONLY_LIMIT_MS:-1500000}} -c /h/os/src/pheglibtest/pheglibtest.c -o /wk/out/t/pheglibtest.o || exit 1
 for t in hash:hash list:list slist:slist queue:queue array:array-test strfuncs:strfuncs keyfile:keyfile mainloop:mainloop; do
@@ -20,6 +20,8 @@ mk libphegmodule.a $X/gmodule/.libs/*.o
 mk libphegthread.a $X/gthread/.libs/*.o
 mk libpheffi.a $(ls /wk/out/ffi/*.o | grep -v win64)
 [ -d $X/gio/.libs ] && mk libphegio.a $X/gio/.libs/*.o $X/gio/xdgmime/.libs/*.o $X/gio/gvdb/.libs/*.o
+[ -f /wk/out/libphefreetype.a ] && cp /wk/out/libphefreetype.a $O/libphefreetype.a && echo "libphefreetype.a copied"
 [ -f /wk/out/libphecairo.a ] && cp /wk/out/libphecairo.a $O/libphecairo.a && echo "libphecairo.a copied"
 [ -f /wk/out/libphepixman.a ] && cp /wk/out/libphepixman.a $O/libphepixman.a && echo "libphepixman.a copied"
+mkdir -p $O/include; cp /wk/cairo-1.16.0/src/cairo.h /wk/cairo-1.16.0/src/cairo-ft.h /wk/cairo-1.16.0/src/cairo-deprecated.h /wk/cairo-x32/src/cairo-features.h /wk/cairo-1.16.0/src/cairo-version.h $O/include/ 2>/dev/null; cp -r /wk/freetype-2.13.3/include/. $O/include/ 2>/dev/null
 mk libpheglibtest.a /wk/out/t/*.o

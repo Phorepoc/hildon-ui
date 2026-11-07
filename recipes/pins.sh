@@ -18,3 +18,6 @@ PIXMAN_URL=https://cairographics.org/releases/pixman-$PIXMAN_VER.tar.gz
 CAIRO_VER=1.16.0
 CAIRO_SHA256=5e7b29b3f113ef870d1e3ecf8adf21f923396401604bda16d44be45e66052331
 CAIRO_URL=https://cairographics.org/releases/cairo-$CAIRO_VER.tar.xz
+FREETYPE_VER=2.13.3
+FREETYPE_SHA256=0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289
+FREETYPE_URL=https://download.savannah.gnu.org/releases/freetype/freetype-$FREETYPE_VER.tar.xz

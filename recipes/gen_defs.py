@@ -5,7 +5,7 @@
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a")]
+LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a")]
 OTHER = ["libpheglibtest.a", "libpheffi.a"]
 def nm(a):
     d, u = {}, set()
@@ -21,7 +21,7 @@ for name, a in [l for l in LIBS if l[1] in info]:
     need = set()
     for b, (_, u) in info.items():
         if b != a: need |= u
-    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_)", n) or n in need))
+    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_|FT_)", n) or n in need))
     path = os.path.join(out, name, name + ".def")
     with open(path, "w", newline="\n") as fh:
         fh.write("EXPORTS\n")
