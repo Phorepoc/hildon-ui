@@ -58,6 +58,56 @@ static const char *phe_writable_dir (void)
     { int fd; snprintf (p, sizeof p, "%sphe_wd_probe", dirs[i]); fd = open (p, O_CREAT | O_WRONLY, 0600); if (fd >= 0) { close (fd); unlink (p); return dirs[i]; } }
   return "c:/";
 }
+/* log the tail of a child's stdout/stderr file (the harness redirects both there) */
+static void phe_log_tail (const char *name)
+{
+  char of[96], buf[1500], ln[220]; int fd, n; off_t sz; char *p, *q;
+  snprintf (of, sizeof of, "%sphe_child_%s.out", phe_writable_dir (), name);
+  fd = open (of, O_RDONLY); if (fd < 0) { snprintf (ln, sizeof ln, "  [%s: no child output file]", name); phe_log (ln); return; }
+  sz = lseek (fd, 0, SEEK_END); if (sz > (off_t) sizeof buf - 1) { lseek (fd, sz - (off_t) (sizeof buf - 1), SEEK_SET); } else lseek (fd, 0, SEEK_SET);
+  n = (int) read (fd, buf, sizeof buf - 1); close (fd); if (n < 0) n = 0; buf[n] = 0;
+  snprintf (ln, sizeof ln, "  [%s child output: %d bytes total, tail follows]", name, (int) sz); phe_log (ln);
+  for (p = buf; *p; p = q) { q = strchr (p, '\n'); if (q) *q++ = 0; else q = p + strlen (p); if (*p) { snprintf (ln, sizeof ln, "  | %.200s", p); phe_log (ln); } }
+}
+/* run one test program as a child process: stdout+stderr through pipes (drained here, so a chatty child never blocks), exit status through waitpid,
+ * a time limit with RProcess::Kill. Open C reports pipe EOF as an exception, so select() watches the exception set too. Returns 0 = exited, 1 = timeout, 2 = spawn failed. */
+static int phe_run_child (const char *name, int limit_ms, char *out, int cap, int *status)
+{
+  int op[2], ep[2], rc, done = 0, ms = 0, olen = 0, drain = 0; pid_t pid = 0; posix_spawn_file_actions_t fa;
+  char *av[] = { (char *) "pheglibtest.exe", (char *) "--phe-run", (char *) name, NULL };
+  out[0] = 0; *status = -1;
+  if (pipe (op) != 0 || pipe (ep) != 0) return 2;
+  posix_spawn_file_actions_init (&fa); posix_spawn_file_actions_adddup2 (&fa, op[1], 1); posix_spawn_file_actions_adddup2 (&fa, ep[1], 2);
+  rc = posix_spawn (&pid, "pheglibtest.exe", &fa, NULL, av, NULL); posix_spawn_file_actions_destroy (&fa);
+  close (op[1]); close (ep[1]);
+  if (rc != 0) { close (op[0]); close (ep[0]); return 2; }
+  while (ms < limit_ms)
+    {
+      int fds[2], k, nopen = 0, maxfd = 0; fd_set rs, xs; struct timeval tv; fds[0] = op[0]; fds[1] = ep[0];
+      FD_ZERO (&rs); FD_ZERO (&xs);
+      for (k = 0; k < 2; k++) if (fds[k] >= 0) { FD_SET (fds[k], &rs); FD_SET (fds[k], &xs); nopen++; if (fds[k] > maxfd) maxfd = fds[k]; }
+      if (nopen) { tv.tv_sec = 0; tv.tv_usec = 100000; if (select (maxfd + 1, &rs, NULL, &xs, &tv) > 0)
+        for (k = 0; k < 2; k++) if (fds[k] >= 0 && (FD_ISSET (fds[k], &rs) || FD_ISSET (fds[k], &xs)))
+          { char tmp[256]; int n = (int) read (fds[k], tmp, sizeof tmp);
+            if (n > 0) { if (olen + n < cap - 1) { memcpy (out + olen, tmp, n); olen += n; out[olen] = 0; } }
+            else { close (fds[k]); if (k == 0) op[0] = -1; else ep[0] = -1; } } }
+      else g_usleep (100000);
+      if (nopen) ms += 100; else ms += 100;
+      { pid_t w = waitpid (pid, status, WNOHANG); if (w == pid) { done = 1; if (op[0] < 0 && ep[0] < 0) break; /* drain what is left, then stop */ }
+        else if (w < 0) { done = 1; break; } }
+      if (done && ms > 0 && op[0] < 0 && ep[0] < 0) break;
+      if (done && ++drain > 20) break;
+    }
+  if (op[0] >= 0) close (op[0]); if (ep[0] >= 0) close (ep[0]);
+  if (!done) { int k; phe_kill_pid ((int) pid); for (k = 0; k < 50; k++) { if (waitpid (pid, status, WNOHANG) == pid) break; g_usleep (100000); } return 1; }
+  return 0;
+}
+static void phe_log_text (const char *label, char *text)
+{
+  char ln[260], *p, *q; snprintf (ln, sizeof ln, "  [%s: %d bytes of child output; tail follows]", label, (int) strlen (text)); phe_log (ln);
+  p = text; if (strlen (text) > 1200) p = text + strlen (text) - 1200;
+  for (; *p; p = q) { q = strchr (p, '\n'); if (q) *q++ = 0; else q = p + strlen (p); if (*p) { snprintf (ln, sizeof ln, "  | %.220s", p); phe_log (ln); } }
+}
 int phe_glib_test_run (void)
 {
   char b[200];
@@ -155,17 +205,11 @@ int phe_glib_test_run (void)
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
       {
         gchar *av[] = { (gchar *) "pheglibtest.exe", (gchar *) "--phe-run", (gchar *) names[i], NULL };
-        pid_t cpid = 0; int st = -1, done = 0, waited_ms = 0; const int limit_ms = 100000;   /* per-program time limit */
-        posix_spawn_file_actions_t cfa; int rc; posix_spawn_file_actions_init (&cfa);
-        { char of[64]; snprintf (of, sizeof of, "%sphe_child_%s.out", phe_writable_dir (), names[i]);   /* the child's stdout/stderr go to a file (a child that inherits the console hung) */
-          posix_spawn_file_actions_addopen (&cfa, 1, of, O_WRONLY | O_CREAT | O_TRUNC, 0600); posix_spawn_file_actions_adddup2 (&cfa, 1, 2); }
-        rc = posix_spawn (&cpid, "pheglibtest.exe", &cfa, NULL, av, NULL); posix_spawn_file_actions_destroy (&cfa);
-        if (rc != 0) { snprintf (b, sizeof b, "glib/tests/%s: spawn failed rc=%d VERDICT=SPAWN_FAILED", names[i], rc); phe_log (b); total_bad++; continue; }
-        while (waited_ms < limit_ms) { pid_t w = waitpid (cpid, &st, WNOHANG); if (w == cpid) { done = 1; break; } if (w < 0) break; g_usleep (100000); waited_ms += 100; }
-        if (!done) { int k; phe_kill_pid ((int) cpid); for (k = 0; k < 50; k++) { if (waitpid (cpid, &st, WNOHANG) == cpid) break; g_usleep (100000); }
-          snprintf (b, sizeof b, "glib/tests/%s: no exit within %d s, killed -- VERDICT=TIMEOUT", names[i], limit_ms / 1000); phe_log (b); total_bad++; continue; }
+        char co[4000]; int st = -1, vr = phe_run_child (names[i], strcmp (names[i], "queue") == 0 ? 500000 : 100000, co, sizeof co, &st);   /* queue/random runs 500,000 iterations: minutes under QEMU */
+        if (vr == 2) { snprintf (b, sizeof b, "glib/tests/%s: spawn failed VERDICT=SPAWN_FAILED", names[i]); phe_log (b); total_bad++; continue; }
+        if (vr == 1) { snprintf (b, sizeof b, "glib/tests/%s: no exit within its time limit, killed -- VERDICT=TIMEOUT", names[i]); phe_log (b); phe_log_text (names[i], co); total_bad++; continue; }
         snprintf (b, sizeof b, "glib/tests/%s: exit_status=%d (type %d reason %d) VERDICT=%s", names[i], st, st & 0xff, (st >> 8) & 0xff, st == 0 ? "PASS" : "FAIL"); phe_log (b);
-        if (st != 0) total_bad++;
+        if (st != 0) { phe_log_text (names[i], co); total_bad++; }
       }
     snprintf (b, sizeof b, "glib tests: %d of %u programs not clean", total_bad, (unsigned) (sizeof names / sizeof names[0])); phe_log (b);
     fails += total_bad;
@@ -185,6 +229,11 @@ int phe_glib_child (int argc, char **argv)
   cargv[0] = argv[0]; cargc++; cargv[cargc] = NULL;
   setenv ("G_TEST_SRCDIR", "z:/resource/pheglibtest", 1); { static char td[64]; snprintf (td, sizeof td, "%s", phe_writable_dir ()); if (strlen (td) > 1) td[strlen (td) - 1] = 0; setenv ("TMPDIR", td, 1); } phe_front_on = name && (!strcmp (name, "strfuncs") || !strcmp (name, "keyfile") || !strcmp (name, "mainloop"));   /* the data files of the test programs (keyfile): rom_data of the registry key */
   if (name && !strcmp (name, "exit0")) return 0;
+  if (name && !strcmp (name, "keyfile"))   /* why does g_file_open_tmp fail in keyfile.c test_save? */
+    { char tb[300]; GError *te = NULL; gchar *tn = NULL; int tfd; const char *tv = getenv ("TMPDIR");
+      tfd = g_file_open_tmp ("phediagXXXXXX", &tn, &te);
+      snprintf (tb, sizeof tb, "keyfile tmp diag: getenv(TMPDIR)=[%s] g_get_tmp_dir=[%s] g_file_open_tmp fd=%d name=[%s] err=[%s]", tv ? tv : "(null)", g_get_tmp_dir (), tfd, tn ? tn : "-", te ? te->message : "-"); phe_log (tb);
+      if (tfd >= 0) { close (tfd); unlink (tn); } }
   if (!name)   /* a GTestSubprocess re-run (-p /<program>/<case>/subprocess): the first path segment names the program */
     { static char seg[24]; for (i = 1; i < argc; i++) if (argv[i][0] == (char) 0x2f) { const char *q = argv[i] + 1; unsigned k = 0; while (*q && *q != (char) 0x2f && k < sizeof seg - 1) seg[k++] = *q++; seg[k] = 0; name = seg; break; } }
   if (!name) name = "hash";
