@@ -5,7 +5,7 @@
 # directory (z:/resource/hildondesktop/...). The platform libhildon / libhildondesktop expect is provided by os/src/phehildon (Xlib, GConf, libiphb, canberra shims).
 # Out: /wk/hdesktop-x32/*.o, /wk/out/libphehildondesktop.a, /wk/hdesktop-x32/undefined.txt
 set -eu
-. /h/recipes/pins.sh
+. /glib/recipes/pins.sh; . /gtk/recipes/pins.sh; . /dbus/recipes/pins.sh; . /h/recipes/pins.sh
 CC=/wk/lsc/bin/pp-gcc
 H=/h/dl/libhildondesktop; O=/wk/hdesktop-x32; mkdir -p $O /wk/out; S=$H/libhildondesktop; SH=/h/os/src/phehildon; G=/wk/gtk+-$GTK_VER
 [ -d $S ] || { echo "no $S: git clone github.com/maemo-leste/libhildondesktop into dl/ and check out \$LIBHILDONDESKTOP"; exit 1; }
@@ -17,7 +17,7 @@ EOC
 SRC=$(sed -n '/^libhildondesktop_@API_VERSION_MAJOR@_la_SOURCES/,/^$/p' $S/Makefile.am | grep -o "[a-z0-9-]*\.c" | sed 's/\.c$//' | tr '\n' ' ')
 echo "hildondesktop: $(echo $SRC | wc -w) sources"
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/h/overlay -include /h/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /h/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H \
+FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H \
  -DG_LOG_DOMAIN=\"libhildondesktop\" -DLOCALEDIR=\"z:/resource/locale\" -DDATADIR=\"z:/resource\" -DHD_DESKTOP_ENTRY_PATH=\"z:/resource/hildondesktop/entries\" -DHD_DESKTOP_CONFIG_PATH=\"c:/data/hildondesktop\" \
  -DHD_DESKTOP_MODULE_PATH=\"z:/sys/bin\" -DHD_DESKTOP_MENU_PATH=\"z:/resource/hildondesktop/menu\" -DHD_DESKTOP_BACKGROUNDS_PATH=\"z:/resource/hildondesktop/backgrounds\" \
  -DHD_PLUGIN_LOADER_MODULES_PATH=\"z:/sys/bin\" -DHD_UI_POLICY_MODULES_PATH=\"z:/sys/bin\" -DDBUS_API_SUBJECT_TO_CHANGE \

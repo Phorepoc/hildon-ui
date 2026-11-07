@@ -5,7 +5,7 @@
 # os/src/phehildon (real implementations over this backend, see their headers). The two compositor-side classes (HildonAnimationActor, HildonRemoteTexture) are not built.
 # Out: /wk/hildon-x32/*.o, /wk/hildon-x32/errors.txt, /wk/out/libphehildon.a, /wk/hildon-x32/undefined.txt
 set -eu
-. /h/recipes/pins.sh
+. /glib/recipes/pins.sh; . /gtk/recipes/pins.sh; . /dbus/recipes/pins.sh; . /h/recipes/pins.sh
 CC=/wk/lsc/bin/pp-gcc
 H=/h/dl/libhildon; O=/wk/hildon-x32; mkdir -p $O /wk/out; NAT=/wk/nat/gobject; S=$H/hildon; SH=/h/os/src/phehildon
 [ -d $S ] || { echo "no $S: git clone github.com/maemo-leste/libhildon into dl/ and check out \$LIBHILDON"; exit 1; }
@@ -42,7 +42,7 @@ SRC="$SRC maemo-gtk-compat"; SRC=$(echo $SRC | tr ' ' '\n' | sort -u | tr '\n' '
 echo "hildon: $(echo $SRC | wc -w) sources of libhildon $V"
 G=/wk/gtk+-$GTK_VER
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/h/overlay -include /h/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -DHAVE_CONFIG_H -DG_LOG_DOMAIN=\"hildon-1\" -DLOCALEDIR=\"z:/resource/locale\" \
+FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -DHAVE_CONFIG_H -DG_LOG_DOMAIN=\"hildon-1\" -DLOCALEDIR=\"z:/resource/locale\" \
  -DGTK_DISABLE_DEPRECATION_WARNINGS -DGDK_DISABLE_DEPRECATION_WARNINGS -I$O -I$S -I$SH/shims -I$G -I$G/gdk -I/wk/gdk-x32 -I/wk/atk-$ATK_VER -I/wk/gtk-x32/inc $X32 \
  -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/pixman-0.42.2/pixman -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/harfbuzz-$HARFBUZZ_VER/src -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/gtk-x32"
 # <hildon/hildon.h> style includes and <gtk/gtk.h>: symlink trees

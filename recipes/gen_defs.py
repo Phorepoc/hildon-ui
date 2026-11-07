@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# gen_defs.py <archive dir> <out os/src dir> -- the frozen-ordinal .def files of the GLib DLLs, from nm of the static archives.
+# gen_defs.py <archive dir> <out os/src dir> -- the frozen-ordinal .def files of this repository's DLLs, from nm of the static archives.
 # A DLL exports (a) every public name (g_*, glib_*) its archive defines and (b) every other defined global that one of the OTHER
 # archives (or the test) needs from it. Ordinals are assigned in sorted order: the first freeze. Data symbols get DATA.
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a"), ("phehb", "libphehb.a"), ("phepng", "libphepng.a"), ("phefontconfig", "libphefontconfig.a"), ("phepango", "libphepango.a"), ("phepixbuf", "libphepixbuf.a"), ("pheatk", "libpheatk.a"), ("phegdk", "libphegdk.a"), ("phegtk", "libphegtk.a"), ("phehildon", "libphehildon.a"), ("phedbus", "libphedbus.a"), ("phedbusglib", "libphedbusglib.a"), ("phehildondesktop", "libphehildondesktop.a")]
-OTHER = ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a", "libphehildonwin.a", "libphedbustest.a", "libphehildondesktoptest.a"]
+LIBS = [("phehildon", "libphehildon.a"), ("phehildondesktop", "libphehildondesktop.a")]
+OTHER = ['libpheglib.a', 'libphegobject.a', 'libphegmodule.a', 'libphegthread.a', 'libphegio.a', 'libphepixman.a', 'libphecairo.a', 'libphefreetype.a', 'libphehb.a', 'libphepng.a', 'libphefontconfig.a', 'libphepango.a', 'libphepixbuf.a', 'libpheatk.a', 'libphegdk.a', 'libphegtk.a', 'libphedbus.a', 'libphedbusglib.a'] + ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a", "libphehildonwin.a", "libphedbustest.a", "libphehildondesktoptest.a"]
 def nm(a):
     d, u = {}, set()
     for line in subprocess.run(["nm", "-g", "--no-demangle", os.path.join(adir, a)], capture_output=True, text=True).stdout.splitlines():
