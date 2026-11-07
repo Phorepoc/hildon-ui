@@ -9,5 +9,5 @@ OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 OS_LAYER_LIBC_SYSTEMINCLUDE
 SOURCEPATH		.
 SOURCE			phedbustest.cpp
-LIBRARY			euser.lib libc.lib libm.lib libpthread.lib phedbus.lib
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib esock.lib phedbus.lib
 SMPSAFE

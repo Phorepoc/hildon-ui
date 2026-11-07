@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <dbus/dbus.h>
 
 extern void phe_log (const char *msg);
@@ -129,28 +130,26 @@ probe_bind (const char *what, unsigned addr, int port)
   close (fd);
 }
 
-int
-phe_dbus_test_main (void)
+/* one complete exchange over one transport: listen, connect (private connection, ANONYMOUS), a method call with a reply, a signal; returns 0 on success, -1 when the transport cannot listen */
+static int
+exchange (const char *listen_address, const char *connect_address, const char *label)
 {
   DBusError err; DBusServer *server; DBusConnection *client; pthread_t th; char *address; const char *mechs[] = { "ANONYMOUS", NULL };
   DBusMessage *call, *reply; const char *who = "Hildon"; int i, ok = 0;
   dbus_error_init (&err);
-  dbus_threads_init_default ();
-  LOG ("[phedbustest] libdbus %s", "1.16.2");
-  probe_bind ("127.0.0.1 port 0", INADDR_LOOPBACK, 0); probe_bind ("127.0.0.1 port 5371", INADDR_LOOPBACK, 5371); probe_bind ("any port 0", INADDR_ANY, 0); probe_bind ("any port 5371", INADDR_ANY, 5371);
-  { const char *tries[] = { "tcp:host=127.0.0.1", "tcp:host=127.0.0.1,port=5371", "tcp:bind=*,port=5371", "tcp:host=localhost,bind=*,port=5371", NULL }; int t;
-    server = NULL;
-    for (t = 0; tries[t] && !server; t++) { dbus_error_free (&err); server = dbus_server_listen (tries[t], &err); LOG ("[phedbustest] listen %s: %s", tries[t], server ? "ok" : (err.message ? err.message : "?")); } }
-  if (!server) return 1;
+  got_signal = 0; server_calls = 0; stop_loop = 0; nwatches = ntimeouts = nconns = 0;
+  server = dbus_server_listen (listen_address, &err);
+  LOG ("[phedbustest] %s: listen %s: %s", label, listen_address, server ? "ok" : (err.message ? err.message : "?"));
+  if (!server) return -1;
   dbus_server_set_auth_mechanisms (server, mechs);
   dbus_server_set_new_connection_function (server, new_connection, NULL, NULL);
   dbus_server_set_watch_functions (server, add_watch, remove_watch, toggle_watch, NULL, NULL);
   dbus_server_set_timeout_functions (server, add_timeout, remove_timeout, toggle_timeout, NULL, NULL);
-  address = dbus_server_get_address (server);
-  LOG ("[phedbustest] server listening on %s", address);
+  address = connect_address ? (char *) connect_address : dbus_server_get_address (server);
+  LOG ("[phedbustest] %s: server address %s", label, address);
   pthread_create (&th, NULL, loop, NULL);
   client = dbus_connection_open_private (address, &err);
-  if (!client) { LOG ("[phedbustest] connect failed: %s", err.message ? err.message : "?"); return 2; }
+  if (!client) { LOG ("[phedbustest] %s: connect failed: %s", label, err.message ? err.message : "?"); stop_loop = 1; pthread_join (th, NULL); return 2; }
   dbus_connection_set_exit_on_disconnect (client, FALSE);
   dbus_connection_set_watch_functions (client, add_watch, remove_watch, toggle_watch, NULL, NULL);
   dbus_connection_set_timeout_functions (client, add_timeout, remove_timeout, toggle_timeout, NULL, NULL);
@@ -162,12 +161,31 @@ phe_dbus_test_main (void)
   if (reply) {
     const char *text = NULL;
     dbus_message_get_args (reply, NULL, DBUS_TYPE_STRING, &text, DBUS_TYPE_INVALID);
-    LOG ("[phedbustest] reply: %s", text ? text : "?");
+    LOG ("[phedbustest] %s: reply: %s", label, text ? text : "?");
     ok = text && strstr (text, "Hello, Hildon") != NULL; dbus_message_unref (reply);
-  } else LOG ("[phedbustest] call failed: %s", err.message ? err.message : "?");
+  } else LOG ("[phedbustest] %s: call failed: %s", label, err.message ? err.message : "?");
+  dbus_message_unref (call);
   for (i = 0; i < 100 && !got_signal; i++) usleep (20000);
-  LOG ("[phedbustest] signal received: %d, calls served: %d", got_signal, server_calls);
-  LOG ("[phedbustest] done: %s", ok && got_signal ? "PASS" : "FAIL");
+  LOG ("[phedbustest] %s: signal received: %d, calls served: %d", label, got_signal, server_calls);
+  LOG ("[phedbustest] %s: %s", label, ok && got_signal ? "PASS" : "FAIL");
   stop_loop = 1; pthread_join (th, NULL);
+  dbus_connection_close (client);
   return ok && got_signal ? 0 : 3;
+}
+
+int
+phe_dbus_test_main (void)
+{
+  int r_pipe, r_tcp = -1, t;
+  const char *tries[] = { "tcp:host=127.0.0.1", "tcp:host=127.0.0.1,port=5371", NULL };
+  dbus_threads_init_default ();
+  LOG ("[phedbustest] libdbus %s", "1.16.2");
+  /* the protocol, authentication, message and signal machinery without the network: libdbus's own in-process transport */
+  r_pipe = exchange ("debug-pipe:name=phe", NULL, "debug-pipe");
+  /* the same over the real transport: TCP on the loopback. Open C has no default connection here: name the access point (what the ROM's CommsDat calls the DHCP Ethernet IAP) */
+  { struct ifreq ifr; memset (&ifr, 0, sizeof ifr); strcpy (ifr.ifr_name, "Ethernet - DHCP"); LOG ("[phedbustest] setdefaultif(%s) -> %d", ifr.ifr_name, setdefaultif (&ifr)); }
+  probe_bind ("127.0.0.1 port 0", INADDR_LOOPBACK, 0); probe_bind ("any port 0", INADDR_ANY, 0);
+  for (t = 0; tries[t] && r_tcp == -1; t++) r_tcp = exchange (tries[t], NULL, "tcp");
+  LOG ("[phedbustest] done: debug-pipe %s, tcp %s", r_pipe == 0 ? "PASS" : "FAIL", r_tcp == 0 ? "PASS" : (r_tcp == -1 ? "no socket" : "FAIL"));
+  return r_pipe == 0 && r_tcp == 0 ? 0 : 1;
 }
