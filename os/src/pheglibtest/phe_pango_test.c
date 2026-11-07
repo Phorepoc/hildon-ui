@@ -1,3 +1,4 @@
+#define PANGO_ENABLE_BACKEND 1
 /* phe_pango_test.c -- HarfBuzz 15.1.0 shaping straight from the ROM font, then Pango 1.40.14 (PangoCairo over fontconfig + FreeType) laying out and drawing text into an ARGB32 cairo surface. BSD-2-Clause (Phorepoc). */
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,7 @@
 #include <cairo.h>
 #include <pango/pangocairo.h>
 #include <fontconfig/fontconfig.h>
+#include <pango/pangofc-font.h>
 extern void phe_log (const char *msg);
 #define T(c, what) do { checks++; if (!(c)) { fails++; snprintf (m, sizeof m, "pango FAIL: %s (line %d)", what, __LINE__); phe_log (m); } } while (0)
 
@@ -28,6 +30,11 @@ int phe_pango_test (void)
       hb_buffer_destroy (buf); hb_font_destroy (font); hb_face_destroy (face); hb_blob_destroy (blob);
       free (data);
     } }
+  /* 1a. type layout: the instance sizes GObject registered vs the structs this compile sees (a mismatch = the qdata overwrite) */
+  { const char *names[] = { "PangoFont", "PangoFcFont", "PangoCairoFcFont", "PangoContext", "PangoFontMap", NULL }; int i; GTypeQuery q;
+    for (i = 0; names[i]; i++) { GType t = g_type_from_name (names[i]); if (!t) { snprintf (m, sizeof m, "pango type %s: not registered yet", names[i]); phe_log (m); continue; }
+      g_type_query (t, &q); snprintf (m, sizeof m, "pango type %s: instance_size=%u class_size=%u", names[i], q.instance_size, q.class_size); phe_log (m); }
+    snprintf (m, sizeof m, "pango sizeof: GObject=%u PangoFont=%u PangoFcFont=%u PangoContext?=- gsize=%u glong=%u gpointer=%u", (unsigned) sizeof (GObject), (unsigned) sizeof (PangoFont), (unsigned) sizeof (PangoFcFont), (unsigned) sizeof (gsize), (unsigned) sizeof (glong), (unsigned) sizeof (gpointer)); phe_log (m); }
   /* 1b. fontconfig alone: which config file, which directories, how many fonts */
   { FcConfig *cfg; FcStrList *dl; FcChar8 *dir; FcFontSet *fs; int nd = 0, nf = 0; char dn[200] = "";
     T (FcInit (), "FcInit"); cfg = FcConfigGetCurrent (); dl = FcConfigGetFontDirs (cfg); while (dl && (dir = FcStrListNext (dl))) { nd++; if (strlen (dn) < 150) { strcat (dn, (char *) dir); strcat (dn, " "); } }

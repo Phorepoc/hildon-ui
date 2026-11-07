@@ -204,7 +204,14 @@ int phe_glib_test_run (void)
     snprintf (b, sizeof b, "heap probe: %d blocks regrown to %u bytes, touched, failures %d", N, (unsigned) sz, bad); phe_log (b); }
 #endif
 #ifdef PHE_HAVE_PANGO
-  setenv ("FONTCONFIG_FILE", "z:/resource/pheglibtest/fonts.conf", 1); setenv ("G_SLICE", "always-malloc", 1);
+  { /* heap probe 2: shrink-then-grow at the heap top (RHeap trims the top on free): pin a small block above a big one, free the big one, grow again, touch everything */
+    enum { M = 300 }; static char *pin[M]; int i, bad = 0; for (i = 0; i < M; i++) pin[i] = NULL;
+    for (i = 0; i < M; i++) { size_t big = 150000 + (size_t) i * 997; char *p1 = (char *) malloc (big); char *q1 = (char *) malloc (24 + (i % 5) * 8);
+      if (!p1 || !q1) { bad++; free (p1); free (q1); continue; } memset (p1, 3, big); memset (q1, 4, 24 + (i % 5) * 8); pin[i] = q1; free (p1);
+      if (i % 3 == 0) { char *r1 = (char *) realloc (pin[i], 24 + 8 * 12); if (r1) { pin[i] = r1; memset (r1, 5, 24 + 8 * 12); } } }
+    for (i = 0; i < M; i++) free (pin[i]);
+    snprintf (b, sizeof b, "heap probe 2: %d shrink/grow rounds touched, failures %d", M, bad); phe_log (b); }
+  setenv ("FONTCONFIG_FILE", "z:/resource/pheglibtest/fonts.conf", 1);
   { extern int phe_pango_test (void); int pg = phe_pango_test (); if (pg) fails += pg; }
 #endif
 #ifdef PHE_HAVE_PIXBUF

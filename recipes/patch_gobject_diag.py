@@ -24,3 +24,15 @@ if "PHE init" not in s:
     if "#include <string.h>" not in s:
         s = s.replace("#include \"config.h\"\n", "#include \"config.h\"\n#include <string.h>\n", 1)
     open(p, "w", newline="\n").write(s)
+
+# third diagnostic: the registered size of a Pango type right after its instance is created, and where the qdata word sits
+s = open(p, newline="").read()
+if "PHE new" not in s:
+    key = "  object = (GObject *) g_type_create_instance (class->g_type_class.g_type);\n\n  if (CLASS_HAS_PROPS (class))"
+    add = ("  object = (GObject *) g_type_create_instance (class->g_type_class.g_type);\n"
+           "  if (strncmp (g_type_name (class->g_type_class.g_type), \"Pango\", 5) == 0) { GTypeQuery q_; g_type_query (class->g_type_class.g_type, &q_); "
+           "g_printerr (\"PHE new %s instance_size=%u obj=%p &qdata=%p qdata=%p\\n\", g_type_name (class->g_type_class.g_type), q_.instance_size, (void *) object, (void *) &object->qdata, (void *) object->qdata); }\n\n"
+           "  if (CLASS_HAS_PROPS (class))")
+    if key in s:
+        s = s.replace(key, add, 1)
+        open(p, "w", newline="\n").write(s)
