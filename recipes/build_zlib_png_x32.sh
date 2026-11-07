@@ -4,7 +4,7 @@
 set -eu
 . /h/recipes/pins.sh
 CC=/wk/lsc/bin/pp-gcc; mkdir -p /wk/out /wk/png-work/z /wk/png-work/p
-cd /wk; [ -d zlib-$ZLIB_VER ] || tar xf /h/dl/zlib-$ZLIB_VER.tar.gz; [ -d libpng-$LIBPNG_VER ] || tar xf /h/dl/libpng-$LIBPNG_VER.tar.xz
+cd /wk; [ -d zlib-$ZLIB_VER ] || tar xf /h/dl/zlib-$ZLIB_VER.tar.xz; [ -d libpng-$LIBPNG_VER ] || tar xf /h/dl/libpng-$LIBPNG_VER.tar.xz
 Z=/wk/zlib-$ZLIB_VER; P=/wk/libpng-$LIBPNG_VER
 for f in adler32 compress crc32 deflate gzclose gzlib gzread gzwrite infback inffast inflate inftrees trees uncompr zutil; do
   $CC -O2 -g0 -w -fno-pic -I$Z -c $Z/$f.c -o /wk/png-work/z/$f.o || echo "FAIL zlib $f"; done

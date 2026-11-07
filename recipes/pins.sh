@@ -36,11 +36,15 @@ PANGO_VER=1.40.14
 PANGO_SHA256=90af1beaa7bf9e4c52db29ec251ec4fd0a8f2cc185d521ad1f88d01b3a6a17e3
 PANGO_URL=https://download.gnome.org/sources/pango/1.40/pango-$PANGO_VER.tar.xz
 ZLIB_VER=1.3.1
-ZLIB_SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
-ZLIB_URL=https://zlib.net/fossils/zlib-$ZLIB_VER.tar.gz
+ZLIB_SHA256=38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32
+ZLIB_URL=https://github.com/madler/zlib/releases/download/v$ZLIB_VER/zlib-$ZLIB_VER.tar.xz
 LIBPNG_VER=1.6.43
 LIBPNG_SHA256=6a5ca0652392a2d7c9db2ae5b40210843c0bbc081cbd410825ab00cc59f14a6c
 LIBPNG_URL=https://download.sourceforge.net/libpng/libpng-$LIBPNG_VER.tar.xz
 GDKPIXBUF_VER=2.36.12
 GDKPIXBUF_SHA256=fff85cf48223ab60e3c3c8318e2087131b590fd6f1737e42cb3759a3b427a334
 GDKPIXBUF_URL=https://download.gnome.org/sources/gdk-pixbuf/2.36/gdk-pixbuf-$GDKPIXBUF_VER.tar.xz
+# Verification record (2026-11-07), each against a source other than this file:
+#  glib, pango, gdk-pixbuf: download.gnome.org .sha256sum files.  pixman: cairographics.org .sha512 (file matches).  cairo: cairographics.org .sha1 + Fedora sources sha512.
+#  freetype, expat: upstream GPG signatures verify (Werner Lemberg, Sebastian Pipping).  libffi, libpng: Arch packaging sha256.  fontconfig: Fedora f38-f40 `sources` sha512.
+#  zlib: Arch packaging sha512 for the .tar.xz (so the pin is the .tar.xz, not the .tar.gz).  harfbuzz 15.1.0: GitHub release asset digest (real release, 04 Nov).
