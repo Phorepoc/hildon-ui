@@ -113,7 +113,7 @@ typedef struct _GdkWindowImplSymbian {
   GHashTable *properties;         /* window properties (gdkproperty-symbian.c) */
   /* window manager hints (gdkwinhints-symbian.c): there is no window manager, so this backend acts on them itself (stacking layers, transient stacking, focus choice, geometry limits, states) */
   GdkWindowTypeHint type_hint; GdkWindow *transient_for; GdkWMDecoration decorations; gboolean has_decorations; gchar *role, *startup_id;
-  GdkGeometry geometry; GdkWindowHints geom_mask; GList *icon_list;
+  gchar *title, *icon_name; GdkWindow *group; GdkPixmap *icon_pixmap, *icon_mask; GdkWindow *icon_window; GdkWMFunction functions; gboolean has_functions; GdkGeometry geometry; GdkWindowHints geom_mask; GList *icon_list;
   gboolean skip_focus_once;       /* mapped with focus-on-map off: not given the keyboard focus until gdk_window_focus () asks for it */
   gboolean accept_focus, focus_on_map, override_redirect, modal, urgent, skip_taskbar, skip_pager;
   gint layer;                     /* -1 keep below, 0 normal, 1 keep above (modal and transient windows are kept above what they belong to) */

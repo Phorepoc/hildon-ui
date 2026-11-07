@@ -4,6 +4,7 @@
 #include "config.h"
 #include <string.h>
 #include <stdlib.h>
+#include <locale.h>
 #include "gdksymbian.h"
 #include "gdkinput.h"
 #include "gdkprivate.h"
@@ -121,6 +122,80 @@ gdk_window_get_decorations (GdkWindow *window, GdkWMDecoration *decorations)
   if (!WI (window)->has_decorations) return FALSE;
   if (decorations) *decorations = WI (window)->decorations;
   return TRUE;
+}
+
+void
+gdk_window_set_functions (GdkWindow *window, GdkWMFunction functions)
+{
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  WI (window)->functions = functions; WI (window)->has_functions = TRUE;
+}
+
+/* the title and icon name are kept in the window and published as the properties a window manager would read (WM_NAME / _NET_WM_NAME, WM_ICON_NAME / _NET_WM_ICON_NAME) */
+static void
+set_text_property (GdkWindow *window, const gchar *name_utf8, const gchar *value)
+{
+  gdk_property_change (window, gdk_atom_intern_static_string (name_utf8), gdk_atom_intern_static_string ("UTF8_STRING"), 8, GDK_PROP_MODE_REPLACE, (const guchar *) value, strlen (value));
+}
+
+void
+gdk_window_set_title (GdkWindow *window, const gchar *title)
+{
+  g_return_if_fail (GDK_IS_WINDOW (window)); g_return_if_fail (title != NULL);
+  if (GDK_WINDOW_DESTROYED (window)) return;
+  g_free (WI (window)->title); WI (window)->title = g_strdup (title);
+  set_text_property (window, "_NET_WM_NAME", title);
+  if (!WI (window)->icon_name) set_text_property (window, "_NET_WM_ICON_NAME", title);
+}
+
+void
+gdk_window_set_icon_name (GdkWindow *window, const gchar *name)
+{
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  if (GDK_WINDOW_DESTROYED (window)) return;
+  g_free (WI (window)->icon_name); WI (window)->icon_name = g_strdup (name);
+  if (name) set_text_property (window, "_NET_WM_ICON_NAME", name);
+}
+
+void
+gdk_window_set_icon (GdkWindow *window, GdkWindow *icon_window, GdkPixmap *pixmap, GdkBitmap *mask)
+{
+  GdkWindowImplSymbian *impl;
+  g_return_if_fail (GDK_IS_WINDOW (window)); g_return_if_fail (icon_window == NULL || GDK_IS_WINDOW (icon_window));
+  g_return_if_fail (pixmap == NULL || GDK_IS_PIXMAP (pixmap)); g_return_if_fail (mask == NULL || GDK_IS_PIXMAP (mask));
+  if (GDK_WINDOW_DESTROYED (window)) return;
+  impl = WI (window);
+  if (pixmap) g_object_ref (pixmap); if (mask) g_object_ref (mask);
+  if (impl->icon_pixmap) g_object_unref (impl->icon_pixmap); if (impl->icon_mask) g_object_unref (impl->icon_mask);
+  impl->icon_pixmap = pixmap; impl->icon_mask = mask; impl->icon_window = icon_window;
+}
+
+static void group_gone (gpointer data, GObject *where) { GdkWindowImplSymbian *impl = data; if (impl->group == (GdkWindow *) where) impl->group = NULL; }
+
+void
+gdk_window_set_group (GdkWindow *window, GdkWindow *leader)
+{
+  GdkWindowImplSymbian *impl;
+  g_return_if_fail (GDK_IS_WINDOW (window)); g_return_if_fail (leader == NULL || GDK_IS_WINDOW (leader));
+  if (GDK_WINDOW_DESTROYED (window) || (leader && GDK_WINDOW_DESTROYED (leader))) return;
+  impl = WI (window);
+  if (impl->group) g_object_weak_unref (G_OBJECT (impl->group), group_gone, impl);
+  impl->group = leader;
+  if (leader) g_object_weak_ref (G_OBJECT (leader), group_gone, impl);
+}
+
+GdkWindow *gdk_window_get_group (GdkWindow *window) { g_return_val_if_fail (GDK_IS_WINDOW (window), NULL); return WI (window)->group; }
+
+/* the old WM hints call: position / size hints in one, applied as geometry hints */
+void
+gdk_window_set_hints (GdkWindow *window, gint x, gint y, gint min_width, gint min_height, gint max_width, gint max_height, gint flags)
+{
+  GdkGeometry g; GdkWindowHints mask = 0;
+  g_return_if_fail (GDK_IS_WINDOW (window)); (void) x; (void) y;
+  memset (&g, 0, sizeof g);
+  if (flags & GDK_HINT_MIN_SIZE) { g.min_width = min_width; g.min_height = min_height; mask |= GDK_HINT_MIN_SIZE; }
+  if (flags & GDK_HINT_MAX_SIZE) { g.max_width = max_width; g.max_height = max_height; mask |= GDK_HINT_MAX_SIZE; }
+  gdk_window_set_geometry_hints (window, &g, mask);
 }
 
 /* the window has no frame of its own: the rectangle of the frame is the one of the window */
@@ -439,3 +514,30 @@ GdkFont *gdk_fontset_load (const gchar *fontset_name) { return gdk_fontset_load_
 
 /* graphics-expose events belong to copy operations from windows that are partly covered; every GDK window of this backend is drawn client side, so none is ever generated */
 GdkEvent *gdk_event_get_graphics_expose (GdkWindow *window) { g_return_val_if_fail (GDK_IS_WINDOW (window), NULL); return NULL; }
+
+/* sets the locale from the environment; without the Xlib locale support of the X11 backend the C library's answer is final */
+gchar *
+gdk_set_locale (void)
+{
+  if (!setlocale (LC_ALL, "")) g_warning ("locale not supported by C library");
+  return g_strdup (setlocale (LC_ALL, NULL));
+}
+
+/* ---- pending events, the display name, shared memory images, colour cells of a visual that has none ---- */
+gboolean
+gdk_events_pending (void)
+{
+  return _gdk_event_queue_find_first (gdk_display_get_default ()) != NULL || phe_ws_pending () != 0;
+}
+
+gchar *gdk_get_display (void) { return g_strdup (gdk_display_get_name (gdk_display_get_default ())); }
+GdkScreen *gdk_gc_get_screen (GdkGC *gc) { g_return_val_if_fail (GDK_IS_GC (gc), NULL); return gdk_screen_get_default (); }
+/* shared memory images are an X protocol extension; every image here is plain client memory */
+static gboolean use_xshm = FALSE;
+gboolean gdk_get_use_xshm (void) { return use_xshm; }
+void gdk_set_use_xshm (gboolean value) { use_xshm = value; }
+
+/* the system visual is TrueColor: its colormap has no writable cells, so an allocation of private cells cannot succeed and a store into a cell cannot change anything */
+gint gdk_colors_alloc (GdkColormap *colormap, gboolean contiguous, gulong *planes, gint nplanes, gulong *pixels, gint npixels) { g_return_val_if_fail (GDK_IS_COLORMAP (colormap), 0); return 0; }
+void gdk_colors_free (GdkColormap *colormap, gulong *pixels, gint npixels, gulong planes) { g_return_if_fail (GDK_IS_COLORMAP (colormap)); }
+gint gdk_color_change (GdkColormap *colormap, GdkColor *color) { g_return_val_if_fail (GDK_IS_COLORMAP (colormap), 0); g_return_val_if_fail (color != NULL, 0); return 0; }

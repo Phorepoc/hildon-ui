@@ -46,6 +46,7 @@ gdk_window_impl_symbian_finalize (GObject *object)
   GdkWindowImplSymbian *impl = (GdkWindowImplSymbian *) object;
   if (impl->cursor) gdk_cursor_unref (impl->cursor);
   if (impl->properties) { g_hash_table_destroy (impl->properties); impl->properties = NULL; }
+  g_free (impl->title); g_free (impl->icon_name); if (impl->icon_pixmap) g_object_unref (impl->icon_pixmap); if (impl->icon_mask) g_object_unref (impl->icon_mask);
   g_free (impl->role); g_free (impl->startup_id); g_list_foreach (impl->icon_list, (GFunc) g_object_unref, NULL); g_list_free (impl->icon_list);
   if (impl->shape) gdk_region_destroy (impl->shape);
   G_OBJECT_CLASS (gdk_window_impl_symbian_parent_class)->finalize (object);
