@@ -270,12 +270,41 @@ translate_pointer (GdkDisplay *display, const PheWsEvent *e)
   translate_pointer_inner (display, e);
 }
 
+/* ---- EnterNotify / LeaveNotify of the native windows: a window server reports the pointer crossing from one native window to another; GDK derives the crossings between its client-side
+ * children from them (without the first enter a toolkit never learns which widget the pointer is in, and a button ignores a release it did not see the pointer enter for) ---- */
+static GdkWindow *entered_win = NULL;
+static void entered_gone (gpointer data, GObject *where) { (void) data; if (entered_win == (GdkWindow *) where) entered_win = NULL; }
+
+static void
+queue_crossing (GdkDisplay *display, GdkEventType type, GdkWindow *w, gint x, gint y, gint xr, gint yr)
+{
+  GdkEvent *ev = gdk_event_new (type); GdkDisplaySymbian *d = GDK_DISPLAY_SYMBIAN (display);
+  ev->crossing.window = g_object_ref (w); ev->crossing.send_event = FALSE; ev->crossing.subwindow = NULL; ev->crossing.time = now_ms ();
+  ev->crossing.x = x; ev->crossing.y = y; ev->crossing.x_root = xr; ev->crossing.y_root = yr;
+  ev->crossing.mode = GDK_CROSSING_NORMAL; ev->crossing.detail = GDK_NOTIFY_NONLINEAR; ev->crossing.focus = FALSE; ev->crossing.state = d->pointer_state | key_state;
+  queue_event (display, ev);
+}
+
+static void
+update_entered (GdkDisplay *display, GdkWindow *win, gint wx, gint wy, gint xr, gint yr)
+{
+  if (win == entered_win) return;
+  if (entered_win && !GDK_WINDOW_DESTROYED (entered_win)) {
+    gint ox = 0, oy = 0; gdk_window_get_origin (entered_win, &ox, &oy);
+    queue_crossing (display, GDK_LEAVE_NOTIFY, entered_win, xr - ox, yr - oy, xr, yr);
+  }
+  if (entered_win) g_object_weak_unref (G_OBJECT (entered_win), entered_gone, NULL);
+  entered_win = NULL;
+  if (win && win != _gdk_parent_root) { entered_win = win; g_object_weak_ref (G_OBJECT (win), entered_gone, NULL); queue_crossing (display, GDK_ENTER_NOTIFY, win, wx, wy, xr, yr); }
+}
+
 static void
 translate_pointer_inner (GdkDisplay *display, const PheWsEvent *e)
 {
   GdkDisplaySymbian *d = GDK_DISPLAY_SYMBIAN (display); GdkWindow *win; gint wx = 0, wy = 0; GdkEvent *ev; guint before = d->pointer_state;
   d->pointer_x = e->x; d->pointer_y = e->y;
   win = _gdk_windowing_window_at_pointer (display, &wx, &wy, NULL, TRUE);
+  update_entered (display, win, wx, wy, e->x, e->y);
   switch (e->ptype) {
     case 0: /* EButton1Down */
       ev = gdk_event_new (GDK_BUTTON_PRESS);

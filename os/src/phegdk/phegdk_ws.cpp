@@ -118,6 +118,7 @@ static int SetupWs()
 	const TSize size = gScreen->SizeInPixels();
 	gWin->SetExtent(TPoint(0, 0), size);
 	gWin->SetBackgroundColor(KRgbBlack);
+	gWin->PointerFilter(EPointerFilterMove | EPointerFilterDrag | EPointerFilterEnterExit, 0);   // moves without a button (a hover) are events too: toolkits track what is under the pointer
 	gWin->Activate();
 	gBmp = new CFbsBitmap;
 	if (!gBmp || gBmp->Create(size, EColor16MU) != KErrNone) return -6;

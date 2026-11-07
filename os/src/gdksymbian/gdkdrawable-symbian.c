@@ -116,6 +116,43 @@ gdk_drawable_impl_symbian_create_gc (GdkDrawable *d, GdkGCValues *values, GdkGCV
 
 /* ---- drawing: one cairo context per primitive ----
  * Normally the context draws into the drawable. When the GC needs a raster operation (gdkgc-symbian.c) the context draws a coverage mask instead and end() combines it with the pixels. */
+/* The native windows share one bitmap, so a window must not draw over the part of itself that a window stacked above it covers (a window server clips by stacking order itself). The region covered
+ * by the mapped toplevels above this window, in this window's coordinates; NULL when nothing covers it (and for anything that is not a native window). */
+static GdkRegion *
+occluders (GdkDrawableImplSymbian *impl)
+{
+  GList *l; GdkRegion *r = NULL; gboolean above = FALSE; GdkRectangle self;
+  if (!impl->wrapper || !GDK_IS_WINDOW (impl->wrapper) || GDK_WINDOW_OBJECT (impl->wrapper)->window_type == GDK_WINDOW_ROOT) return NULL;
+  self.x = impl->abs_x; self.y = impl->abs_y; self.width = impl->width; self.height = impl->height;
+  for (l = _gdk_symbian_toplevel_stack (); l; l = l->next) {
+    GdkWindow *w = l->data; GdkWindowImplSymbian *wi = (GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (w)->impl; GdkRectangle b, i;
+    if ((GdkDrawable *) wi == (GdkDrawable *) impl) { above = TRUE; continue; }
+    if (!above || !wi->mapped) continue;
+    b.x = wi->drawable.abs_x; b.y = wi->drawable.abs_y; b.width = wi->drawable.width; b.height = wi->drawable.height;
+    if (!gdk_rectangle_intersect (&self, &b, &i)) continue;
+    i.x -= self.x; i.y -= self.y;
+    if (!r) r = gdk_region_new ();
+    gdk_region_union_with_rect (r, &i);
+  }
+  return r;
+}
+
+static GdkRegion *copy_occ = NULL;                                  /* the occluders of the copy in progress (copy_pixels) */
+
+/* clip the context to what no window above covers */
+static void
+clip_occluders (GdkDrawableImplSymbian *impl, cairo_t *cr)
+{
+  GdkRegion *r = occluders (impl); GdkRectangle *rects; gint n, k;
+  if (!r) return;
+  gdk_region_get_rectangles (r, &rects, &n);
+  cairo_save (cr); cairo_new_path (cr);
+  cairo_rectangle (cr, 0, 0, impl->width, impl->height);
+  for (k = 0; k < n; k++) cairo_rectangle (cr, rects[k].x, rects[k].y, rects[k].width, rects[k].height);
+  cairo_set_fill_rule (cr, CAIRO_FILL_RULE_EVEN_ODD); cairo_clip (cr); cairo_restore (cr);
+  g_free (rects); gdk_region_destroy (r);
+}
+
 static cairo_t *
 begin (GdkDrawableImplSymbian *impl, GdkGC *gc)
 {
@@ -125,11 +162,12 @@ begin (GdkDrawableImplSymbian *impl, GdkGC *gc)
     cairo_surface_t *cov = cairo_image_surface_create (CAIRO_FORMAT_A8, impl->width, impl->height);
     cr = cairo_create (cov); cairo_surface_destroy (cov);
     cairo_set_user_data (cr, _gdk_symbian_coverage_key (), cairo_surface_reference (cov), (cairo_destroy_func_t) cairo_surface_destroy);
+    clip_occluders (impl, cr);
     return cr;
   }
   s = impl_surface (impl);
   if (!s) return NULL;
-  cr = cairo_create (s); cairo_surface_destroy (s); return cr;
+  cr = cairo_create (s); cairo_surface_destroy (s); clip_occluders (impl, cr); return cr;
 }
 
 /* the data of the drawable's origin inside its surface (a window is a rectangle of the display bitmap) */
@@ -288,7 +326,7 @@ gdk_drawable_impl_symbian_draw_trapezoids (GdkDrawable *d, GdkGC *gc, GdkTrapezo
 
 /* Per-pixel copy of a source (cairo image surface data or GdkImage memory) with the raster function and clip of the GC: used when the function is not COPY and when the source is a
  * bitmap (XCopyPlane semantics: a 1 bit becomes the foreground pixel, a 0 bit the background pixel). The pixel math is gdkraster.c (unit-tested on the host). */
-static int clip_cb (void *gc, int x, int y) { return _gdk_symbian_gc_clip_test (gc, x, y); }
+static int clip_cb (void *gc, int x, int y) { if (copy_occ && gdk_region_point_in (copy_occ, x, y)) return 0; return _gdk_symbian_gc_clip_test (gc, x, y); }
 
 static void
 copy_pixels (GdkDrawableImplSymbian *impl, GdkGC *gc, const guchar *sd, gint sstride, gint sw, gint sh, gboolean src_is_bitmap, gint xsrc, gint ysrc, gint xdest, gint ydest, gint width, gint height)
@@ -296,7 +334,9 @@ copy_pixels (GdkDrawableImplSymbian *impl, GdkGC *gc, const guchar *sd, gint sst
   guchar *dst; gint stride, x0, y0, x1, y1; guint32 fg, bg;
   if (_gdk_symbian_gc_function (gc) == GDK_NOOP || !raster_target (impl, &dst, &stride, &x0, &y0, &x1, &y1)) return;
   _gdk_symbian_gc_pixels (gc, &fg, &bg);
+  copy_occ = occluders (impl);
   phe_raster_copy (dst, stride, impl->depth, x0, y0, x1, y1, sd, sstride, sw, sh, src_is_bitmap, xsrc, ysrc, xdest, ydest, width, height, _gdk_symbian_gc_function (gc), fg, bg, clip_cb, gc);
+  if (copy_occ) { gdk_region_destroy (copy_occ); copy_occ = NULL; }
   cairo_surface_mark_dirty (impl->surface);
   if (GDK_IS_WINDOW (impl->wrapper)) window_mark_dirty (impl, xdest, ydest, width, height);
 }
