@@ -392,9 +392,7 @@ _gdk_windowing_pointer_grab (GdkWindow *window, GdkWindow *native, gboolean owne
 cairo_surface_t *
 _gdk_windowing_create_cairo_surface (GdkDrawable *drawable, gint width, gint height)
 {
-  cairo_surface_t *base = _gdk_drawable_ref_cairo_surface (drawable), *s;
-  if (!base) return NULL;
-  s = cairo_surface_create_similar (base, cairo_surface_get_content (base), width, height);
-  cairo_surface_destroy (base); return s;
+  /* called with the implementation of a window by gdk_window_create_cairo_surface: the surface the window draws on directly */
+  return GDK_DRAWABLE_GET_CLASS (drawable)->create_cairo_surface (drawable, width, height);
 }
 void _gdk_windowing_set_cairo_surface_size (cairo_surface_t *surface, gint width, gint height) { (void) surface; (void) width; (void) height; }   /* image surfaces have a fixed size: the drawable's resize makes a new view */

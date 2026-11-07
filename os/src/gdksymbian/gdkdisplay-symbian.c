@@ -69,6 +69,7 @@ gdk_display_open (const gchar *display_name)
 
   _gdk_visual_init (d->screen);
   _gdk_windowing_window_init (d->screen);
+  _gdk_symbian_window_hooks ();
   gdk_screen_set_default_colormap (d->screen, gdk_screen_get_system_colormap (d->screen));
   _gdk_events_init ();
   _gdk_input_init ();

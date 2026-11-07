@@ -68,6 +68,7 @@ void _gdk_visual_init (GdkScreen *screen);
 void _gdk_windowing_window_init (GdkScreen *screen);        /* gdkwindow-symbian.c: creates the root GdkWindow */
 void _gdk_events_init (void);                               /* gdkevents-symbian.c: attaches the WSERV event source */
 void _gdk_input_init (void);
+void _gdk_symbian_window_hooks (void);                      /* gdkdrawable-symbian.c: wraps the window class's ref_cairo_surface so direct cairo drawing is presented */
 void _gdk_symbian_screen_resized (GdkScreen *screen, int width, int height);
 
 

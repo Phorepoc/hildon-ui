@@ -53,10 +53,14 @@ impl_surface (GdkDrawableImplSymbian *impl)
 
 static cairo_surface_t *gdk_drawable_impl_symbian_ref_cairo_surface (GdkDrawable *d) { return impl_surface (GDK_DRAWABLE_IMPL_SYMBIAN (d)); }
 
+/* A surface "for" a drawable: for a window the surface IS the window (the rectangle of the display bitmap: this is what gdk_cairo_create draws on when no paint is open), for a pixmap
+ * a new surface of the same kind (cairo_surface_create_similar semantics, as the X11 backend gives for pixmaps). */
 static cairo_surface_t *
 gdk_drawable_impl_symbian_create_cairo_surface (GdkDrawable *d, int width, int height)
 {
   GdkDrawableImplSymbian *impl = GDK_DRAWABLE_IMPL_SYMBIAN (d); cairo_surface_t *base = impl_surface (impl), *s;
+  if (!base) return NULL;
+  if (GDK_IS_WINDOW (impl->wrapper)) return base;
   s = cairo_surface_create_similar (base, impl->depth == 1 ? CAIRO_CONTENT_ALPHA : CAIRO_CONTENT_COLOR, width, height);
   cairo_surface_destroy (base); return s;
 }
@@ -423,6 +427,29 @@ window_mark_dirty (GdkDrawableImplSymbian *impl, gint x, gint y, gint w, gint h)
   cur = r;
   if (_gdk_symbian_window_dirty (win, &cur, TRUE) && !g_list_find (dirty_windows, win)) dirty_windows = g_list_prepend (dirty_windows, win);
   if (!dirty_idle) dirty_idle = gdk_threads_add_idle_full (GDK_PRIORITY_REDRAW + 1, flush_idle, NULL, NULL);
+}
+
+/* Direct drawing on a window: gdk_cairo_create (window) outside a paint hands out the surface of the window itself (a rectangle of the display bitmap), and cairo then draws into the bitmap
+ * with nothing to tell this backend which pixels changed. The window class's ref_cairo_surface is wrapped (installed by _gdk_symbian_window_hooks at display open): a request for the direct
+ * surface marks the whole native window dirty, so the next flush presents it. (A finer rectangle would need the clip extents of the cairo context, which GDK does not report.) */
+static cairo_surface_t *(*orig_ref_cairo_surface) (GdkDrawable *drawable) = NULL;
+
+static cairo_surface_t *
+window_ref_cairo_surface_marking (GdkDrawable *drawable)
+{
+  cairo_surface_t *s = orig_ref_cairo_surface (drawable); GdkWindowObject *p = GDK_WINDOW_OBJECT (drawable);
+  if (s && !p->paint_stack && p->impl_window && p->impl_window->impl && GDK_IS_DRAWABLE_IMPL_SYMBIAN (p->impl_window->impl)) {
+    GdkDrawableImplSymbian *impl = GDK_DRAWABLE_IMPL_SYMBIAN (p->impl_window->impl);
+    window_mark_dirty (impl, 0, 0, impl->width, impl->height);
+  }
+  return s;
+}
+
+void
+_gdk_symbian_window_hooks (void)
+{
+  GdkDrawableClass *wc = GDK_DRAWABLE_CLASS (g_type_class_ref (GDK_TYPE_WINDOW));
+  if (!orig_ref_cairo_surface) { orig_ref_cairo_surface = wc->ref_cairo_surface; wc->ref_cairo_surface = window_ref_cairo_surface_marking; }
 }
 
 void
