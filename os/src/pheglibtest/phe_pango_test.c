@@ -14,6 +14,13 @@ extern void phe_log (const char *msg);
 int phe_pango_test (void)
 {
   int checks = 0, fails = 0; char m[260];
+  /* 0. allocator alignment: GLib's GData lock bits live in the low 3 bits of a pointer, so g_malloc must return 8-byte-aligned blocks */
+  { int i, bad8 = 0, bad8g = 0; char line[200] = ""; void *ps[40];
+    for (i = 0; i < 40; i++) { ps[i] = malloc ((size_t) (i * 5 + 1)); if (((unsigned long) ps[i]) & 7) bad8++; if (i < 12) { char t[16]; snprintf (t, sizeof t, "%lx ", ((unsigned long) ps[i]) & 15); strcat (line, t); } }
+    for (i = 0; i < 40; i++) free (ps[i]);
+    for (i = 0; i < 40; i++) { ps[i] = g_malloc ((gsize) (i * 7 + 3)); if (((unsigned long) ps[i]) & 7) bad8g++; }
+    for (i = 0; i < 40; i++) g_free (ps[i]);
+    snprintf (m, sizeof m, "alloc alignment: malloc %d/40 blocks not 8-aligned (low nibbles of the first 12: %s), g_malloc %d/40", bad8, line, bad8g); phe_log (m); T (bad8g == 0, "g_malloc returns 8-aligned blocks"); }
   /* 1. HarfBuzz alone: a face from the font file's bytes, shape "Hello" */
   { FILE *f = fopen ("z:/resource/fonts/s60sans_r.ttf", "rb"); long n = 0; char *data = NULL;
     if (f) { fseek (f, 0, SEEK_END); n = ftell (f); fseek (f, 0, SEEK_SET); data = (char *) malloc (n); if (data && fread (data, 1, n, f) != (size_t) n) { free (data); data = NULL; } fclose (f); }
@@ -44,6 +51,15 @@ int phe_pango_test (void)
       mt = FcFontMatch (cfg, pat, &r); if (mt) { FcPatternGetString (mt, FC_FAMILY, 0, &fam); FcPatternGetString (mt, FC_FILE, 0, &file); }
       snprintf (m, sizeof m, "fontconfig: match for Sans = %s file %s", fam ? (char *) fam : "(none)", file ? (char *) file : "(none)"); phe_log (m); T (mt != NULL, "FcFontMatch"); if (mt) FcPatternDestroy (mt); FcPatternDestroy (pat); }
     T (nf > 0, "fontconfig sees fonts"); }
+  /* 1c. bisect: step by step from fontconfig towards the layout, each step logged BEFORE it runs, so the last line names the culprit */
+  { GObject *o1; PangoFontMap *fm; PangoContext *ctx; FcConfig *cfg2 = FcConfigGetCurrent (); static int q1 = 0;
+    phe_log ("pango bisect A: FcFontSort"); { FcPattern *pt = FcPatternCreate (); FcResult rs; FcFontSet *sorted; FcCharSet *cs = NULL; FcPatternAddString (pt, FC_FAMILY, (const FcChar8 *) "Sans"); FcConfigSubstitute (cfg2, pt, FcMatchPattern); FcDefaultSubstitute (pt);
+      sorted = FcFontSort (cfg2, pt, FcTrue, &cs, &rs); snprintf (m, sizeof m, "pango bisect A: FcFontSort -> %d fonts", sorted ? sorted->nfont : -1); phe_log (m); if (sorted) FcFontSetDestroy (sorted); if (cs) FcCharSetDestroy (cs); FcPatternDestroy (pt); }
+    phe_log ("pango bisect B: plain GObject qdata round trip"); o1 = g_object_new (G_TYPE_OBJECT, NULL); g_object_set_data (o1, "k", &q1); snprintf (m, sizeof m, "pango bisect B: get_data %s", g_object_get_data (o1, "k") == &q1 ? "ok" : "WRONG"); phe_log (m); g_object_unref (o1);
+    phe_log ("pango bisect C: font map + context"); fm = pango_cairo_font_map_get_default (); ctx = pango_font_map_create_context (fm); phe_log ("pango bisect C: context created, qdata round trip");
+    g_object_set_data (G_OBJECT (ctx), "k", &q1); snprintf (m, sizeof m, "pango bisect C: context get_data %s", g_object_get_data (G_OBJECT (ctx), "k") == &q1 ? "ok" : "WRONG"); phe_log (m);
+    phe_log ("pango bisect D: context qdata with the pangocairo key"); { cairo_surface_t *cs2 = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 8, 8); cairo_t *c2 = cairo_create (cs2); pango_cairo_update_context (c2, ctx); phe_log ("pango bisect D: update_context ok"); cairo_destroy (c2); cairo_surface_destroy (cs2); }
+    g_object_unref (ctx); phe_log ("pango bisect: A-D passed"); }
   /* 2. Pango: a layout through PangoCairo, drawn black on white */
   { cairo_surface_t *s = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 220, 48); cairo_t *cr = cairo_create (s); PangoLayout *lay; PangoFontDescription *fd; int w = 0, h = 0, x, y; long dark = 0; unsigned char *d; int st;
     cairo_set_source_rgb (cr, 1, 1, 1); cairo_paint (cr); cairo_set_source_rgb (cr, 0, 0, 0);
