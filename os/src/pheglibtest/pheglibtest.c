@@ -160,6 +160,13 @@ int phe_glib_test_run (void)
   gchar *m2 = g_match_info_fetch (mi, 2); CHECK (m2 && strcmp (m2, "20") == 0); g_print ("regex: 2nd group %s\n", m2); g_free (m2);
   g_match_info_free (mi); g_regex_unref (re);
 
+  { /* probe: /dev/null (Open C: the backend's null device) */
+    int fd = open ("/dev/null", O_RDWR); char rb[8], pb4[240]; int rd = -9, wr = -9, sel = -9; fd_set rs, ws; struct timeval tv;
+    if (fd >= 0) { rd = (int) read (fd, rb, sizeof rb); wr = (int) write (fd, "hello", 5);
+      FD_ZERO (&rs); FD_ZERO (&ws); FD_SET (fd, &rs); FD_SET (fd, &ws); tv.tv_sec = 0; tv.tv_usec = 200000; sel = select (fd + 1, &rs, &ws, NULL, &tv);
+      snprintf (pb4, sizeof pb4, "probe /dev/null: fd=%d read=%d write=%d select=%d readable=%d writable=%d", fd, rd, wr, sel, FD_ISSET (fd, &rs) ? 1 : 0, FD_ISSET (fd, &ws) ? 1 : 0); close (fd); }
+    else snprintf (pb4, sizeof pb4, "probe /dev/null: open failed errno=%d", errno);
+    phe_log (pb4); }
   { /* GIO: GFile read/write/query/delete and GKeyFile through a file, in a directory this OS lets us write */
     const char *wd = phe_writable_dir (); gchar *path = g_strconcat (wd, "phe_gio_test.txt", NULL); GFile *gf = g_file_new_for_path (path);
     GError *ge = NULL; gchar *content = NULL; gsize clen = 0; GFileInfo *fi; gboolean ok;
@@ -242,6 +249,7 @@ extern int phe_glib_test_list (int, char **), phe_glib_test_slist (int, char **)
   phe_glib_test_mainloop (int, char **);
 int phe_glib_child (int argc, char **argv)
 {
+  setvbuf (stderr, NULL, _IONBF, 0);   /* a test child that aborts (int3) right after printing must not lose its last stderr bytes: seen as an intermittent /list/double-free failure, the trapped child's stderr was EMPTY */
   int i; const char *name = NULL; char *cargv[16]; int cargc = 0;
   for (i = 1; i < argc; i++) if (!strcmp (argv[i], "--phe-run") && i + 1 < argc) { name = argv[i + 1]; i++; }
                              else if (cargc < 14) cargv[++cargc] = argv[i];

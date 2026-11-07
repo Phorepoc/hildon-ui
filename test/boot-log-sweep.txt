@@ -1,19 +1,20 @@
-[pheglib]   [queue: elapsed 300252 ms of a 500000 ms limit]
+[pheglib] probe /dev/null: fd=5 read=0 write=5 select=2 readable=1 writable=1
+[pheglib]   [queue: elapsed 312159 ms of a 500000 ms limit]
 [pheglib] glib/tests/queue: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [array: elapsed 1449 ms of a 100000 ms limit]
+[pheglib]   [array: elapsed 1468 ms of a 100000 ms limit]
 [pheglib] glib/tests/array: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [strfuncs: elapsed 2155 ms of a 100000 ms limit]
+[pheglib]   [strfuncs: elapsed 5473 ms of a 100000 ms limit]
 [pheglib] glib/tests/strfuncs: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [keyfile: elapsed 443 ms of a 100000 ms limit]
+[pheglib]   [keyfile: elapsed 397 ms of a 100000 ms limit]
 [pheglib] glib/tests/keyfile: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [slist: elapsed 3236 ms of a 100000 ms limit]
+[pheglib]   [slist: elapsed 3353 ms of a 100000 ms limit]
 [pheglib] glib/tests/slist: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [list: elapsed 1653 ms of a 100000 ms limit]
-[pheglib] glib/tests/list: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [hash: elapsed 784 ms of a 100000 ms limit]
+[pheglib]   [list: elapsed 4613 ms of a 100000 ms limit]
+[pheglib] glib/tests/list: exit_status=256 (type 0 reason 1) VERDICT=FAIL
+[pheglib]   | GLib:ERROR:/wk/glib-2.56.4/glib/tests/list.c:548:test_double_free: stderr of child process (/list/double-free [61]) failed to match: *corrupted double-linked list detected*
+[pheglib]   [hash: elapsed 780 ms of a 100000 ms limit]
 [pheglib] glib/tests/hash: exit_status=0 (type 0 reason 0) VERDICT=PASS
-[pheglib]   [mainloop: elapsed 152724 ms of a 300000 ms limit]
-[pheglib] glib/tests/mainloop: exit_status=256 (type 0 reason 1) VERDICT=FAIL
-[pheglib]   | GLib:ERROR:/wk/glib-2.56.4/glib/tests/mainloop.c:1492:test_unix_file_poll: assertion failed: (fd >= 0)
+[pheglib]   [mainloop: elapsed 152247 ms of a 300000 ms limit]
+[pheglib] glib/tests/mainloop: exit_status=0 (type 0 reason 0) VERDICT=PASS
 [pheglib] glib tests: 1 of 8 programs not clean
 [pheglib] DONE fails=1
