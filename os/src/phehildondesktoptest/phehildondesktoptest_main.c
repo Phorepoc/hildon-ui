@@ -8,6 +8,7 @@
 #include <hildon/hildon.h>
 #include <gconf/gconf-client.h>
 #include <libhildondesktop/libhildondesktop.h>
+#include <dbus/dbus-glib.h>
 
 extern void phe_log (const char *msg);
 #define LOG(...) do { char m_[300]; g_snprintf (m_, sizeof m_, __VA_ARGS__); phe_log (m_); } while (0)
@@ -68,11 +69,24 @@ phe_hildondesktop_test_main (void)
   CHECK (item->window != NULL, "item window");
   g_free (pid); g_free (aid);
 
-  /* the D-Bus connection a plug-in item hands out: no bus daemon is running, the TCP connect to the session bus address must fail with an error */
-  dbus_error_init (&derr);
-  dc = hd_home_plugin_item_get_dbus_connection (HD_HOME_PLUGIN_ITEM (item), DBUS_BUS_SESSION, &derr);
-  LOG ("[phehildondesktoptest] session bus connection: %s (%s)", dc ? "connected" : "none", derr.message ? derr.message : "no error");
-  CHECK (dc != NULL || dbus_error_is_set (&derr), "a connection or an error");
+  /* the D-Bus connection a plug-in item hands out: the session bus (phedbusd, started before this test) answers; a call on the bus driver proves the connection works */
+  {
+    GError *gerr = NULL; DBusGConnection *g = NULL; int tries;
+    /* the start-up list launches the bus in the background and does not wait for it: ask again for a while */
+    for (tries = 0; tries < 30 && !g; tries++) { g_clear_error (&gerr); g = hd_home_plugin_item_get_dbus_g_connection (HD_HOME_PLUGIN_ITEM (item), DBUS_BUS_SESSION, &gerr); if (!g) g_usleep (1000000); }
+    LOG ("[phehildondesktoptest] asked %d time(s)", tries);
+    LOG ("[phehildondesktoptest] session bus connection (dbus-glib): %s (%s)", g ? "connected" : "none", gerr ? gerr->message : "no error");
+    CHECK (g != NULL, "the plug-in item gets its session bus connection");
+    if (g) {
+      DBusGProxy *bus = dbus_g_proxy_new_for_name (g, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus");
+      gboolean has = FALSE; GError *e2 = NULL;
+      gboolean ok = dbus_g_proxy_call (bus, "NameHasOwner", &e2, G_TYPE_STRING, "org.freedesktop.DBus", G_TYPE_INVALID, G_TYPE_BOOLEAN, &has, G_TYPE_INVALID);
+      LOG ("[phehildondesktoptest] NameHasOwner(org.freedesktop.DBus) over the bus: %s %d (%s)", ok ? "call ok, result" : "call failed", has, e2 ? e2->message : "no error");
+      CHECK (ok && has, "a call on the bus driver");
+      g_object_unref (bus);
+    }
+    (void) derr; (void) dc;
+  }
 
   /* the heartbeat: 2 to 4 seconds */
   started = g_get_monotonic_time ();
