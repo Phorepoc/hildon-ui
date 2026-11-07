@@ -1,2 +1,6 @@
 [pheglib] pixman 0.42.2: 6 checks, 0 failures, OVER pixel=ff80007f
-[pheglib] cairo 1.16.0: 7 checks, 0 failures
+[pheglib] freetype: FT_Init_FreeType=0
+[pheglib] freetype: FT_New_Face(z:/resource/fonts/s60sans_r.ttf)=0
+[pheglib] freetype: family [Series 60 Sans] style [Regular] glyphs 1269 units/em 1000
+[pheglib] cairo text "Hildon": advance 84.0 x 22.0, 526 dark pixels, status no error has occurred
+[pheglib] cairo 1.16.0: 10 checks, 0 failures
