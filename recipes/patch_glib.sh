@@ -137,3 +137,5 @@ s = s.replace(a, '      { FILE *pf = fopen ("c:/data/phe_trap_stderr.bin", "wb")
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# diagnostic (kept: harmless): name the type when g_object_new_internal finds no notify queue
+python3 /h/recipes/patch_gobject_diag.py

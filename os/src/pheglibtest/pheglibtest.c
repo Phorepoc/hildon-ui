@@ -196,7 +196,15 @@ int phe_glib_test_run (void)
   { extern int phe_cairo_test (void); int cf = phe_cairo_test (); if (cf) fails += cf; }
 #endif
 #ifdef PHE_HAVE_PANGO
-  setenv ("FONTCONFIG_FILE", "z:/resource/pheglibtest/fonts.conf", 1);
+  { /* heap probe: grow many small blocks by realloc (the g_datalist pattern: 8 + 8n bytes) and touch every byte; a fault here = heap growth bug independent of GLib */
+    enum { N = 3000 }; static char *blk[N]; int i, k, bad = 0; size_t sz;
+    for (i = 0; i < N; i++) { blk[i] = (char *) malloc (8); if (blk[i]) memset (blk[i], 1, 8); }
+    for (k = 2; k <= 6; k++) { sz = 8 + 8 * k; for (i = 0; i < N; i++) { char *q = (char *) realloc (blk[i], sz); if (!q) { bad++; continue; } blk[i] = q; memset (q, 2, sz); } }
+    for (i = 0; i < N; i++) free (blk[i]);
+    snprintf (b, sizeof b, "heap probe: %d blocks regrown to %u bytes, touched, failures %d", N, (unsigned) sz, bad); phe_log (b); }
+#endif
+#ifdef PHE_HAVE_PANGO
+  setenv ("FONTCONFIG_FILE", "z:/resource/pheglibtest/fonts.conf", 1); setenv ("G_SLICE", "always-malloc", 1);
   { extern int phe_pango_test (void); int pg = phe_pango_test (); if (pg) fails += pg; }
 #endif
 #ifdef PHE_HAVE_PIXBUF
