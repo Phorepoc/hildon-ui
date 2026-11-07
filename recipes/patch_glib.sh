@@ -126,3 +126,14 @@ s = s[:j + len(a)] + "  if " + drv + " return (gchar *) file_name + 3; /* PHE_DR
 open(p, "w", newline="\n").write(s)
 PY
 fi
+# diagnosis only: when g_test_trap_assert_stderr() fails, keep the exact bytes the trapped child wrote to stderr in c:/data/phe_trap_stderr.bin (the harness logs it)
+if ! grep -q PHE_TRAPDUMP $G/gtestutils.c; then
+  python3 - <<'PY'
+p = "/wk/glib-2.56.4/glib/gtestutils.c"
+s = open(p, newline="").read()
+a = '      msg = g_strdup_printf ("stderr of child process (%s) %s: %s", process_id, match_error, stderr_pattern);\n'
+assert a in s
+s = s.replace(a, '      { FILE *pf = fopen ("c:/data/phe_trap_stderr.bin", "wb"); /* PHE_TRAPDUMP */ if (pf) { if (test_trap_last_stderr) fwrite (test_trap_last_stderr, 1, strlen (test_trap_last_stderr), pf); fclose (pf); } }\n' + a)
+open(p, "w", newline="\n").write(s)
+PY
+fi

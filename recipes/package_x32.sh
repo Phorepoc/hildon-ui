@@ -6,7 +6,7 @@ CC=/wk/lsc/bin/pp-gcc; X=/wk/x32; S=/wk/glib-2.56.4; O=/o; mkdir -p $O /wk/out/t
 INC="-I$X -I$X/glib -I$S -I$S/glib -I$S/gobject -I$S/gmodule -I/wk/ffi-x32 -I/h/overlay -include /h/overlay/phe_glib_compat.h"
 CF="-O2 -g0 -w -fno-pic -DHAVE_CONFIG_H -DGLIB_STATIC_COMPILATION -DGOBJECT_STATIC_COMPILATION"
 $CC $CF $INC -c /h/overlay/phe_posix_stubs.c -o /wk/out/phe_posix_stubs.o || exit 1
-$CC $CF $INC -c /h/os/src/pheglibtest/pheglibtest.c -o /wk/out/t/pheglibtest.o || exit 1
+$CC $CF $INC ${ONLY:+-DPHE_ONLY=\"$ONLY\" -DPHE_LIMIT_MS=${ONLY_LIMIT_MS:-1500000}} -c /h/os/src/pheglibtest/pheglibtest.c -o /wk/out/t/pheglibtest.o || exit 1
 for t in hash:hash list:list slist:slist queue:queue array:array-test strfuncs:strfuncs keyfile:keyfile mainloop:mainloop; do
   n=${t%%:*}; f=${t##*:}; $CC $CF $INC -I$S/glib/tests -Dmain=phe_glib_test_$n -Dg_test_init=phe_g_test_init -DG_LOG_DOMAIN=\"GLib\" -c $S/glib/tests/$f.c -o /wk/out/t/t_$n.o 2>&1 | grep -a " error" | head -3; [ -f /wk/out/t/t_$n.o ] || echo "NOT BUILT: $n"
 done

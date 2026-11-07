@@ -108,6 +108,15 @@ static void phe_log_text (const char *label, char *text)
   p = text; if (strlen (text) > 1200) p = text + strlen (text) - 1200;
   for (; *p; p = q) { q = strchr (p, '\n'); if (q) *q++ = 0; else q = p + strlen (p); if (*p) { snprintf (ln, sizeof ln, "  | %.220s", p); phe_log (ln); } }
 }
+/* the bytes a trapped test child wrote to stderr, as kept by the patched g_test_trap_assertions (see patch_glib.sh) */
+static void phe_log_trap_stderr (void)
+{
+  unsigned char tb[400]; char ln[1400], *o; int fd, n, i = 0; fd = open ("c:/data/phe_trap_stderr.bin", O_RDONLY); if (fd < 0) return;
+  n = (int) read (fd, tb, sizeof tb); close (fd); if (n < 0) n = 0;
+  snprintf (ln, sizeof ln, "  [trap stderr: %d bytes (first %d shown) as text then hex]", n, n); phe_log (ln);
+  o = ln; *o = 0; for (i = 0; i < n; i++) *o++ = (tb[i] >= 32 && tb[i] < 127) ? (char) tb[i] : '.'; *o = 0; { char lt[1500]; snprintf (lt, sizeof lt, "  | %.1000s", ln); phe_log (lt); }
+  o = ln; for (i = 0; i < n && i < 120; i++) o += snprintf (o, 8, "%02x ", tb[i]); phe_log (ln);
+}
 int phe_glib_test_run (void)
 {
   char b[200];
@@ -200,16 +209,26 @@ int phe_glib_test_run (void)
         FD_ZERO (&rs); FD_ZERO (&xs); FD_SET (pf[0], &rs); FD_SET (pf[0], &xs); tv.tv_sec = 0; tv.tv_usec = 500000; s2 = select (pf[0] + 1, &rs, NULL, &xs, &tv); rdyx = (FD_ISSET (pf[0], &rs) ? 1 : 0) | (FD_ISSET (pf[0], &xs) ? 2 : 0);
         fcntl (pf[0], F_SETFL, O_NONBLOCK); rd = (int) read (pf[0], rb, sizeof rb);
         snprintf (b, sizeof b, "probe pipe-EOF: spawn=%d waitpid=%d status=%d | select(read only)=%d readable=%d | select(read+except)=%d bits=%d (1=read 2=except) | read=%d errno=%d", pr, wr, pst, s1, rdyr, s2, rdyx, rd, errno); phe_log (b); } }
+#ifdef PHE_ONLY
+    static const char *names[] = { PHE_ONLY };
+#else
     static const char *names[] = { "queue", "array", "strfuncs", "keyfile", "slist", "list", "hash", "mainloop" };
+#endif
     unsigned i; int total_bad = 0;
     for (i = 0; i < sizeof names / sizeof names[0]; i++)
       {
         gchar *av[] = { (gchar *) "pheglibtest.exe", (gchar *) "--phe-run", (gchar *) names[i], NULL };
-        char co[4000]; int st = -1, vr = phe_run_child (names[i], strcmp (names[i], "queue") == 0 ? 500000 : 100000, co, sizeof co, &st);   /* queue/random runs 500,000 iterations: minutes under QEMU */
+        char co[4000]; int st = -1, vr, lim = strcmp (names[i], "queue") == 0 ? 500000 : strcmp (names[i], "mainloop") == 0 ? 300000 : 100000; gint64 t0;
+#ifdef PHE_LIMIT_MS
+        lim = PHE_LIMIT_MS;
+#endif
+        unlink ("c:/data/phe_trap_stderr.bin"); t0 = g_get_monotonic_time ();
+        vr = phe_run_child (names[i], lim, co, sizeof co, &st);
+        snprintf (b, sizeof b, "  [%s: elapsed %d ms of a %d ms limit]", names[i], (int) ((g_get_monotonic_time () - t0) / 1000), lim); phe_log (b);
         if (vr == 2) { snprintf (b, sizeof b, "glib/tests/%s: spawn failed VERDICT=SPAWN_FAILED", names[i]); phe_log (b); total_bad++; continue; }
         if (vr == 1) { snprintf (b, sizeof b, "glib/tests/%s: no exit within its time limit, killed -- VERDICT=TIMEOUT", names[i]); phe_log (b); phe_log_text (names[i], co); total_bad++; continue; }
         snprintf (b, sizeof b, "glib/tests/%s: exit_status=%d (type %d reason %d) VERDICT=%s", names[i], st, st & 0xff, (st >> 8) & 0xff, st == 0 ? "PASS" : "FAIL"); phe_log (b);
-        if (st != 0) { phe_log_text (names[i], co); total_bad++; }
+        if (st != 0) { phe_log_text (names[i], co); phe_log_trap_stderr (); total_bad++; }
       }
     snprintf (b, sizeof b, "glib tests: %d of %u programs not clean", total_bad, (unsigned) (sizeof names / sizeof names[0])); phe_log (b);
     fails += total_bad;
