@@ -1,0 +1,18 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phepixman.mmp -- OURS: pixman 0.42.2 (MIT) as its own replaceable DLL, app-private under a new name. Code = prebuilt archive libphepixman.a
+// (recipes/build_pixman_x32.sh + package_x32.sh); exports = phepixman.def (gen_defs.py).
+TARGET			phepixman.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7015777
+CAPABILITY		None
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phepixman_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib
+SMPSAFE

@@ -11,3 +11,10 @@ LIBHILDONDESKTOP=d05587180c24dbbe863823686461782e0db4b7c2
 HILDON_HOME=8dd16c59f867689ee3d6c7b10166d84491aa82f5
 HILDON_STATUS_MENU=796dbd7ca9737718db25ce9c43a3339c16114db9
 HILDON_CONTROL_PANEL=359e43a8a89903c39ccea2f580420e8ff0bf9a85
+# step 2 of docs/phorepoc/hildon-port.md: the drawing stack (sha256 checked against the published values on 2026-11-07)
+PIXMAN_VER=0.42.2
+PIXMAN_SHA256=ea1480efada2fd948bc75366f7c349e1c96d3297d09a3fe62626e38e234a625e
+PIXMAN_URL=https://cairographics.org/releases/pixman-$PIXMAN_VER.tar.gz
+CAIRO_VER=1.16.0
+CAIRO_SHA256=5e7b29b3f113ef870d1e3ecf8adf21f923396401604bda16d44be45e66052331
+CAIRO_URL=https://cairographics.org/releases/cairo-$CAIRO_VER.tar.xz

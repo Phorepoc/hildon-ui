@@ -5,7 +5,7 @@ import os, re, sys
 cfg, gcfg, symf, apis, out = sys.argv[1:6]
 syms = set(open(symf).read().split())
 os.makedirs(out, exist_ok=True)
-KEEP = {"HAVE_ALLOCA","HAVE_C99_SNPRINTF","HAVE_C99_VSNPRINTF","HAVE_GOOD_PRINTF","HAVE_LONG_DOUBLE","HAVE_LONG_LONG",
+KEEP = {"HAVE_UINT64_T","HAVE_TYPEOF","HAVE_BUILTIN_CLZ","HAVE_GCC_VECTOR_EXTENSIONS","HAVE_PTHREADS","HAVE_ALLOCA","HAVE_C99_SNPRINTF","HAVE_C99_VSNPRINTF","HAVE_GOOD_PRINTF","HAVE_LONG_DOUBLE","HAVE_LONG_LONG",
         "HAVE_LONG_LONG_FORMAT","HAVE_INTMAX_T","HAVE_INTTYPES_H_WITH_UINTMAX","HAVE_STDINT_H_WITH_UINTMAX","HAVE_PTRDIFF_T",
         "HAVE_SIG_ATOMIC_T","HAVE_WCHAR_T","HAVE_WINT_T","HAVE_RTLD_GLOBAL","HAVE_RTLD_LAZY","HAVE_RTLD_NOW","HAVE_LC_MESSAGES"}
 DROP_PREFIX = ("HAVE_STRUCT_", "HAVE_LANGINFO_", "HAVE_DECL_")
@@ -37,6 +37,8 @@ for line in open(cfg):
         res.append(line if ok else "/* #undef %s (x32/Open C) */\n" % n); continue
     res.append(line)
 open(os.path.join(out, "config.h"), "w", newline="\n").write("".join(res))
+if gcfg == "-":   # a config.h only (pixman, cairo ...): no glibconfig.h to patch
+    print("kept %d HAVE_, dropped %d: %s" % (len(kept), len(dropped), " ".join(sorted(dropped)))); sys.exit(0)
 g = open(gcfg).read()
 rep = [("typedef signed long gint64;","typedef signed long long gint64;"),("typedef unsigned long guint64;","typedef unsigned long long guint64;"),
  ("(val##L)","(val##LL)"),("(val##UL)","(val##ULL)"),('G_GINT64_MODIFIER "l"','G_GINT64_MODIFIER "ll"'),

@@ -3,7 +3,7 @@
 #
 #   REPO=<Symbian-ReverseEngineered checkout>  bash recipes/build.sh [steps]
 #
-# steps (default: all, in order):  fetch  tools  native  config  objects  gio  archives  images  boot
+# steps (default: all, in order):  fetch  tools  native  config  objects  gio  pixman  cairo  archives  images  boot
 #   fetch    download + verify the pinned tarballs (recipes/pins.sh)               -> dl/
 #   tools    the x32 pure-Open-C compiler wrappers (pp-gcc) + Open C's export list -> volume
 #   native   native configure + build of libffi and GLib (generated sources, ffi.h)
@@ -19,7 +19,7 @@
 set -eu
 # (the tools step mounts the main repo read-WRITE: openc_cflags.py writes .mmp-build there; every other step is read-only)
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}
-STEPS=${*:-fetch tools native config objects gio archives images boot}
+STEPS=${*:-fetch tools native config objects gio pixman cairo archives images boot}
 OUTD=$REPO/.phorepoc-x86-build/hildon; mkdir -p "$OUTD"
 IMG=phorepoc-x86
 dr() { MSYS_NO_PATHCONV=1 docker.exe run --rm --name "hildon-$1" -e JOBS="${JOBS:-8}" -v "$HERE":/h -v "$REPO":/repo:ro -v "$OUTD":/o -v "$VOL":/wk $IMG "${@:2}"; }
@@ -32,7 +32,9 @@ has native   && { echo "== native";   dr n1 bash -c 'bash /h/recipes/native_conf
 has config   && { echo "== config";   dr c1 bash -c 'cd /wk/nat && cp -f config.h config.h.native; cp -f glib/glibconfig.h glibconfig.h.native; python3 /h/recipes/gen_config.py config.h.native glibconfig.h.native /wk/libc_syms.txt /repo/.epoc32/include/stdapis /wk/x32cfg | cut -c1-80'; }
 has objects  && { echo "== objects";  dr o1 bash -c 'mkdir -p /wk/ffi-x32/include /wk/out; cp /wk/ffi-inst/include/*.h /wk/ffi-x32/include/; bash /h/recipes/build_x32.sh && bash /h/recipes/build_ffi_x32.sh'; }
 has gio      && { echo "== gio";      dr g1 bash /h/recipes/build_gio_x32.sh | tail -6; }
+has pixman   && { echo "== pixman";   dr p1 bash /h/recipes/build_pixman_x32.sh | tail -8; }
+has cairo    && { echo "== cairo";    dr c2 bash /h/recipes/build_cairo_x32.sh | tail -8; }
 has archives && { echo "== archives"; dr a1 bash /h/recipes/package_x32.sh; }
-has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phegio pheglibtest ) | tail -3; }
+has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phegio phepixman phecairo pheglibtest ) | tail -3; }
 has boot     && { echo "== boot";     ( cd "$REPO" && bash "$HERE/recipes/iterate.sh" ); }
 echo "build.sh: done ($STEPS)"

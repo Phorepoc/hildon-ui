@@ -189,6 +189,12 @@ int phe_glib_test_run (void)
     snprintf (b, sizeof b, "gio: delete ok=%d exists_after=%d", ok, g_file_query_exists (gf, NULL)); phe_log (b);
     g_object_unref (gf); g_free (path);
   }
+#ifdef PHE_HAVE_PIXMAN
+  { extern int phe_pixman_test (void); int pf = phe_pixman_test (); if (pf) fails += pf; }
+#endif
+#ifdef PHE_HAVE_CAIRO
+  { extern int phe_cairo_test (void); int cf = phe_cairo_test (); if (cf) fails += cf; }
+#endif
   snprintf (b, sizeof b, "own tests done, fails=%d", fails); phe_log (b);
   /* GLib's own test programs, each in a CHILD process (posix_spawn; a test program calls g_test_init once and exits). The parent logs
    * every child's exit status. hash.c spawns grandchildren itself (g_test_trap_subprocess). */

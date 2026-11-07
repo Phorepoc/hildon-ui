@@ -5,7 +5,7 @@
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a")]
+LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a")]
 OTHER = ["libpheglibtest.a", "libpheffi.a"]
 def nm(a):
     d, u = {}, set()
@@ -14,14 +14,14 @@ def nm(a):
         if len(p) == 3 and p[1] in "TDBRVWGSdbrvs": d[p[2]] = p[1]
         elif len(p) == 2 and p[0] == "U": u.add(p[1])
     return d, u
-info = {a: nm(a) for _, a in LIBS + [(None, o) for o in OTHER]}
+info = {a: nm(a) for _, a in LIBS + [(None, o) for o in OTHER] if os.path.exists(os.path.join(adir, a))}
 PRIV = re.compile(r"^(phe_|fork$|execv$|execve$|setrlimit$)")
-for name, a in LIBS:
+for name, a in [l for l in LIBS if l[1] in info]:
     d, _ = info[a]
     need = set()
     for b, (_, u) in info.items():
         if b != a: need |= u
-    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_)", n) or n in need))
+    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_)", n) or n in need))
     path = os.path.join(out, name, name + ".def")
     with open(path, "w", newline="\n") as fh:
         fh.write("EXPORTS\n")
