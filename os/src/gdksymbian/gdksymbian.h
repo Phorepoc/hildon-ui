@@ -70,5 +70,53 @@ void _gdk_events_init (void);                               /* gdkevents-symbian
 void _gdk_input_init (void);
 void _gdk_symbian_screen_resized (GdkScreen *screen, int width, int height);
 
+
+/* ---- drawables: every drawable of this backend is a cairo surface. A window is a rectangle of the display's bitmap surface (abs_x/abs_y), a pixmap owns its own surface ---- */
+#define GDK_TYPE_DRAWABLE_IMPL_SYMBIAN (gdk_drawable_impl_symbian_get_type ())
+#define GDK_DRAWABLE_IMPL_SYMBIAN(o)   (G_TYPE_CHECK_INSTANCE_CAST ((o), GDK_TYPE_DRAWABLE_IMPL_SYMBIAN, GdkDrawableImplSymbian))
+#define GDK_IS_DRAWABLE_IMPL_SYMBIAN(o) (G_TYPE_CHECK_INSTANCE_TYPE ((o), GDK_TYPE_DRAWABLE_IMPL_SYMBIAN))
+typedef struct _GdkDrawableImplSymbian {
+  GdkDrawable parent_instance;
+  GdkDrawable *wrapper;           /* the GdkWindow / GdkPixmap this is the implementation of */
+  GdkColormap *colormap;
+  cairo_surface_t *surface;       /* the backing surface: the shared display bitmap (windows) or a private surface (pixmaps) */
+  cairo_surface_t *view;          /* cached ref_cairo_surface result: a sub-surface of `surface` for windows (key: view_key) */
+  gint view_key[4];
+  gint abs_x, abs_y;              /* origin inside `surface` (windows) */
+  gint width, height, depth;
+} GdkDrawableImplSymbian;
+typedef struct { GdkDrawableClass parent_class; } GdkDrawableImplSymbianClass;
+GType gdk_drawable_impl_symbian_get_type (void);
+
+#define GDK_TYPE_PIXMAP_IMPL_SYMBIAN (gdk_pixmap_impl_symbian_get_type ())
+typedef struct { GdkDrawableImplSymbian drawable; } GdkPixmapImplSymbian;
+typedef struct { GdkDrawableImplSymbianClass parent_class; } GdkPixmapImplSymbianClass;
+GType gdk_pixmap_impl_symbian_get_type (void);
+
+#define GDK_TYPE_WINDOW_IMPL_SYMBIAN (gdk_window_impl_symbian_get_type ())
+#define GDK_WINDOW_IMPL_SYMBIAN(o)   (G_TYPE_CHECK_INSTANCE_CAST ((o), GDK_TYPE_WINDOW_IMPL_SYMBIAN, GdkWindowImplSymbian))
+typedef struct _GdkWindowImplSymbian {
+  GdkDrawableImplSymbian drawable;
+  GdkCursor *cursor;
+  GdkEventMask event_mask;
+  gboolean mapped;
+  GdkRegion *shape;               /* window shape set by gdk_window_shape_combine_region: kept for GdkWindow bookkeeping, WSERV windows stay rectangular */
+} GdkWindowImplSymbian;
+typedef struct { GdkDrawableImplSymbianClass parent_class; } GdkWindowImplSymbianClass;
+GType gdk_window_impl_symbian_get_type (void);
+
+/* the display's bitmap as a cairo surface, and the visible toplevels in stacking order (bottom first) */
+cairo_surface_t *_gdk_symbian_display_surface (void);
+GList *_gdk_symbian_toplevel_stack (void);
+void _gdk_symbian_present (GdkWindow *window, gint x, gint y, gint width, gint height);   /* window-relative rectangle -> WSERV */
+extern GdkWindow *_gdk_root;
+extern GdkWindow *_gdk_parent_root;
+
+/* GC */
+#define GDK_TYPE_GC_SYMBIAN (gdk_gc_symbian_get_type ())
+GType gdk_gc_symbian_get_type (void);
+void _gdk_symbian_gc_apply (GdkGC *gc, cairo_t *cr, gboolean for_fill);    /* sets source, line attributes, operator and clip of @gc on @cr */
+void _gdk_symbian_gc_finish (GdkGC *gc, cairo_t *cr);                     /* completes a drawing done between a group push of _gdk_symbian_gc_apply */
+
 G_END_DECLS
 #endif
