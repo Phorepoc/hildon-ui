@@ -1,0 +1,17 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phepng.mmp -- OURS: libpng 1.6.43 + zlib 1.3.1 (libpng / zlib licences) as its own replaceable DLL, app-private under a new name. Code = prebuilt archive (recipes/*.sh + package_x32.sh); exports = phepng.def (gen_defs.py).
+TARGET			phepng.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE701577C
+CAPABILITY		None
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phepng_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib 
+SMPSAFE

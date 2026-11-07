@@ -8,6 +8,8 @@ set -eu
 CC=/wk/lsc/bin/pp-gcc; mkdir -p /wk/out /wk/fc-work/e
 cd /wk; [ -d expat-$EXPAT_VER ] || tar xf /h/dl/expat-$EXPAT_VER.tar.xz; [ -d fontconfig-$FONTCONFIG_VER ] || tar xf /h/dl/fontconfig-$FONTCONFIG_VER.tar.xz
 E=/wk/expat-$EXPAT_VER/lib
+# Open C paths carry a drive letter (z:/resource/fonts): fontconfig must treat them as absolute (it does so only for _WIN32)
+sed -i 's|^    return \*s == .\/.;$|    return *s == 0x2f \|\| (((*s \| 0x20) >= 0x61 \&\& (*s \| 0x20) <= 0x7a) \&\& s[1] == 0x3a \&\& s[2] == 0x2f);   /* PHE: drive letter */|' /wk/fontconfig-$FONTCONFIG_VER/src/fcstr.c
 cat > /wk/fc-work/expat_config.h <<'EOC'
 #define BYTEORDER 1234
 #define HAVE_MEMMOVE 1

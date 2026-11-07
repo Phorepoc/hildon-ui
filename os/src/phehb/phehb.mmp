@@ -1,0 +1,17 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phehb.mmp -- OURS: HarfBuzz 15.1.0 (MIT) as its own replaceable DLL, app-private under a new name. Code = prebuilt archive (recipes/*.sh + package_x32.sh); exports = phehb.def (gen_defs.py).
+TARGET			phehb.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE701577B
+CAPABILITY		None
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phehb_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib phefreetype.lib pheglib.lib phegobject.lib
+SMPSAFE

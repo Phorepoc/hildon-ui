@@ -3,7 +3,7 @@
 #
 #   REPO=<Symbian-ReverseEngineered checkout>  bash recipes/build.sh [steps]
 #
-# steps (default: all, in order):  fetch  tools  native  config  objects  gio  freetype  pixman  cairo  archives  images  boot
+# steps (default: all, in order):  fetch  tools  native  config  objects  gio  freetype  pixman  cxxhdr  hb  zlibpng  fontconfig  cairo  pango  pixbuf  archives  defs  images  boot
 #   fetch    download + verify the pinned tarballs (recipes/pins.sh)               -> dl/
 #   tools    the x32 pure-Open-C compiler wrappers (pp-gcc) + Open C's export list -> volume
 #   native   native configure + build of libffi and GLib (generated sources, ffi.h)
@@ -19,7 +19,7 @@
 set -eu
 # (the tools step mounts the main repo read-WRITE: openc_cflags.py writes .mmp-build there; every other step is read-only)
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}
-STEPS=${*:-fetch tools native config objects gio freetype pixman cairo archives images boot}
+STEPS=${*:-fetch tools native config objects gio freetype pixman cxxhdr hb zlibpng fontconfig cairo pango pixbuf archives defs images boot}
 OUTD=$REPO/.phorepoc-x86-build/hildon; mkdir -p "$OUTD"
 IMG=phorepoc-x86
 dr() { MSYS_NO_PATHCONV=1 docker.exe run --rm --name "hildon-$1" -e JOBS="${JOBS:-8}" -v "$HERE":/h -v "$REPO":/repo:ro -v "$OUTD":/o -v "$VOL":/wk $IMG "${@:2}"; }
@@ -34,8 +34,15 @@ has objects  && { echo "== objects";  dr o1 bash -c 'mkdir -p /wk/ffi-x32/includ
 has gio      && { echo "== gio";      dr g1 bash /h/recipes/build_gio_x32.sh | tail -6; }
 has freetype && { echo "== freetype"; dr f1 bash /h/recipes/build_freetype_x32.sh | tail -3; }
 has pixman   && { echo "== pixman";   dr p1 bash /h/recipes/build_pixman_x32.sh | tail -8; }
+has cxxhdr   && { echo "== cxxhdr";   MSYS_NO_PATHCONV=1 docker.exe run --rm --name hildon-x1 -v "$HERE":/h -v "$REPO":/repo -v "$VOL":/wk $IMG bash /h/recipes/build_cxxheaders_x32.sh | tail -3; }
+has hb       && { echo "== harfbuzz"; dr h1 bash /h/recipes/build_harfbuzz_x32.sh | tail -3; }
+has zlibpng  && { echo "== zlib+png"; dr z1 bash /h/recipes/build_zlib_png_x32.sh | tail -3; }
+has fontconfig && { echo "== fontconfig"; dr fc1 bash /h/recipes/build_fontconfig_x32.sh | tail -4; }
 has cairo    && { echo "== cairo";    dr c2 bash /h/recipes/build_cairo_x32.sh | tail -8; }
 has archives && { echo "== archives"; dr a1 bash /h/recipes/package_x32.sh; }
-has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phegio phepixman phefreetype phecairo pheglibtest ) | tail -3; }
+has pango    && { echo "== pango";    dr pg1 bash /h/recipes/build_pango_x32.sh | tail -6; }
+has pixbuf   && { echo "== pixbuf";   dr px1 bash /h/recipes/build_pixbuf_x32.sh | tail -4; }
+has defs     && { echo "== defs";     dr d1 python3 /h/recipes/gen_defs.py /o /h/os/src; }
+has images   && { echo "== images";   ( cd "$REPO" && ./ph build pheglib phegobject phegmodule phegthread phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheglibtest ) | tail -3; }
 has boot     && { echo "== boot";     ( cd "$REPO" && bash "$HERE/recipes/iterate.sh" ); }
 echo "build.sh: done ($STEPS)"

@@ -36,4 +36,6 @@ for v in libpango_1_0_la_OBJECTS libpangoft2_1_0_la_OBJECTS libpangocairo_1_0_la
   echo "pango/$v: $(echo $o | wc -w) objects"
 done
 echo "errors: $(grep -ac ' error' /wk/pango-x32/objs.log)"; grep -a ' error' /wk/pango-x32/objs.log | sed 's/.*pango-1.40.14.//' | cut -c1-160 | sort | uniq -c | sort -rn | head -10
+# Pango 1.40's own tiny fribidi (pango/mini-fribidi), built from the same tarball
+for f in fribidi fribidi_char_type fribidi_types; do $CC -O2 -g0 -w -fno-pic $FF -I/wk/pango-1.40.14/pango/mini-fribidi -c /wk/pango-1.40.14/pango/mini-fribidi/$f.c -o pango/mf_$f.o 2>&1 | grep -a " error" | head -3; done
 rm -f /wk/out/libphepango.a; ar rcs /wk/out/libphepango.a pango/*.o; ar t /wk/out/libphepango.a | wc -l

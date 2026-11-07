@@ -195,6 +195,13 @@ int phe_glib_test_run (void)
 #ifdef PHE_HAVE_CAIRO
   { extern int phe_cairo_test (void); int cf = phe_cairo_test (); if (cf) fails += cf; }
 #endif
+#ifdef PHE_HAVE_PANGO
+  setenv ("FONTCONFIG_FILE", "z:/resource/pheglibtest/fonts.conf", 1);
+  { extern int phe_pango_test (void); int pg = phe_pango_test (); if (pg) fails += pg; }
+#endif
+#ifdef PHE_HAVE_PIXBUF
+  { extern int phe_pixbuf_test (void); int pf2 = phe_pixbuf_test (); if (pf2) fails += pf2; }
+#endif
   snprintf (b, sizeof b, "own tests done, fails=%d", fails); phe_log (b);
   /* GLib's own test programs, each in a CHILD process (posix_spawn; a test program calls g_test_init once and exits). The parent logs
    * every child's exit status. hash.c spawns grandchildren itself (g_test_trap_subprocess). */
