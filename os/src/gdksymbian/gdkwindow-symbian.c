@@ -130,9 +130,11 @@ _gdk_window_impl_new (GdkWindow *window, GdkWindow *real_parent, GdkScreen *scre
   impl->drawable.abs_x = private->window_type == GDK_WINDOW_CHILD ? parent_impl->drawable.abs_x + private->x : private->x;
   impl->drawable.abs_y = private->window_type == GDK_WINDOW_CHILD ? parent_impl->drawable.abs_y + private->y : private->y;
   impl->event_mask = event_mask;
-  if ((attributes_mask & GDK_WA_COLORMAP) && attributes->colormap) colormap = attributes->colormap;
-  else colormap = gdk_screen_get_system_colormap (_gdk_screen);
-  gdk_drawable_set_colormap (GDK_DRAWABLE (window), colormap);
+  if (attributes->wclass == GDK_INPUT_OUTPUT) {            /* an input-only window has no pixels, so no colormap of its own: it reports the one it inherits (gdkdrawable-symbian.c) */
+    if ((attributes_mask & GDK_WA_COLORMAP) && attributes->colormap) colormap = attributes->colormap;
+    else colormap = gdk_screen_get_system_colormap (_gdk_screen);
+    gdk_drawable_set_colormap (GDK_DRAWABLE (window), colormap);
+  }
   (void) visual;
   if ((attributes_mask & GDK_WA_CURSOR) && attributes->cursor) gdk_window_set_cursor (window, attributes->cursor);
 }
@@ -296,10 +298,24 @@ impl_reparent (GdkWindow *window, GdkWindow *new_parent, gint x, gint y)
   return root;                       /* TRUE: the window is now a toplevel */
 }
 
+/* a native window is cleared by the backend (a window server clears to the window background itself): the region is filled with the background the window specified, the one of
+ * the nearest ancestor that has its own when it is parent-relative, a tiled pixmap or the background colour; none when the window has no background at all */
+extern gboolean _gdk_symbian_window_dirty (GdkWindow *win, GdkRectangle *r, gboolean add);
 static void
 impl_clear_region (GdkWindow *window, GdkRegion *region, gboolean send_expose)
 {
-  /* the core clears client-side (the background is not native): this is only reached for native windows, whose clearing is the expose of the region */
+  GdkWindowObject *private = GDK_WINDOW_OBJECT (window), *bgw = private; GdkWindowImplSymbian *impl = WIMPL (window); gint ox = 0, oy = 0;
+  if (GDK_WINDOW_DESTROYED (window) || private->input_only) return;
+  while (bgw->bg_pixmap == GDK_PARENT_RELATIVE_BG && bgw->parent && GDK_WINDOW_OBJECT (bgw->parent)->window_type != GDK_WINDOW_ROOT) { ox += bgw->x; oy += bgw->y; bgw = GDK_WINDOW_OBJECT (bgw->parent); }
+  if (bgw->bg_pixmap != GDK_NO_BG && bgw->bg_pixmap != GDK_PARENT_RELATIVE_BG) {
+    cairo_t *cr = cairo_create (impl->drawable.surface); GdkRectangle box;
+    cairo_translate (cr, impl->drawable.abs_x, impl->drawable.abs_y);
+    gdk_cairo_region (cr, region); cairo_clip (cr);
+    if (bgw->bg_pixmap) { gdk_cairo_set_source_pixmap (cr, bgw->bg_pixmap, -ox, -oy); cairo_pattern_set_extend (cairo_get_source (cr), CAIRO_EXTEND_REPEAT); }
+    else gdk_cairo_set_source_color (cr, &bgw->bg_color);
+    cairo_paint (cr); cairo_destroy (cr);
+    gdk_region_get_clipbox (region, &box); _gdk_symbian_window_dirty (window, &box, TRUE);
+  }
   if (send_expose) gdk_window_invalidate_region (window, region, FALSE);
 }
 

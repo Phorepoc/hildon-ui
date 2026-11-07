@@ -38,7 +38,14 @@ void gdk_input_set_extension_events (GdkWindow *window, gint mask, GdkExtensionM
 
 /* ---- the screen's default colormap ---- */
 static GdkColormap *default_colormap = NULL;
-GdkColormap *gdk_screen_get_default_colormap (GdkScreen *screen) { g_return_val_if_fail (GDK_IS_SCREEN (screen), NULL); return default_colormap; }
+/* until an application sets one, the default colormap of a screen is its system colormap */
+GdkColormap *
+gdk_screen_get_default_colormap (GdkScreen *screen)
+{
+  g_return_val_if_fail (GDK_IS_SCREEN (screen), NULL);
+  if (default_colormap == NULL) default_colormap = g_object_ref (gdk_screen_get_system_colormap (screen));
+  return default_colormap;
+}
 void
 gdk_screen_set_default_colormap (GdkScreen *screen, GdkColormap *colormap)
 {

@@ -1,0 +1,17 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phegtkwin.mmp -- OURS: the gdk-symbian demo application: a real GdkWindow of phegdk.dll. C code (phegtkwin_demo.c, public GDK API only) = prebuilt archive libphegtkwin.a (package_x32.sh).
+TARGET			phegtkwin.exe
+TARGETTYPE		exe
+UID				0x1000007a 0xE7015784
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCSTACKSIZE	0x100000
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phegtkwin.cpp
+LIBRARY			euser.lib ws32.lib gdi.lib fbscli.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib phepng.lib phepixman.lib phefreetype.lib phefontconfig.lib phehb.lib phecairo.lib phepango.lib phepixbuf.lib phegdk.lib pheatk.lib phegtk.lib
+SMPSAFE

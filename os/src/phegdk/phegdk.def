@@ -703,3 +703,19 @@ EXPORTS
 	gdk_window_withdraw @ 702 NONAME
 	gdk_wm_decoration_get_type @ 703 NONAME
 	gdk_wm_function_get_type @ 704 NONAME
+	gdk_color_change @ 705 NONAME
+	gdk_colors_alloc @ 706 NONAME
+	gdk_colors_free @ 707 NONAME
+	gdk_events_pending @ 708 NONAME
+	gdk_gc_get_screen @ 709 NONAME
+	gdk_get_display @ 710 NONAME
+	gdk_get_use_xshm @ 711 NONAME
+	gdk_set_locale @ 712 NONAME
+	gdk_set_use_xshm @ 713 NONAME
+	gdk_window_get_group @ 714 NONAME
+	gdk_window_set_functions @ 715 NONAME
+	gdk_window_set_group @ 716 NONAME
+	gdk_window_set_hints @ 717 NONAME
+	gdk_window_set_icon @ 718 NONAME
+	gdk_window_set_icon_name @ 719 NONAME
+	gdk_window_set_title @ 720 NONAME

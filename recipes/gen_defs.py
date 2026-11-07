@@ -5,8 +5,8 @@
 # Run in the phorepoc-x86 image. Re-running on changed archives renumbers: from the first release on, extend the .def by hand.
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
-LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a"), ("phehb", "libphehb.a"), ("phepng", "libphepng.a"), ("phefontconfig", "libphefontconfig.a"), ("phepango", "libphepango.a"), ("phepixbuf", "libphepixbuf.a"), ("phegdk", "libphegdk.a")]
-OTHER = ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a"]
+LIBS = [("pheglib", "libpheglib.a"), ("phegobject", "libphegobject.a"), ("phegmodule", "libphegmodule.a"), ("phegthread", "libphegthread.a"), ("phegio", "libphegio.a"), ("phepixman", "libphepixman.a"), ("phecairo", "libphecairo.a"), ("phefreetype", "libphefreetype.a"), ("phehb", "libphehb.a"), ("phepng", "libphepng.a"), ("phefontconfig", "libphefontconfig.a"), ("phepango", "libphepango.a"), ("phepixbuf", "libphepixbuf.a"), ("pheatk", "libpheatk.a"), ("phegdk", "libphegdk.a"), ("phegtk", "libphegtk.a")]
+OTHER = ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a"]
 def nm(a):
     d, u = {}, set()
     for line in subprocess.run(["nm", "-g", "--no-demangle", os.path.join(adir, a)], capture_output=True, text=True).stdout.splitlines():
@@ -21,10 +21,19 @@ for name, a in [l for l in LIBS if l[1] in info]:
     need = set()
     for b, (_, u) in info.items():
         if b != a: need |= u
-    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_|FT_|hb_|png_|Fc|XML_|pango_|gdk_pixbuf_|gdk_pixdata_|gdk_)", n) or n in need))
+    exp = sorted(n for n in d if not PRIV.match(n) and (re.match(r"^(g_|glib_|pixman_|cairo_|FT_|hb_|png_|Fc|XML_|pango_|gdk_pixbuf_|gdk_pixdata_|gdk_|atk_|gtk_)", n) or n in need))
     path = os.path.join(out, name, name + ".def")
-    with open(path, "w", newline="\n") as fh:
-        fh.write("EXPORTS\n")
-        for i, n in enumerate(exp, 1):
-            fh.write("\t%s @ %d NONAME%s\n" % (n, i, " DATA" if d[n] in "DBRVGSdbrvs" else ""))
+    # frozen ABI: a .def that exists is only EXTENDED (new names get the next ordinals, nothing is renumbered or removed); only a missing one is written from scratch
+    have, last = set(), 0
+    if os.path.exists(path):
+        for l in open(path, newline="").read().replace("\r\n", "\n").splitlines():
+            m = re.match(r"^\s*(\S+)\s*@\s*(\d+)", l)
+            if m: have.add(m.group(1)); last = max(last, int(m.group(2)))
+    mode = "a" if have else "w"
+    with open(path, mode, newline="\n") as fh:
+        if not have: fh.write("EXPORTS\n")
+        for n in exp:
+            if n in have: continue
+            last += 1
+            fh.write("\t%s @ %d NONAME%s\n" % (n, last, " DATA" if d[n] in "DBRVGSdbrvs" else ""))
     print(name, len(exp), "exports ->", path)

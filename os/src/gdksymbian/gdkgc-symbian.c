@@ -117,6 +117,7 @@ _gdk_symbian_gc_new (GdkDrawable *drawable, GdkGCValues *values, GdkGCValuesMask
   GdkGC *gc = g_object_new (GDK_TYPE_GC_SYMBIAN, NULL);
   GDK_GC_SYMBIAN (gc)->depth = depth;
   _gdk_gc_init (gc, drawable, values, mask);
+  if (mask) gdk_gc_symbian_set_values (gc, values, mask);       /* the core keeps its own copy of some values; the ones this backend draws with are applied through the same vfunc as gdk_gc_set_values () */
   return gc;
 }
 

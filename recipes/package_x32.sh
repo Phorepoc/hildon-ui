@@ -43,4 +43,12 @@ if ls /wk/gdk-x32/be/*.o >/dev/null 2>&1; then
   $CC $CF $INC $GD -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phegdkwin/phegdkwin_demo.c -o /wk/out/gd/phegdkwin_demo.o || echo "GDK DEMO COMPILE FAIL"
   ar rcs $O/libphegdkwin.a /wk/out/gd/*.o; cp /h/os/src/phegdkwin/fonts.conf $O/testdata/phegdkwin_fonts.conf; echo "libphegdkwin.a built"
 fi
+# ATK (build_atk_x32.sh) and GTK 2.24.33 (build_gtk_x32.sh) as libpheatk.a / libphegtk.a, and the GTK demo (public GTK API) as libphegtkwin.a
+if ls /wk/gtk-x32/gtkwindow.o >/dev/null 2>&1; then
+  cp /wk/out/libpheatk.a $O/libpheatk.a; rm -f $O/libphegtk.a; ar rcs $O/libphegtk.a /wk/gtk-x32/*.o; echo "libphegtk.a: $(ar t $O/libphegtk.a | wc -l) members"
+  GT=/wk/gtk+-2.24.33; GK="-I/h/os/src/phegtkwin -I/wk/gtk-x32 -I/wk/gtk-x32/inc -I$GT -I/wk/atk-2.38.0 -I/wk/gdk-x32 -I$GT/gdk -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/glib-2.56.4/gio"
+  mkdir -p /wk/out/gk; rm -f /wk/out/gk/*.o $O/libphegtkwin.a
+  $CC $CF $INC $GK -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phegtkwin/phegtkwin_demo.c -o /wk/out/gk/phegtkwin_demo.o || echo "GTK DEMO COMPILE FAIL"
+  ar rcs $O/libphegtkwin.a /wk/out/gk/*.o; cp /h/os/src/phegtkwin/fonts.conf $O/testdata/phegtkwin_fonts.conf; echo "libphegtkwin.a built"
+fi
 mk libpheglibtest.a /wk/out/t/*.o

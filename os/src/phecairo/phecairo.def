@@ -335,3 +335,24 @@ EXPORTS
 	cairo_user_to_device_distance @ 334 NONAME
 	cairo_version @ 335 NONAME
 	cairo_version_string @ 336 NONAME
+	cairo_pdf_get_versions @ 337 NONAME
+	cairo_pdf_surface_add_outline @ 338 NONAME
+	cairo_pdf_surface_create @ 339 NONAME
+	cairo_pdf_surface_create_for_stream @ 340 NONAME
+	cairo_pdf_surface_restrict_to_version @ 341 NONAME
+	cairo_pdf_surface_set_metadata @ 342 NONAME
+	cairo_pdf_surface_set_page_label @ 343 NONAME
+	cairo_pdf_surface_set_size @ 344 NONAME
+	cairo_pdf_surface_set_thumbnail_size @ 345 NONAME
+	cairo_pdf_version_to_string @ 346 NONAME
+	cairo_ps_get_levels @ 347 NONAME
+	cairo_ps_level_to_string @ 348 NONAME
+	cairo_ps_surface_create @ 349 NONAME
+	cairo_ps_surface_create_for_stream @ 350 NONAME
+	cairo_ps_surface_dsc_begin_page_setup @ 351 NONAME
+	cairo_ps_surface_dsc_begin_setup @ 352 NONAME
+	cairo_ps_surface_dsc_comment @ 353 NONAME
+	cairo_ps_surface_get_eps @ 354 NONAME
+	cairo_ps_surface_restrict_to_level @ 355 NONAME
+	cairo_ps_surface_set_eps @ 356 NONAME
+	cairo_ps_surface_set_size @ 357 NONAME

@@ -37,18 +37,22 @@ gdk_drawable_impl_symbian_finalize (GObject *object)
 }
 
 /* ---- surfaces ---- */
+/* Every request returns a NEW cairo surface object over the same pixels. GDK sets a device offset on the surface it is given (begin_paint, the cached surface of each client side child window), and
+ * those offsets must not leak between the users of one drawable: with one shared surface object the last one to set an offset moved every other user's drawing. */
+static cairo_user_data_key_t wrapped_key;
 static cairo_surface_t *
 impl_surface (GdkDrawableImplSymbian *impl)
 {
   if (!impl->surface) return NULL;
-  if (!GDK_IS_WINDOW (impl->wrapper)) return cairo_surface_reference (impl->surface);        /* a pixmap: its own surface */
-  /* a window: the rectangle of the shared bitmap surface */
-  if (!impl->view || impl->view_key[0] != impl->abs_x || impl->view_key[1] != impl->abs_y || impl->view_key[2] != impl->width || impl->view_key[3] != impl->height) {
-    if (impl->view) cairo_surface_destroy (impl->view);
-    impl->view = cairo_surface_create_for_rectangle (impl->surface, impl->abs_x, impl->abs_y, impl->width, impl->height);
-    impl->view_key[0] = impl->abs_x; impl->view_key[1] = impl->abs_y; impl->view_key[2] = impl->width; impl->view_key[3] = impl->height;
+  if (!GDK_IS_WINDOW (impl->wrapper)) {                                        /* a pixmap: its pixel memory, kept alive by the wrapper */
+    cairo_surface_t *w = cairo_image_surface_create_for_data (cairo_image_surface_get_data (impl->surface), cairo_image_surface_get_format (impl->surface),
+                                                              cairo_image_surface_get_width (impl->surface), cairo_image_surface_get_height (impl->surface), cairo_image_surface_get_stride (impl->surface));
+    if (cairo_surface_status (w) != CAIRO_STATUS_SUCCESS) return w;
+    cairo_surface_set_user_data (w, &wrapped_key, cairo_surface_reference (impl->surface), (cairo_destroy_func_t) cairo_surface_destroy);
+    return w;
   }
-  return cairo_surface_reference (impl->view);
+  /* a window: the rectangle of the shared bitmap surface */
+  return cairo_surface_create_for_rectangle (impl->surface, impl->abs_x, impl->abs_y, impl->width, impl->height);
 }
 
 static cairo_surface_t *gdk_drawable_impl_symbian_ref_cairo_surface (GdkDrawable *d) { return impl_surface (GDK_DRAWABLE_IMPL_SYMBIAN (d)); }
@@ -85,7 +89,22 @@ gdk_drawable_impl_symbian_set_colormap (GdkDrawable *d, GdkColormap *cmap)
   if (impl->colormap) g_object_unref (impl->colormap);
   impl->colormap = cmap;
 }
-static GdkColormap *gdk_drawable_impl_symbian_get_colormap (GdkDrawable *d) { return IMPL (d)->colormap; }
+/* a window without a colormap of its own (an input-only window, or one whose colormap was cleared) has the one it inherits from its parent, as the window server would report; a depth 1 pixmap has none */
+static GdkColormap *
+gdk_drawable_impl_symbian_get_colormap (GdkDrawable *d)
+{
+  GdkDrawableImplSymbian *impl = IMPL (d); GdkDrawable *w = impl->wrapper;
+  if (impl->colormap || impl->depth == 1) return impl->colormap;
+  while (w && GDK_IS_WINDOW (w)) {
+    GdkWindowObject *p = GDK_WINDOW_OBJECT (w)->parent ? GDK_WINDOW_OBJECT (GDK_WINDOW_OBJECT (w)->parent) : NULL;
+    GdkColormap *c;
+    if (!p) break;
+    c = ((GdkDrawableImplSymbian *) p->impl)->colormap;
+    if (c) return c;
+    w = GDK_DRAWABLE (p);
+  }
+  return impl->wrapper && GDK_IS_WINDOW (impl->wrapper) ? gdk_screen_get_system_colormap (_gdk_screen) : NULL;
+}
 static GdkVisual *gdk_drawable_impl_symbian_get_visual (GdkDrawable *d) { return IMPL (d)->depth == 24 ? _gdk_visual : NULL; }
 static GdkScreen *gdk_drawable_impl_symbian_get_screen (GdkDrawable *d) { (void) d; return _gdk_screen; }
 
