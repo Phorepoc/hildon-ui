@@ -21,3 +21,26 @@ CAIRO_URL=https://cairographics.org/releases/cairo-$CAIRO_VER.tar.xz
 FREETYPE_VER=2.13.3
 FREETYPE_SHA256=0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289
 FREETYPE_URL=https://download.savannah.gnu.org/releases/freetype/freetype-$FREETYPE_VER.tar.xz
+# Pango 1.40.14 needs: glib >= 2.34 (ours 2.56.4), cairo >= 1.12 (1.16.0), freetype, fontconfig >= 2.11, harfbuzz >= 0.9.9. HarfBuzz: the NEWEST (15.1.0, 2026) still declares every hb_* function
+# Pango 1.40's sources call (checked by grep against src/*.h, deprecated ones included: hb_font_funcs_set_glyph_func is in hb-deprecated.h), so the newest is used.
+HARFBUZZ_VER=15.1.0
+HARFBUZZ_SHA256=0fc7c565443a5f4be7da65ac5ee5bd737d9b158dc908708b7689a0a5796b0c8d
+HARFBUZZ_URL=https://github.com/harfbuzz/harfbuzz/releases/download/$HARFBUZZ_VER/harfbuzz-$HARFBUZZ_VER.tar.xz
+EXPAT_VER=2.5.0
+EXPAT_SHA256=ef2420f0232c087801abf705e89ae65f6257df6b7931d37846a193ef2e8cdcbe
+EXPAT_URL=https://github.com/libexpat/libexpat/releases/download/R_2_5_0/expat-$EXPAT_VER.tar.xz
+FONTCONFIG_VER=2.14.2
+FONTCONFIG_SHA256=dba695b57bce15023d2ceedef82062c2b925e51f5d4cc4aef736cf13f60a468b
+FONTCONFIG_URL=https://www.freedesktop.org/software/fontconfig/release/fontconfig-$FONTCONFIG_VER.tar.xz
+PANGO_VER=1.40.14
+PANGO_SHA256=90af1beaa7bf9e4c52db29ec251ec4fd0a8f2cc185d521ad1f88d01b3a6a17e3
+PANGO_URL=https://download.gnome.org/sources/pango/1.40/pango-$PANGO_VER.tar.xz
+ZLIB_VER=1.3.1
+ZLIB_SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
+ZLIB_URL=https://zlib.net/fossils/zlib-$ZLIB_VER.tar.gz
+LIBPNG_VER=1.6.43
+LIBPNG_SHA256=6a5ca0652392a2d7c9db2ae5b40210843c0bbc081cbd410825ab00cc59f14a6c
+LIBPNG_URL=https://download.sourceforge.net/libpng/libpng-$LIBPNG_VER.tar.xz
+GDKPIXBUF_VER=2.36.12
+GDKPIXBUF_SHA256=fff85cf48223ab60e3c3c8318e2087131b590fd6f1737e42cb3759a3b427a334
+GDKPIXBUF_URL=https://download.gnome.org/sources/gdk-pixbuf/2.36/gdk-pixbuf-$GDKPIXBUF_VER.tar.xz

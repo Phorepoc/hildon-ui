@@ -29,7 +29,7 @@ for line in open(cfg):
     n, v = m.group(1), m.group(2)
     if n in SIZES: res.append("#define %s %s\n" % (n, SIZES[n])); continue
     if n.startswith("HAVE_") or n in ("ENABLE_NLS","USE_STATFS","STRERROR_R_CHAR_P"):
-        if n in KEEP or n.startswith("HAVE_FT_"): ok = True   # FT_* are FreeType functions (phefreetype), not libc
+        if n in KEEP or n.startswith(("HAVE_FT_", "HAVE_CAIRO", "HAVE_FREETYPE")): ok = True   # FT_* are FreeType functions (phefreetype), not libc
         elif n in DROP or n.startswith(DROP_PREFIX): ok = False
         elif n.endswith("_H"): ok = header_ok(n)
         else: ok = n[5:].lower() in syms
