@@ -54,3 +54,10 @@ GTK_URL=https://download.gnome.org/sources/gtk+/2.24/gtk+-$GTK_VER.tar.xz
 ATK_VER=2.38.0
 ATK_SHA256=ac4de2a4ef4bd5665052952fe169657e65e895c5057dffb3c2a810f6191a0c36   # = download.gnome.org atk-2.38.0.sha256sum; SHA512 dffd0a08...2c77 = Gentoo Manifest (verified 2026-11-07); LGPL 2+; GTK 2.24 needs atk >= 2.10
 ATK_URL=https://download.gnome.org/sources/atk/2.38/atk-$ATK_VER.tar.xz
+# D-Bus (libhildondesktop needs dbus-1 + dbus-glib-1). Both tarballs verified against the SHA512 of the Gentoo Manifest AND against the upstream orig tarballs of the Debian pool (same bytes), 2026-11-07.
+DBUS_VER=1.16.2
+DBUS_SHA256=0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2   # AFL-2.1 or GPL-2+
+DBUS_URL=https://dbus.freedesktop.org/releases/dbus/dbus-$DBUS_VER.tar.xz
+DBUSGLIB_VER=0.114
+DBUSGLIB_SHA256=c09c5c085b2a0e391b8ee7d783a1d63fe444e96717cc1814d61b5e8fc2827a7c   # AFL-2.1 or GPL-2+
+DBUSGLIB_URL=https://dbus.freedesktop.org/releases/dbus-glib/dbus-glib-$DBUSGLIB_VER.tar.gz

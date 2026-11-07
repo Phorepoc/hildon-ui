@@ -46,6 +46,16 @@ XGetWindowProperty (Display *display, Window w, Atom property, glong long_offset
   return Success;
 }
 
+int
+XDeleteProperty (Display *display, Window w, Atom property)
+{
+  GdkWindow *win = win_of (w);
+  (void) display;
+  if (!win) return BadWindow;
+  gdk_property_delete (win, ga (property));
+  return Success;
+}
+
 Status
 XSetWMProtocols (Display *display, Window w, Atom *protocols, int count)
 {

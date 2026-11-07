@@ -524,3 +524,18 @@ EXPORTS
 	hildon_wizard_dialog_new @ 523 NONAME
 	hildon_wizard_dialog_response_get_type @ 524 NONAME
 	hildon_wizard_dialog_set_forward_page_func @ 525 NONAME
+	XChangeProperty @ 526 NONAME
+	gconf_client_get_default @ 527 NONAME
+	gconf_client_get_list @ 528 NONAME
+	gconf_client_notify @ 529 NONAME
+	gconf_client_notify_add @ 530 NONAME
+	gconf_client_set_list @ 531 NONAME
+	gconf_client_set_string @ 532 NONAME
+	gconf_client_suggest_sync @ 533 NONAME
+	gconf_client_unset @ 534 NONAME
+	gconf_entry_get_key @ 535 NONAME
+	gconf_entry_get_value @ 536 NONAME
+	gconf_value_get_list @ 537 NONAME
+	gconf_value_get_list_type @ 538 NONAME
+	gconf_value_get_string @ 539 NONAME
+	XDeleteProperty @ 540 NONAME

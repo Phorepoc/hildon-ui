@@ -19,7 +19,7 @@
 set -eu
 # (the tools step mounts the main repo read-WRITE: openc_cflags.py writes .mmp-build there; every other step is read-only)
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}
-STEPS=${*:-fetch tools native config objects gio freetype pixman cxxhdr hb zlibpng fontconfig cairo pango pixbuf atk gdk gdkbackend gtk hildon archives defs images boot}
+STEPS=${*:-fetch tools native config objects gio freetype pixman cxxhdr hb zlibpng fontconfig cairo pango pixbuf atk gdk gdkbackend gtk dbus dbusglib hildon hildondesktop archives defs images boot}
 OUTD=$REPO/.phorepoc-x86-build/hildon; mkdir -p "$OUTD"
 IMG=phorepoc-x86
 dr() { MSYS_NO_PATHCONV=1 docker.exe run --rm --name "hildon-$1" -e JOBS="${JOBS:-8}" -v "$HERE":/h -v "$REPO":/repo:ro -v "$OUTD":/o -v "$VOL":/wk $IMG "${@:2}"; }
@@ -44,7 +44,10 @@ has pango    && { echo "== pango";    dr pg1 bash /h/recipes/build_pango_x32.sh 
 has gdk      && { echo "== gdk core";  dr gd1 bash /h/recipes/build_gdk_x32.sh | tail -3; }
 has atk       && { echo "== atk";        dr atk bash /h/recipes/build_atk_x32.sh | tail -25; }
 has gdkbackend && { echo "== gdk backend"; dr gd2 bash /h/recipes/build_gdk_backend_x32.sh | tail -4; }
+has dbus      && { echo "== dbus";       dr db bash /h/recipes/build_dbus_x32.sh | tail -12; }
+has dbusglib  && { echo "== dbus-glib";  dr dg bash /h/recipes/build_dbusglib_x32.sh | tail -8; }
 has hildon    && { echo "== hildon";     dr hl bash /h/recipes/build_hildon_x32.sh | tail -12; }
+has hildondesktop && { echo "== hildondesktop"; dr hd bash /h/recipes/build_hildondesktop_x32.sh | tail -10; }
 has gtk       && { echo "== gtk";        dr gtk bash /h/recipes/build_gtk_x32.sh | tail -12; }
 has pixbuf   && { echo "== pixbuf";   dr px1 bash /h/recipes/build_pixbuf_x32.sh | tail -4; }
 has defs     && { echo "== defs";     dr d1 python3 /h/recipes/gen_defs.py /o /h/os/src; }

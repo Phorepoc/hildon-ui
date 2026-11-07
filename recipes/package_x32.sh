@@ -65,4 +65,21 @@ w.writeframes(b"".join(struct.pack("<h", int(9000 * math.sin(2 * math.pi * 880 *
 PYEOF
   echo "libphehildonwin.a built"
 fi
+# D-Bus (build_dbus_x32.sh) as libphedbus.a, and its transport test (public libdbus API) as libphedbustest.a
+if [ -f /wk/out/libphedbus.a ]; then
+  cp /wk/out/libphedbus.a $O/libphedbus.a; echo "libphedbus.a: $(ar t $O/libphedbus.a | wc -l) members"
+  mkdir -p $O/include/dbus; cp /wk/dbus-1.16.2/dbus/dbus*.h /wk/dbus-x32/dbus/dbus-arch-deps.h $O/include/dbus/ 2>/dev/null
+  mkdir -p /wk/out/db; rm -f /wk/out/db/*.o $O/libphedbustest.a
+  $CC $CF $INC -I/wk/dbus-1.16.2 -I/wk/dbus-x32 -I/wk/dbus-x32/dbus -c /h/os/src/phedbustest/phedbustest_main.c -o /wk/out/db/phedbustest_main.o || echo "DBUS TEST COMPILE FAIL"
+  ar rcs $O/libphedbustest.a /wk/out/db/*.o; echo "libphedbustest.a built"
+fi
+# dbus-glib (build_dbusglib_x32.sh), libhildondesktop (build_hildondesktop_x32.sh) and the libhildondesktop test
+[ -f /wk/out/libphedbusglib.a ] && cp /wk/out/libphedbusglib.a $O/libphedbusglib.a
+if [ -f /wk/out/libphehildondesktop.a ]; then
+  cp /wk/out/libphehildondesktop.a $O/libphehildondesktop.a; echo "libphehildondesktop.a: $(ar t $O/libphehildondesktop.a | wc -l) members"
+  GT=/wk/gtk+-2.24.33; HD="-I/h/os/src/phehildondesktoptest -I/h/os/src/phehildon/shims -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/h/dl/libhildon -I/h/dl/libhildondesktop -I/wk/hildondesktop-x32/inc -I/wk/hdesktop-x32/inc -I/wk/dbusglib-x32/inc -I/wk/dbus-glib-0.114 -I/wk/dbus-glib-0.114/dbus -I/wk/gtk-x32 -I/wk/gtk-x32/inc -I$GT -I/wk/atk-2.38.0 -I/wk/gdk-x32 -I$GT/gdk -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/harfbuzz-15.1.0/src -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/glib-2.56.4/gio -DDBUS_API_SUBJECT_TO_CHANGE"
+  mkdir -p /wk/out/hdt; rm -f /wk/out/hdt/*.o $O/libphehildondesktoptest.a
+  $CC $CF $INC $HD -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phehildondesktoptest/phehildondesktoptest_main.c -o /wk/out/hdt/phehildondesktoptest_main.o || echo "HILDONDESKTOP TEST COMPILE FAIL"
+  ar rcs $O/libphehildondesktoptest.a /wk/out/hdt/*.o; cp /h/os/src/phehildondesktoptest/fonts.conf $O/testdata/phehildondesktoptest_fonts.conf; echo "libphehildondesktoptest.a built"
+fi
 mk libpheglibtest.a /wk/out/t/*.o

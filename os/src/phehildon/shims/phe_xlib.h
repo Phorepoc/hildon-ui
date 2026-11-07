@@ -80,6 +80,7 @@ Atom   XInternAtom (Display *display, const char *atom_name, Bool only_if_exists
 int    XChangeProperty (Display *display, Window w, Atom property, Atom type, int format, int mode, const unsigned char *data, int nelements);
 int    XGetWindowProperty (Display *display, Window w, Atom property, glong long_offset, glong long_length, Bool delete_prop, Atom req_type,
                            Atom *actual_type_return, int *actual_format_return, gulong *nitems_return, gulong *bytes_after_return, unsigned char **prop_return);
+int    XDeleteProperty (Display *display, Window w, Atom property);
 Status XSetWMProtocols (Display *display, Window w, Atom *protocols, int count);
 Status XGetWMProtocols (Display *display, Window w, Atom **protocols_return, int *count_return);
 XWMHints *XGetWMHints (Display *display, Window w);

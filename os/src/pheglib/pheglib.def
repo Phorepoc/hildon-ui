@@ -1681,3 +1681,5 @@ EXPORTS
 	in6addr_any @ 1680 NONAME DATA
 	in6addr_loopback @ 1681 NONAME DATA
 	statvfs @ 1682 NONAME
+	environ @ 1683 NONAME DATA
+	execvp @ 1684 NONAME
