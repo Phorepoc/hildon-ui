@@ -89,18 +89,48 @@ gdk_drawable_impl_symbian_create_gc (GdkDrawable *d, GdkGCValues *values, GdkGCV
   return _gdk_symbian_gc_new (d, values, mask, IMPL (d)->depth);
 }
 
-/* ---- drawing: one cairo context per primitive ---- */
+/* ---- drawing: one cairo context per primitive ----
+ * Normally the context draws into the drawable. When the GC needs a raster operation (gdkgc-symbian.c) the context draws a coverage mask instead and end() combines it with the pixels. */
 static cairo_t *
-begin (GdkDrawableImplSymbian *impl)
+begin (GdkDrawableImplSymbian *impl, GdkGC *gc)
 {
-  cairo_surface_t *s = impl_surface (impl); cairo_t *cr;
+  cairo_surface_t *s; cairo_t *cr;
+  if (gc && _gdk_symbian_gc_is_noop (gc)) return NULL;                 /* GDK_NOOP draws nothing */
+  if (gc && _gdk_symbian_gc_raster_mode (gc)) {
+    cairo_surface_t *cov = cairo_image_surface_create (CAIRO_FORMAT_A8, impl->width, impl->height);
+    cr = cairo_create (cov); cairo_surface_destroy (cov);
+    cairo_set_user_data (cr, _gdk_symbian_coverage_key (), cairo_surface_reference (cov), (cairo_destroy_func_t) cairo_surface_destroy);
+    return cr;
+  }
+  s = impl_surface (impl);
   if (!s) return NULL;
   cr = cairo_create (s); cairo_surface_destroy (s); return cr;
 }
 
-static void
-end (GdkDrawableImplSymbian *impl, cairo_t *cr, gint x, gint y, gint w, gint h)
+/* the data of the drawable's origin inside its surface (a window is a rectangle of the display bitmap) */
+static gboolean
+raster_target (GdkDrawableImplSymbian *impl, guchar **dst, gint *stride, gint *x0, gint *y0, gint *x1, gint *y1)
 {
+  guchar *data; gint sw, sh, bpp = impl->depth == 1 ? 1 : 4;
+  if (!impl->surface) return FALSE;
+  cairo_surface_flush (impl->surface);
+  data = cairo_image_surface_get_data (impl->surface); *stride = cairo_image_surface_get_stride (impl->surface);
+  sw = cairo_image_surface_get_width (impl->surface); sh = cairo_image_surface_get_height (impl->surface);
+  if (!data) return FALSE;
+  *dst = data + impl->abs_y * *stride + impl->abs_x * bpp;
+  *x0 = MAX (0, -impl->abs_x); *y0 = MAX (0, -impl->abs_y); *x1 = MIN (impl->width, sw - impl->abs_x); *y1 = MIN (impl->height, sh - impl->abs_y);
+  return *x1 > *x0 && *y1 > *y0;
+}
+
+static void
+end (GdkDrawableImplSymbian *impl, GdkGC *gc, cairo_t *cr, gint x, gint y, gint w, gint h)
+{
+  cairo_surface_t *cov = cairo_get_user_data (cr, _gdk_symbian_coverage_key ());
+  if (cov) {
+    guchar *dst; gint stride, x0, y0, x1, y1;
+    cairo_surface_flush (cov);
+    if (raster_target (impl, &dst, &stride, &x0, &y0, &x1, &y1)) { _gdk_symbian_raster_combine (gc, dst, stride, impl->depth, x0, y0, x1, y1, cov); cairo_surface_mark_dirty (impl->surface); }
+  }
   if (GDK_IS_WINDOW (impl->wrapper)) window_mark_dirty (impl, x, y, w, h);
   cairo_destroy (cr);
 }
@@ -108,19 +138,19 @@ end (GdkDrawableImplSymbian *impl, cairo_t *cr, gint x, gint y, gint w, gint h)
 static void
 gdk_drawable_impl_symbian_draw_rectangle (GdkDrawable *d, GdkGC *gc, gboolean filled, gint x, gint y, gint width, gint height)
 {
-  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl);
+  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl, gc);
   if (!cr) return;
   _gdk_symbian_gc_apply (gc, cr, filled);
   if (filled) { cairo_rectangle (cr, x, y, width, height); cairo_fill (cr); }
   else { cairo_rectangle (cr, x + 0.5, y + 0.5, width, height); cairo_stroke (cr); }
   _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, x - 1, y - 1, width + 3, height + 3);
+  end (impl, gc, cr, x - 1, y - 1, width + 3, height + 3);
 }
 
 static void
 gdk_drawable_impl_symbian_draw_arc (GdkDrawable *d, GdkGC *gc, gboolean filled, gint x, gint y, gint width, gint height, gint angle1, gint angle2)
 {
-  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl); double a1, a2;
+  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl, gc); double a1, a2;
   if (!cr) return;
   if (width <= 0 || height <= 0) { cairo_destroy (cr); return; }
   _gdk_symbian_gc_apply (gc, cr, filled);
@@ -133,7 +163,7 @@ gdk_drawable_impl_symbian_draw_arc (GdkDrawable *d, GdkGC *gc, gboolean filled, 
   cairo_restore (cr);
   if (filled) cairo_fill (cr); else cairo_stroke (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, x - 1, y - 1, width + 3, height + 3);
+  end (impl, gc, cr, x - 1, y - 1, width + 3, height + 3);
 }
 
 static void
@@ -148,32 +178,32 @@ static void
 gdk_drawable_impl_symbian_draw_polygon (GdkDrawable *d, GdkGC *gc, gboolean filled, GdkPoint *points, gint npoints)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; gint i, bx, by, bw, bh;
-  if (npoints < 2 || !(cr = begin (impl))) return;
+  if (npoints < 2 || !(cr = begin (impl, gc))) return;
   _gdk_symbian_gc_apply (gc, cr, filled);
   for (i = 0; i < npoints; i++) { double px = points[i].x + (filled ? 0 : 0.5), py = points[i].y + (filled ? 0 : 0.5); if (i == 0) cairo_move_to (cr, px, py); else cairo_line_to (cr, px, py); }
   cairo_close_path (cr);
   if (filled) cairo_fill (cr); else cairo_stroke (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, cr, bx, by, bw, bh);
+  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, gc, cr, bx, by, bw, bh);
 }
 
 static void
 gdk_drawable_impl_symbian_draw_points (GdkDrawable *d, GdkGC *gc, GdkPoint *points, gint npoints)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; gint i, bx, by, bw, bh;
-  if (npoints < 1 || !(cr = begin (impl))) return;
+  if (npoints < 1 || !(cr = begin (impl, gc))) return;
   _gdk_symbian_gc_apply (gc, cr, TRUE);
   for (i = 0; i < npoints; i++) cairo_rectangle (cr, points[i].x, points[i].y, 1, 1);
   cairo_fill (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, cr, bx, by, bw, bh);
+  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, gc, cr, bx, by, bw, bh);
 }
 
 static void
 gdk_drawable_impl_symbian_draw_segments (GdkDrawable *d, GdkGC *gc, GdkSegment *segs, gint nsegs)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; gint i, x1 = G_MAXINT, y1 = G_MAXINT, x2 = G_MININT, y2 = G_MININT;
-  if (nsegs < 1 || !(cr = begin (impl))) return;
+  if (nsegs < 1 || !(cr = begin (impl, gc))) return;
   _gdk_symbian_gc_apply (gc, cr, FALSE);
   for (i = 0; i < nsegs; i++) {
     cairo_move_to (cr, segs[i].x1 + 0.5, segs[i].y1 + 0.5); cairo_line_to (cr, segs[i].x2 + 0.5, segs[i].y2 + 0.5);
@@ -181,25 +211,25 @@ gdk_drawable_impl_symbian_draw_segments (GdkDrawable *d, GdkGC *gc, GdkSegment *
   }
   cairo_stroke (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, x1 - 2, y1 - 2, x2 - x1 + 5, y2 - y1 + 5);
+  end (impl, gc, cr, x1 - 2, y1 - 2, x2 - x1 + 5, y2 - y1 + 5);
 }
 
 static void
 gdk_drawable_impl_symbian_draw_lines (GdkDrawable *d, GdkGC *gc, GdkPoint *points, gint npoints)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; gint i, bx, by, bw, bh;
-  if (npoints < 2 || !(cr = begin (impl))) return;
+  if (npoints < 2 || !(cr = begin (impl, gc))) return;
   _gdk_symbian_gc_apply (gc, cr, FALSE);
   for (i = 0; i < npoints; i++) { if (i == 0) cairo_move_to (cr, points[i].x + 0.5, points[i].y + 0.5); else cairo_line_to (cr, points[i].x + 0.5, points[i].y + 0.5); }
   cairo_stroke (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, cr, bx, by, bw, bh);
+  bounds (points, npoints, &bx, &by, &bw, &bh); end (impl, gc, cr, bx, by, bw, bh);
 }
 
 static void
 draw_glyphs_matrix (GdkDrawable *d, GdkGC *gc, const PangoMatrix *matrix, PangoFont *font, gint x, gint y, PangoGlyphString *glyphs)
 {
-  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl); PangoRectangle ink;
+  GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr = begin (impl, gc); PangoRectangle ink;
   if (!cr) return;
   _gdk_symbian_gc_apply (gc, cr, FALSE);
   if (matrix) { cairo_matrix_t m; cairo_matrix_init (&m, matrix->xx, matrix->yx, matrix->xy, matrix->yy, matrix->x0, matrix->y0); cairo_transform (cr, &m); }
@@ -207,7 +237,7 @@ draw_glyphs_matrix (GdkDrawable *d, GdkGC *gc, const PangoMatrix *matrix, PangoF
   pango_cairo_show_glyph_string (cr, font, glyphs);
   _gdk_symbian_gc_finish (gc, cr);
   pango_glyph_string_extents (glyphs, font, &ink, NULL);
-  end (impl, cr, x + PANGO_PIXELS (ink.x) - 2, y + PANGO_PIXELS (ink.y) - 2, PANGO_PIXELS (ink.width) + 5, PANGO_PIXELS (ink.height) + 5);
+  end (impl, gc, cr, x + PANGO_PIXELS (ink.x) - 2, y + PANGO_PIXELS (ink.y) - 2, PANGO_PIXELS (ink.width) + 5, PANGO_PIXELS (ink.height) + 5);
 }
 static void gdk_drawable_impl_symbian_draw_glyphs (GdkDrawable *d, GdkGC *gc, PangoFont *font, gint x, gint y, PangoGlyphString *glyphs) { draw_glyphs_matrix (d, gc, NULL, font, x, y, glyphs); }
 static void gdk_drawable_impl_symbian_draw_glyphs_transformed (GdkDrawable *d, GdkGC *gc, PangoMatrix *matrix, PangoFont *font, gint x, gint y, PangoGlyphString *glyphs)
@@ -220,7 +250,7 @@ static void
 gdk_drawable_impl_symbian_draw_trapezoids (GdkDrawable *d, GdkGC *gc, GdkTrapezoid *traps, gint n)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; gint i;
-  if (n < 1 || !(cr = begin (impl))) return;
+  if (n < 1 || !(cr = begin (impl, gc))) return;
   _gdk_symbian_gc_apply (gc, cr, TRUE);
   for (i = 0; i < n; i++) {
     cairo_move_to (cr, traps[i].x11, traps[i].y1); cairo_line_to (cr, traps[i].x21, traps[i].y1);
@@ -228,7 +258,35 @@ gdk_drawable_impl_symbian_draw_trapezoids (GdkDrawable *d, GdkGC *gc, GdkTrapezo
   }
   cairo_fill (cr);
   _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, 0, 0, impl->width, impl->height);
+  end (impl, gc, cr, 0, 0, impl->width, impl->height);
+}
+
+/* Per-pixel copy of a source (cairo image surface data or GdkImage memory) with the raster function and clip of the GC: used when the function is not COPY and when the source is a
+ * bitmap (XCopyPlane semantics: a 1 bit becomes the foreground pixel, a 0 bit the background pixel). */
+static void
+put_function_pixel (guchar *dst, gint stride, gint depth, gint x, gint y, GdkFunction f, guint32 s)
+{
+  guchar *dp = dst + y * stride + (depth == 1 ? x : 4 * x);
+  if (depth == 1) { guint32 d = dp[0] ? 1 : 0; dp[0] = (_gdk_symbian_apply_function (f, s & 1, d) & 1) ? 0xff : 0x00; }
+  else { guint32 *p32 = (guint32 *) dp, d = *p32, keep = depth == 24 ? 0x00ffffffu : 0xffffffffu; *p32 = (_gdk_symbian_apply_function (f, s, d) & keep) | (d & ~keep); }
+}
+
+static void
+copy_pixels (GdkDrawableImplSymbian *impl, GdkGC *gc, const guchar *sd, gint sstride, gint sw, gint sh, gboolean src_is_bitmap, gint xsrc, gint ysrc, gint xdest, gint ydest, gint width, gint height)
+{
+  guchar *dst; gint stride, x0, y0, x1, y1, x, y; GdkFunction f = _gdk_symbian_gc_function (gc); guint32 fg, bg;
+  if (f == GDK_NOOP || !raster_target (impl, &dst, &stride, &x0, &y0, &x1, &y1)) return;
+  _gdk_symbian_gc_pixels (gc, &fg, &bg);
+  if (impl->depth == 32) { fg |= 0xff000000u; bg |= 0xff000000u; }
+  for (y = 0; y < height; y++) for (x = 0; x < width; x++) {
+    gint dx = xdest + x, dy = ydest + y, sx = xsrc + x, sy = ysrc + y; guint32 s;
+    if (dx < x0 || dx >= x1 || dy < y0 || dy >= y1 || sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue;
+    if (!_gdk_symbian_gc_clip_test (gc, dx, dy)) continue;
+    s = src_is_bitmap ? (sd[sy * sstride + sx] ? fg : bg) : *(const guint32 *) (sd + sy * sstride + 4 * sx);
+    put_function_pixel (dst, stride, impl->depth, dx, dy, f, s);
+  }
+  cairo_surface_mark_dirty (impl->surface);
+  if (GDK_IS_WINDOW (impl->wrapper)) window_mark_dirty (impl, xdest, ydest, width, height);
 }
 
 /* copy from another drawable: the source surface is painted through the GC clip */
@@ -239,7 +297,13 @@ gdk_drawable_impl_symbian_draw_drawable_with_src (GdkDrawable *d, GdkGC *gc, Gdk
   (void) original_src;
   ss = _gdk_drawable_ref_cairo_surface (src);
   if (!ss) return;
-  if (!(cr = begin (impl))) { cairo_surface_destroy (ss); return; }
+  if (gc && (_gdk_symbian_gc_raster_mode (gc) || cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA)) {
+    cairo_surface_flush (ss);
+    copy_pixels (impl, gc, cairo_image_surface_get_data (ss), cairo_image_surface_get_stride (ss), cairo_image_surface_get_width (ss), cairo_image_surface_get_height (ss),
+                 cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA, xsrc, ysrc, xdest, ydest, width, height);
+    cairo_surface_destroy (ss); return;
+  }
+  if (!(cr = begin (impl, gc))) { cairo_surface_destroy (ss); return; }
   if (gc) _gdk_symbian_gc_apply (gc, cr, FALSE);
   cairo_rectangle (cr, xdest, ydest, width, height); cairo_clip (cr);
   if (cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA) {
@@ -253,7 +317,7 @@ gdk_drawable_impl_symbian_draw_drawable_with_src (GdkDrawable *d, GdkGC *gc, Gdk
   }
   cairo_surface_destroy (ss);
   if (gc) _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, xdest, ydest, width, height);
+  end (impl, gc, cr, xdest, ydest, width, height);
 }
 static void gdk_drawable_impl_symbian_draw_drawable (GdkDrawable *d, GdkGC *gc, GdkDrawable *src, gint xsrc, gint ysrc, gint xdest, gint ydest, gint width, gint height)
 {
@@ -264,7 +328,11 @@ static void
 gdk_drawable_impl_symbian_draw_image (GdkDrawable *d, GdkGC *gc, GdkImage *image, gint xsrc, gint ysrc, gint xdest, gint ydest, gint width, gint height)
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_t *cr; cairo_surface_t *is; cairo_format_t fmt;
-  if (!(cr = begin (impl))) return;
+  if (gc && (_gdk_symbian_gc_raster_mode (gc) || image->depth == 1)) {
+    copy_pixels (impl, gc, image->mem, image->bpl, image->width, image->height, image->depth == 1, xsrc, ysrc, xdest, ydest, width, height);
+    return;
+  }
+  if (!(cr = begin (impl, gc))) return;
   fmt = image->depth == 1 ? CAIRO_FORMAT_A8 : CAIRO_FORMAT_RGB24;
   is = cairo_image_surface_create_for_data (image->mem, fmt, image->width, image->height, image->bpl);
   if (gc) _gdk_symbian_gc_apply (gc, cr, FALSE);
@@ -273,7 +341,7 @@ gdk_drawable_impl_symbian_draw_image (GdkDrawable *d, GdkGC *gc, GdkImage *image
   else { cairo_set_source_surface (cr, is, xdest - xsrc, ydest - ysrc); cairo_paint (cr); }
   cairo_surface_destroy (is);
   if (gc) _gdk_symbian_gc_finish (gc, cr);
-  end (impl, cr, xdest, ydest, width, height);
+  end (impl, gc, cr, xdest, ydest, width, height);
 }
 
 /* ---- reading back ---- */

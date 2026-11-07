@@ -9,6 +9,7 @@
 #include "gdkpixmap.h"
 #include "gdkregion.h"
 
+static const cairo_user_data_key_t coverage_key;
 typedef struct _GdkGCSymbian {
   GdkGC parent_instance;
   GdkColor fg, bg;
@@ -23,6 +24,7 @@ typedef struct _GdkGCSymbian {
 typedef struct { GdkGCClass parent_class; } GdkGCSymbianClass;
 #define GDK_GC_SYMBIAN(o) ((GdkGCSymbian *) (o))
 
+static void apply_coverage (struct _GdkGCSymbian *g, GdkGC *gc, cairo_t *cr);
 G_DEFINE_TYPE (GdkGCSymbian, gdk_gc_symbian, GDK_TYPE_GC)
 
 static void
@@ -150,6 +152,137 @@ color_of (GdkGCSymbian *g, const GdkColor *c, double *r, double *gg, double *b, 
   *r = rgb.red / 65535.0; *gg = rgb.green / 65535.0; *b = rgb.blue / 65535.0; *a = 1.0;
 }
 
+/* ---- raster operations ----
+ * cairo has no bitwise operators and X semantics of GDK_XOR / AND / ... are defined on pixel values. When the GC asks for one (or for OPAQUE_STIPPLED, which paints two colours),
+ * a primitive does not draw into the drawable: it draws its shape, with the GC's line attributes and clip, into an A8 coverage surface without antialiasing, and
+ * _gdk_symbian_raster_combine() then goes over the covered pixels and writes  dest = function (source, dest)  on the image data. The source pixel is the foreground
+ * (SOLID), the tile pixel (TILED), the foreground or the background by the stipple bit (OPAQUE_STIPPLED) or the foreground where the stipple bit is set (STIPPLED). */
+const cairo_user_data_key_t *_gdk_symbian_coverage_key (void) { return &coverage_key; }
+
+gboolean
+_gdk_symbian_gc_raster_mode (GdkGC *gc)
+{
+  GdkGCSymbian *g = GDK_GC_SYMBIAN (gc);
+  return g->function != GDK_COPY || g->fill == GDK_OPAQUE_STIPPLED;
+}
+GdkFunction _gdk_symbian_gc_function (GdkGC *gc) { return GDK_GC_SYMBIAN (gc)->function; }
+void _gdk_symbian_gc_pixels (GdkGC *gc, guint32 *fg, guint32 *bg) { *fg = GDK_GC_SYMBIAN (gc)->fg.pixel; *bg = GDK_GC_SYMBIAN (gc)->bg.pixel; }
+/* may (x, y) of the drawable be drawn to, with respect to the clip region and clip mask of the GC? */
+gboolean
+_gdk_symbian_gc_clip_test (GdkGC *gc, gint x, gint y)
+{
+  GdkGCSymbian *g = GDK_GC_SYMBIAN (gc);
+  if (g->clip_region && !gdk_region_point_in (g->clip_region, x - gc->clip_x_origin, y - gc->clip_y_origin)) return FALSE;
+  if (g->clip_mask) {
+    cairo_surface_t *ms = _gdk_drawable_ref_cairo_surface (g->clip_mask); gboolean ok = FALSE;
+    if (ms) {
+      gint mx = x - gc->clip_x_origin, my = y - gc->clip_y_origin;
+      cairo_surface_flush (ms);
+      if (mx >= 0 && my >= 0 && mx < cairo_image_surface_get_width (ms) && my < cairo_image_surface_get_height (ms))
+        ok = cairo_image_surface_get_data (ms)[my * cairo_image_surface_get_stride (ms) + mx] != 0;
+      cairo_surface_destroy (ms);
+    }
+    return ok;
+  }
+  return TRUE;
+}
+gboolean _gdk_symbian_gc_is_noop (GdkGC *gc) { return GDK_GC_SYMBIAN (gc)->function == GDK_NOOP; }
+
+static void
+apply_coverage (GdkGCSymbian *g, GdkGC *gc, cairo_t *cr)
+{
+  if (g->clip_region) {
+    gint i, n; GdkRectangle *rects;
+    gdk_region_get_rectangles (g->clip_region, &rects, &n);
+    cairo_new_path (cr);
+    for (i = 0; i < n; i++) cairo_rectangle (cr, rects[i].x + gc->clip_x_origin, rects[i].y + gc->clip_y_origin, rects[i].width, rects[i].height);
+    cairo_clip (cr); g_free (rects);
+  }
+  cairo_set_antialias (cr, CAIRO_ANTIALIAS_NONE);
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER); cairo_set_source_rgba (cr, 1, 1, 1, 1);
+  cairo_set_line_width (cr, g->line_width > 0 ? g->line_width : 1);
+  switch (g->cap_style) { case GDK_CAP_ROUND: cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND); break; case GDK_CAP_PROJECTING: cairo_set_line_cap (cr, CAIRO_LINE_CAP_SQUARE); break; default: cairo_set_line_cap (cr, CAIRO_LINE_CAP_BUTT); }
+  switch (g->join_style) { case GDK_JOIN_ROUND: cairo_set_line_join (cr, CAIRO_LINE_JOIN_ROUND); break; case GDK_JOIN_BEVEL: cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL); break; default: cairo_set_line_join (cr, CAIRO_LINE_JOIN_MITER); }
+  if (g->line_style != GDK_LINE_SOLID && g->dashes && g->n_dashes > 0) {
+    double d[64]; gint i, n = MIN (g->n_dashes, 64); for (i = 0; i < n; i++) d[i] = g->dashes[i];
+    cairo_set_dash (cr, d, n, g->dash_offset);
+  }
+}
+
+guint32
+_gdk_symbian_apply_function (GdkFunction f, guint32 s, guint32 d)
+{
+  switch (f) {
+    case GDK_CLEAR: return 0;
+    case GDK_AND: return s & d;
+    case GDK_AND_REVERSE: return s & ~d;
+    case GDK_COPY: return s;
+    case GDK_AND_INVERT: return ~s & d;
+    case GDK_NOOP: return d;
+    case GDK_XOR: return s ^ d;
+    case GDK_OR: return s | d;
+    case GDK_NOR: return ~(s | d);
+    case GDK_EQUIV: return ~(s ^ d);
+    case GDK_INVERT: return ~d;
+    case GDK_OR_REVERSE: return s | ~d;
+    case GDK_COPY_INVERT: return ~s;
+    case GDK_OR_INVERT: return ~s | d;
+    case GDK_NAND: return ~(s & d);
+    case GDK_SET: return 0xffffffffu;
+  }
+  return s;
+}
+
+/* One bit of a bitmap/stipple surface (A8, nonzero = 1) at (x, y), repeated over the plane with the tile/stipple origin. */
+typedef struct { const guchar *data; gint stride, w, h; } Plane;
+static gboolean
+plane_open (Plane *pl, GdkPixmap *pm)
+{
+  cairo_surface_t *s = pm ? _gdk_drawable_ref_cairo_surface (pm) : NULL;
+  if (!s) return FALSE;
+  cairo_surface_flush (s);
+  pl->data = cairo_image_surface_get_data (s); pl->stride = cairo_image_surface_get_stride (s); pl->w = cairo_image_surface_get_width (s); pl->h = cairo_image_surface_get_height (s);
+  cairo_surface_destroy (s);               /* the pixmap keeps its surface alive; the data pointer stays valid while the pixmap does */
+  return pl->data != NULL;
+}
+static guint32
+plane_pixel (const Plane *pl, gint x, gint y, gint bpp)
+{
+  gint px = ((x % pl->w) + pl->w) % pl->w, py = ((y % pl->h) + pl->h) % pl->h;
+  const guchar *p = pl->data + py * pl->stride + px * bpp;
+  return bpp == 1 ? (p[0] ? 1 : 0) : *(const guint32 *) p;
+}
+
+/* @dst: pixel (0,0) of the drawable inside its surface data; the loop covers x in [x0,x1), y in [y0,y1) in drawable coordinates; @cov has the drawable's size */
+void
+_gdk_symbian_raster_combine (GdkGC *gc, guchar *dst, gint dst_stride, gint depth, gint x0, gint y0, gint x1, gint y1, cairo_surface_t *cov)
+{
+  GdkGCSymbian *g = GDK_GC_SYMBIAN (gc); Plane tile, stip, mask; gboolean has_tile = FALSE, has_stip = FALSE, has_mask = FALSE;
+  const guchar *cd; gint cs, x, y; guint32 fg = g->fg.pixel, bg = g->bg.pixel, keep = depth == 24 ? 0x00ffffffu : 0xffffffffu;
+  cairo_surface_flush (cov); cd = cairo_image_surface_get_data (cov); cs = cairo_image_surface_get_stride (cov);
+  if (depth == 1) { fg &= 1; bg &= 1; keep = 1; } else if (depth == 32) { fg |= 0xff000000u; bg |= 0xff000000u; }
+  if (g->fill == GDK_TILED && g->tile) has_tile = plane_open (&tile, g->tile);
+  if ((g->fill == GDK_STIPPLED || g->fill == GDK_OPAQUE_STIPPLED) && g->stipple) has_stip = plane_open (&stip, g->stipple);
+  if (g->clip_mask) has_mask = plane_open (&mask, g->clip_mask);
+  for (y = y0; y < y1; y++) for (x = x0; x < x1; x++) {
+    guint32 s, d; guchar *dp;
+    if (cd[y * cs + x] < 128) continue;
+    if (has_mask) {                                                  /* outside the clip mask = not drawn (the mask is not repeated) */
+      gint mx = x - gc->clip_x_origin, my = y - gc->clip_y_origin;
+      if (mx < 0 || my < 0 || mx >= mask.w || my >= mask.h || !mask.data[my * mask.stride + mx]) continue;
+    }
+    if (has_stip) {
+      gboolean bit = plane_pixel (&stip, x - gc->ts_x_origin, y - gc->ts_y_origin, 1);
+      if (g->fill == GDK_STIPPLED && !bit) continue;                  /* stippled: only the 1 bits are drawn */
+      s = bit ? fg : bg;                                              /* opaque stippled: 1 -> foreground, 0 -> background */
+    } else if (has_tile) s = plane_pixel (&tile, x - gc->ts_x_origin, y - gc->ts_y_origin, depth == 1 ? 1 : 4) | (depth == 32 ? 0 : 0);
+    else s = fg;
+    dp = dst + y * dst_stride + (depth == 1 ? x : 4 * x);
+    if (depth == 1) { d = dp[0] ? 1 : 0; dp[0] = (_gdk_symbian_apply_function (g->function, s & 1, d) & 1) ? 0xff : 0x00; }
+    else { guint32 *p32 = (guint32 *) dp; d = *p32; *p32 = (_gdk_symbian_apply_function (g->function, s, d) & keep) | (d & ~keep); }
+  }
+}
+
 void
 _gdk_windowing_gc_get_foreground (GdkGC *gc, GdkColor *color) { *color = GDK_GC_SYMBIAN (gc)->fg; }
 void
@@ -161,7 +294,7 @@ void
 _gdk_symbian_gc_apply (GdkGC *gc, cairo_t *cr, gboolean for_fill)
 {
   GdkGCSymbian *g = GDK_GC_SYMBIAN (gc); double r, gg, b, a;
-  static gboolean warned_xor = FALSE;
+  if (cairo_get_user_data (cr, &coverage_key)) { apply_coverage (g, gc, cr); return; }       /* raster-operation mode: the primitive only produces a coverage mask, see _gdk_symbian_raster_combine */
   if (g->clip_region) {
     gint i, n; GdkRectangle *rects;
     gdk_region_get_rectangles (g->clip_region, &rects, &n);
@@ -169,16 +302,9 @@ _gdk_symbian_gc_apply (GdkGC *gc, cairo_t *cr, gboolean for_fill)
     for (i = 0; i < n; i++) cairo_rectangle (cr, rects[i].x + gc->clip_x_origin, rects[i].y + gc->clip_y_origin, rects[i].width, rects[i].height);
     cairo_clip (cr); g_free (rects);
   }
-  if (g->clip_mask || (for_fill && (g->fill == GDK_STIPPLED || g->fill == GDK_OPAQUE_STIPPLED) && g->stipple)) cairo_push_group (cr);
+  if (g->clip_mask || (for_fill && g->fill == GDK_STIPPLED && g->stipple)) cairo_push_group (cr);
   color_of (g, &g->fg, &r, &gg, &b, &a);
   switch (g->function) {
-    case GDK_CLEAR: cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR); cairo_set_source_rgba (cr, 0, 0, 0, 1); break;
-    case GDK_SET: cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE); cairo_set_source_rgba (cr, 1, 1, 1, g->depth == 1 ? 1 : 1); break;
-    case GDK_INVERT: cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); cairo_set_source_rgba (cr, 1, 1, 1, 1); break;
-    case GDK_XOR:
-      if (!warned_xor) { warned_xor = TRUE; g_message ("gdk-symbian: GDK_XOR is drawn as a colour difference (cairo has no bitwise raster operations)"); }
-      cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); cairo_set_source_rgba (cr, r, gg, b, a); break;
-    case GDK_NOOP: cairo_set_operator (cr, CAIRO_OPERATOR_DEST); cairo_set_source_rgba (cr, 0, 0, 0, 0); break;
     default: cairo_set_operator (cr, g->depth == 1 ? CAIRO_OPERATOR_SOURCE : CAIRO_OPERATOR_OVER); cairo_set_source_rgba (cr, r, gg, b, a); break;
   }
   if (for_fill && g->function == GDK_COPY && g->fill == GDK_TILED && g->tile) {
@@ -196,12 +322,13 @@ _gdk_symbian_gc_apply (GdkGC *gc, cairo_t *cr, gboolean for_fill)
   }
 }
 
-/* A stipple is a repeating A8 pattern the shape is masked with; a clip mask is an A8 bitmap at the clip origin. OPAQUE_STIPPLED is treated as STIPPLED (the background is not painted). */
+/* A stipple is a repeating A8 pattern the shape is masked with; a clip mask is an A8 bitmap at the clip origin. */
 void
 _gdk_symbian_gc_finish (GdkGC *gc, cairo_t *cr)
 {
   GdkGCSymbian *g = GDK_GC_SYMBIAN (gc);
-  gboolean stip = (g->fill == GDK_STIPPLED || g->fill == GDK_OPAQUE_STIPPLED) && g->stipple && g->function == GDK_COPY;
+  gboolean stip = g->fill == GDK_STIPPLED && g->stipple && g->function == GDK_COPY;
+  if (cairo_get_user_data (cr, &coverage_key)) return;
   if (!g->clip_mask && !stip) return;
   cairo_pop_group_to_source (cr);
   if (stip) {

@@ -23,6 +23,13 @@ typedef struct { gboolean dirty; GdkRectangle rect; } DirtyInfo;
 #define WIMPL(w) ((GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (w)->impl)
 void _gdk_symbian_flush_dirty (void);
 
+/* ---- native window ids: the id of a window is its pointer (it fits 32 bits on this ABI); used for client messages, selections and drag and drop ---- */
+static GHashTable *window_table = NULL;
+static void register_window (GdkWindow *w) { if (!window_table) window_table = g_hash_table_new (g_direct_hash, g_direct_equal); g_hash_table_insert (window_table, GUINT_TO_POINTER ((guint32) (gsize) w), w); }
+static void unregister_window (GdkWindow *w) { if (window_table) g_hash_table_remove (window_table, GUINT_TO_POINTER ((guint32) (gsize) w)); }
+GdkWindow *gdk_window_lookup_for_display (GdkDisplay *display, GdkNativeWindow anid) { (void) display; return window_table ? g_hash_table_lookup (window_table, GUINT_TO_POINTER ((guint32) anid)) : NULL; }
+GdkWindow *gdk_window_lookup (GdkNativeWindow anid) { return gdk_window_lookup_for_display (NULL, anid); }
+
 /* ---- the implementation class ---- */
 static void gdk_window_impl_symbian_iface_init (GdkWindowImplIface *iface);
 G_DEFINE_TYPE_WITH_CODE (GdkWindowImplSymbian, gdk_window_impl_symbian, GDK_TYPE_DRAWABLE_IMPL_SYMBIAN,
@@ -91,7 +98,7 @@ _gdk_windowing_window_init (GdkScreen *screen)
   private->window_type = GDK_WINDOW_ROOT; private->viewable = TRUE; private->x = private->y = 0; private->abs_x = private->abs_y = 0;
   private->width = w; private->height = h; private->depth = 24; private->state = 0;
   private->input_only = FALSE;
-  ((GdkScreenSymbian *) screen)->root = _gdk_parent_root;
+  ((GdkScreenSymbian *) screen)->root = _gdk_parent_root; register_window (_gdk_parent_root);
   { cairo_t *cr = cairo_create (display_surface); cairo_set_source_rgb (cr, 0, 0, 0); cairo_paint (cr); cairo_destroy (cr); }    /* black root background */
 }
 
@@ -108,7 +115,7 @@ _gdk_window_impl_new (GdkWindow *window, GdkWindow *real_parent, GdkScreen *scre
     default: g_warning ("_gdk_window_impl_new: unsupported window type %d", private->window_type); _gdk_window_destroy (window, FALSE); return;
   }
   impl = g_object_new (GDK_TYPE_WINDOW_IMPL_SYMBIAN, NULL);
-  private->impl = GDK_DRAWABLE (impl);
+  private->impl = GDK_DRAWABLE (impl); register_window (window);
   impl->drawable.wrapper = GDK_DRAWABLE (window); impl->drawable.surface = cairo_surface_reference (display_surface);
   impl->drawable.width = MAX (1, attributes->width); impl->drawable.height = MAX (1, attributes->height); impl->drawable.depth = 24;
   impl->drawable.abs_x = private->window_type == GDK_WINDOW_CHILD ? parent_impl->drawable.abs_x + private->x : private->x;
@@ -298,7 +305,7 @@ impl_destroy (GdkWindow *window, gboolean recursing, gboolean foreign_destroy)
 {
   GdkWindowImplSymbian *impl = WIMPL (window); gint x = impl->drawable.abs_x, y = impl->drawable.abs_y, w = impl->drawable.width, h = impl->drawable.height; gboolean was = g_list_find (toplevel_stack, window) != NULL;
   (void) foreign_destroy;
-  toplevel_stack = g_list_remove (toplevel_stack, window);
+  toplevel_stack = g_list_remove (toplevel_stack, window); unregister_window (window);
   if (dirty_table) { gpointer d = g_hash_table_lookup (dirty_table, window); if (d) { g_hash_table_remove (dirty_table, window); g_free (d); } }
   if (was && !recursing) repaint_area (x, y, w, h, window);
   impl->mapped = FALSE;

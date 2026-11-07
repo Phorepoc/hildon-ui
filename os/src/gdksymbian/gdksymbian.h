@@ -116,7 +116,15 @@ extern GdkWindow *_gdk_parent_root;
 #define GDK_TYPE_GC_SYMBIAN (gdk_gc_symbian_get_type ())
 GType gdk_gc_symbian_get_type (void);
 void _gdk_symbian_gc_apply (GdkGC *gc, cairo_t *cr, gboolean for_fill);    /* sets source, line attributes, operator and clip of @gc on @cr */
-void _gdk_symbian_gc_finish (GdkGC *gc, cairo_t *cr);                     /* completes a drawing done between a group push of _gdk_symbian_gc_apply */
+void _gdk_symbian_gc_finish (GdkGC *gc, cairo_t *cr);
+gboolean _gdk_symbian_gc_raster_mode (GdkGC *gc);                        /* function != COPY or OPAQUE_STIPPLED: needs the per-pixel path */
+gboolean _gdk_symbian_gc_is_noop (GdkGC *gc);
+GdkFunction _gdk_symbian_gc_function (GdkGC *gc);
+void _gdk_symbian_gc_pixels (GdkGC *gc, guint32 *fg, guint32 *bg);
+gboolean _gdk_symbian_gc_clip_test (GdkGC *gc, gint x, gint y);
+guint32 _gdk_symbian_apply_function (GdkFunction f, guint32 s, guint32 d);
+const cairo_user_data_key_t *_gdk_symbian_coverage_key (void);
+void _gdk_symbian_raster_combine (GdkGC *gc, guchar *dst, gint dst_stride, gint depth, gint x0, gint y0, gint x1, gint y1, cairo_surface_t *cov);                     /* completes a drawing done between a group push of _gdk_symbian_gc_apply */
 
 G_END_DECLS
 #endif
