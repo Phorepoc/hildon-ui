@@ -18,6 +18,7 @@ GLDEF_C TInt E32Main()
 	CTrapCleanup* cleanup = CTrapCleanup::New();
 	setenv("FONTCONFIG_FILE", "z:/resource/phehildonwin/fonts.conf", 1);
 	setenv("PHEGDK_TRACE_PRESENT", "1", 1);
+	setenv("PHEGDK_TRACE_CLIP", "1", 1);
 	TInt rc = 0;
 	TRAPD(err, rc = phe_hildon_demo_main());      // Symbian calls made on behalf of GDK (bitmap and window server objects) need a trap level
 	RDebug::Printf("[phehildonwin] exit rc=%d err=%d", rc, err);

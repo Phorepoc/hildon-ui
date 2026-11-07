@@ -13,6 +13,8 @@
 #include "gdkspawn.h"
 #include "gdkdisplay.h"
 #include "gdkkeysyms.h"
+#include <glib/gstdio.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #define WI(w) ((GdkWindowImplSymbian *) GDK_WINDOW_OBJECT (w)->impl)
 #define TOPLEVEL_P(w) (GDK_WINDOW_OBJECT (w)->parent == NULL || GDK_WINDOW_OBJECT (GDK_WINDOW_OBJECT (w)->parent)->window_type == GDK_WINDOW_ROOT)
@@ -563,3 +565,46 @@ void gdk_set_use_xshm (gboolean value) { use_xshm = value; }
 gint gdk_colors_alloc (GdkColormap *colormap, gboolean contiguous, gulong *planes, gint nplanes, gulong *pixels, gint npixels) { g_return_val_if_fail (GDK_IS_COLORMAP (colormap), 0); return 0; }
 void gdk_colors_free (GdkColormap *colormap, gulong *pixels, gint npixels, gulong planes) { g_return_if_fail (GDK_IS_COLORMAP (colormap)); }
 gint gdk_color_change (GdkColormap *colormap, GdkColor *color) { g_return_val_if_fail (GDK_IS_COLORMAP (colormap), 0); g_return_val_if_fail (color != NULL, 0); return 0; }
+
+/* ---- the window manager's own client messages (messages sent to the root window) ----
+ * _HILDON_LOADING_SCREENSHOT (what hildon-desktop answers): data.l[0] 0 = take a screenshot of the window data.l[1] and keep it as the picture shown while the application starts again, 1 = remove
+ * the kept one; the manager answers with a client message of the same type to that window when it is done. The picture is the window's pixels as PNG under $PHE_LAUNCH_CACHE
+ * (default c:/data/launch), named after the window's title. Returns TRUE when the manager took the message. */
+static gchar *
+launch_picture_path (GdkWindow *win)
+{
+  gchar *name, *dir, *path, *p;
+  name = g_strdup (WI (win)->title && *WI (win)->title ? WI (win)->title : "application");               /* the title gdk_window_set_title () kept */
+  for (p = name; *p; p++) if (!g_ascii_isalnum (*p) && *p != '-' && *p != '_') *p = '_';
+  dir = g_strdup (g_getenv ("PHE_LAUNCH_CACHE") ? g_getenv ("PHE_LAUNCH_CACHE") : "c:/data/launch");
+  g_mkdir_with_parents (dir, 0755);
+  path = g_strdup_printf ("%s/%s.png", dir, name); g_free (dir); g_free (name);
+  return path;
+}
+
+gboolean
+gdk_symbian_wm_client_message (GdkWindow *target, GdkAtom message_type, const glong *data, gint format)
+{
+  GdkWindow *win; gchar *path; gboolean ok = TRUE;
+  if (target != gdk_screen_get_root_window (gdk_screen_get_default ()) || format != 32) return FALSE;
+  if (message_type != gdk_atom_intern_static_string ("_HILDON_LOADING_SCREENSHOT")) return FALSE;
+  win = gdk_window_lookup ((GdkNativeWindow) data[1]);
+  if (win && !GDK_WINDOW_DESTROYED (win)) {
+    path = launch_picture_path (win);
+    if (data[0] == 0) {
+      gint w, h; GdkPixbuf *pb;
+      gdk_drawable_get_size (GDK_DRAWABLE (win), &w, &h);
+      gdk_window_process_all_updates (); gdk_display_sync (gdk_window_get_display (win));            /* what is on the screen, not what is still queued */
+      pb = gdk_pixbuf_get_from_drawable (NULL, GDK_DRAWABLE (win), NULL, 0, 0, 0, 0, w, h);
+      if (pb) { GError *err = NULL; ok = gdk_pixbuf_save (pb, path, "png", &err, NULL); if (!ok) { gchar *m = g_strdup_printf ("[phegdk] launch picture %s: %s", path, err ? err->message : "?"); phe_log (m); g_free (m); } g_clear_error (&err); g_object_unref (pb); }
+      else { gchar *m = g_strdup_printf ("[phegdk] launch picture: no pixbuf for window %dx%d", w, h); phe_log (m); g_free (m); ok = FALSE; }
+    } else g_unlink (path);
+    { gchar *m = g_strdup_printf ("[phegdk] launch picture %s %s: %s, file there: %d", data[0] == 0 ? "take" : "remove", path, ok ? "ok" : "failed", g_file_test (path, G_FILE_TEST_EXISTS)); phe_log (m); g_free (m); }
+    g_free (path);
+    { GdkEvent *ev = gdk_event_new (GDK_CLIENT_EVENT);                                             /* the reply: same type, to the window, l[0] = 0 on success */
+      ev->client.window = g_object_ref (win); ev->client.send_event = TRUE; ev->client.message_type = message_type; ev->client.data_format = 32;
+      ev->client.data.l[0] = ok ? 0 : 1; ev->client.data.l[1] = data[1];
+      gdk_event_put (ev); gdk_event_free (ev); }
+  }
+  return TRUE;
+}

@@ -1,69 +1,80 @@
-# phehildon.rc -- the Phorepoc Hildon look: the Etesian design language (light pages, dark chrome, one accent, 44 px touch targets) as a GTK 2 resource file.
-# Tokens: hybrid mode of the Etesian language (surface #FFFFFF, page #E0E1E2, text #282828, muted #505050, border #6A6A6A, accent #1C51AF, chrome #3A3A3A). No images: colours, spacing, fonts.
+# phehildon.rc -- the Phorepoc Hildon look: the Etesian design language (https://language.etesian-design.com) as a GTK 2 resource file. No images: colours, spacing, fonts.
+# Tokens are those of the language's own token sheet (tokens.css, hybrid mode: dark chrome over light pages), by their names:
+#   --hd-c-bg #E0E1E2  --hd-c-surface #FFFFFF  --hd-c-surface-raised #F2F3F4  --hd-c-fg #282828  --hd-c-fg-secondary #505050  --hd-c-fg-disabled #B2B2B4
+#   --hd-c-button-bg #FFFFFF  --hd-c-button-fg #000000  --hd-c-button-border rgba(0,0,0,.18)  --hd-c-pressed rgba(0,0,0,.08)  --hd-c-focus #1C51AF
+#   --hd-color-palette-select #A1BFFF  --hd-color-accent-default #4591FF  --hd-c-toolbar-from #3A3A3A  --hd-font-size-default 16px  --hd-font-size-button 15px
 gtk-font-name = "Sans 12"
 gtk-button-images = 0
 gtk-menu-images = 0
+gtk-cursor-blink = 0
 
-style "ph-base"
+style "etesian-base"
 {
   font_name = "Sans 12"
   xthickness = 2
   ythickness = 2
   bg[NORMAL]      = "#E0E1E2"
   bg[PRELIGHT]    = "#F2F3F4"
-  bg[ACTIVE]      = "#C4C7CC"
-  bg[SELECTED]    = "#1C51AF"
+  bg[ACTIVE]      = "#C6C7C8"
+  bg[SELECTED]    = "#A1BFFF"
   bg[INSENSITIVE] = "#E0E1E2"
   fg[NORMAL]      = "#282828"
   fg[PRELIGHT]    = "#282828"
   fg[ACTIVE]      = "#282828"
-  fg[SELECTED]    = "#FFFFFF"
-  fg[INSENSITIVE] = "#6A6A6A"
+  fg[SELECTED]    = "#282828"
+  fg[INSENSITIVE] = "#B2B2B4"
   base[NORMAL]      = "#FFFFFF"
   base[PRELIGHT]    = "#FFFFFF"
-  base[SELECTED]    = "#1C51AF"
-  base[ACTIVE]      = "#1C51AF"
+  base[SELECTED]    = "#A1BFFF"
+  base[ACTIVE]      = "#A1BFFF"
   base[INSENSITIVE] = "#F2F3F4"
   text[NORMAL]      = "#282828"
-  text[SELECTED]    = "#FFFFFF"
-  text[ACTIVE]      = "#FFFFFF"
-  text[INSENSITIVE] = "#6A6A6A"
+  text[SELECTED]    = "#282828"
+  text[ACTIVE]      = "#282828"
+  text[INSENSITIVE] = "#B2B2B4"
 }
-class "GtkWidget" style "ph-base"
+class "GtkWidget" style "etesian-base"
 
-style "ph-button" = "ph-base"
+# a button: white, black text, 15 px, a touch target of at least 44 px (the padding makes the height)
+style "etesian-button" = "etesian-base"
+{
+  font_name = "Sans 11"
+  xthickness = 12
+  ythickness = 12
+  bg[NORMAL]   = "#FFFFFF"
+  bg[PRELIGHT] = "#F2F3F4"
+  bg[ACTIVE]   = "#EBEBEB"
+  fg[NORMAL]   = "#000000"
+  fg[PRELIGHT] = "#000000"
+  fg[ACTIVE]   = "#000000"
+}
+class "GtkButton" style "etesian-button"
+class "GtkToggleButton" style "etesian-button"
+
+style "etesian-entry" = "etesian-base"
 {
   xthickness = 10
-  ythickness = 10
-  bg[NORMAL]   = "#F2F3F4"
-  bg[PRELIGHT] = "#FFFFFF"
-  bg[ACTIVE]   = "#C4C7CC"
+  ythickness = 12
 }
-class "GtkButton" style "ph-button"
-class "GtkToggleButton" style "ph-button"
+class "GtkEntry" style "etesian-entry"
 
-style "ph-entry" = "ph-base"
+# the progress bar fills with the language's default accent
+style "etesian-progress" = "etesian-base"
 {
-  xthickness = 8
-  ythickness = 10
+  bg[PRELIGHT] = "#4591FF"
+  fg[PRELIGHT] = "#000000"
 }
-class "GtkEntry" style "ph-entry"
+class "GtkProgressBar" style "etesian-progress"
 
-style "ph-progress" = "ph-base"
-{
-  bg[PRELIGHT] = "#1C51AF"
-  fg[PRELIGHT] = "#FFFFFF"
-}
-class "GtkProgressBar" style "ph-progress"
-
-style "ph-menu" = "ph-base"
+# menus are the chrome: the toolbar's dark grey, white text, the accent for the row under the finger
+style "etesian-menu" = "etesian-base"
 {
   bg[NORMAL]   = "#3A3A3A"
-  bg[PRELIGHT] = "#1C51AF"
+  bg[PRELIGHT] = "#4591FF"
   fg[NORMAL]   = "#FFFFFF"
-  fg[PRELIGHT] = "#FFFFFF"
-  xthickness = 8
-  ythickness = 10
+  fg[PRELIGHT] = "#000000"
+  xthickness = 10
+  ythickness = 12
 }
-class "GtkMenu" style "ph-menu"
-class "GtkMenuItem" style "ph-menu"
+class "GtkMenu" style "etesian-menu"
+class "GtkMenuItem" style "etesian-menu"

@@ -351,9 +351,15 @@ gdk_drawable_impl_symbian_draw_drawable_with_src (GdkDrawable *d, GdkGC *gc, Gdk
   ss = _gdk_drawable_ref_cairo_surface (src);
   if (!ss) return;
   if (gc && (_gdk_symbian_gc_raster_mode (gc) || cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA)) {
+    const guchar *sd; gint sstride, sw_, sh_;
     cairo_surface_flush (ss);
-    copy_pixels (impl, gc, cairo_image_surface_get_data (ss), cairo_image_surface_get_stride (ss), cairo_image_surface_get_width (ss), cairo_image_surface_get_height (ss),
-                 cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA, xsrc, ysrc, xdest, ydest, width, height);
+    sd = cairo_image_surface_get_data (ss); sstride = cairo_image_surface_get_stride (ss); sw_ = cairo_image_surface_get_width (ss); sh_ = cairo_image_surface_get_height (ss);
+    if (!sd && GDK_IS_WINDOW (src)) {                                                /* a window source: the rectangle of the shared bitmap (the window's offset inside its native window included) */
+      GdkWindowObject *sp = GDK_WINDOW_OBJECT (src); GdkDrawableImplSymbian *si = (GdkDrawableImplSymbian *) sp->impl;
+      sstride = cairo_image_surface_get_stride (si->surface);
+      sd = cairo_image_surface_get_data (si->surface) + (si->abs_y + sp->abs_y) * sstride + 4 * (si->abs_x + sp->abs_x); sw_ = sp->width; sh_ = sp->height;
+    }
+    copy_pixels (impl, gc, sd, sstride, sw_, sh_, cairo_surface_get_content (ss) == CAIRO_CONTENT_ALPHA, xsrc, ysrc, xdest, ydest, width, height);
     cairo_surface_destroy (ss); return;
   }
   if (!(cr = begin (impl, gc))) { cairo_surface_destroy (ss); return; }
@@ -403,11 +409,14 @@ gdk_drawable_impl_symbian_copy_to_image (GdkDrawable *d, GdkImage *image, gint s
 {
   GdkDrawableImplSymbian *impl = IMPL (d); cairo_surface_t *s; guchar *data; gint stride, x, y, sw, sh;
   if (!image) image = _gdk_image_new_for_depth (_gdk_screen, GDK_IMAGE_FASTEST, NULL, width, height, impl->depth);
-  s = impl_surface (impl);
-  if (!s) return image;
+  if (!impl->surface) return image;
+  s = cairo_surface_reference (impl->surface);
   cairo_surface_flush (s);
   data = cairo_image_surface_get_data (s); stride = cairo_image_surface_get_stride (s);
   sw = cairo_image_surface_get_width (s); sh = cairo_image_surface_get_height (s);
+  if (GDK_IS_WINDOW (impl->wrapper) && data) {                                      /* a window is a rectangle of the shared bitmap: its pixels start at its origin there */
+    data += impl->abs_y * stride + 4 * impl->abs_x; sw = impl->width; sh = impl->height;
+  }
   if (data) for (y = 0; y < height; y++) for (x = 0; x < width; x++) {
     gint sx = src_x + x, sy = src_y + y; guint32 px = 0;
     if (sx >= 0 && sy >= 0 && sx < sw && sy < sh) px = impl->depth == 1 ? (data[sy * stride + sx] ? 1 : 0) : (*(guint32 *) (data + sy * stride + 4 * sx) & 0x00ffffff);
@@ -494,6 +503,32 @@ window_mark_dirty (GdkDrawableImplSymbian *impl, gint x, gint y, gint w, gint h)
  * surface marks the exposed region (see _gdk_windowing_window_process_updates_recurse) or, outside an expose, the whole native window dirty, so the next flush presents it. */
 gboolean _gdk_symbian_expose_box (GdkRectangle *box);
 static cairo_surface_t *(*orig_ref_cairo_surface) (GdkDrawable *drawable) = NULL;
+static void (*orig_set_cairo_clip) (GdkDrawable *drawable, cairo_t *cr) = NULL;
+
+/* gdk_cairo_create () on a window ends in the window class's set_cairo_clip: after the core has clipped the context to the window's own visible region, the part covered by the windows
+ * stacked above (the native windows share one bitmap) is clipped out as well, so direct cairo drawing cannot paint over them */
+static void
+window_set_cairo_clip_occluded (GdkDrawable *drawable, cairo_t *cr)
+{
+  GdkWindowObject *p = GDK_WINDOW_OBJECT (drawable); GdkRegion *r;
+  orig_set_cairo_clip (drawable, cr);
+  if (p->paint_stack || !p->impl) return;                                        /* painting into a buffer is clipped when the buffer is copied */
+  r = occluders ((GdkDrawableImplSymbian *) p->impl);
+  { static int trace = -1; if (trace < 0) trace = g_getenv ("PHEGDK_TRACE_CLIP") != NULL;
+    if (trace) { GdkRectangle b = { 0, 0, 0, 0 }; gdouble x1, y1, x2, y2; gchar *m; if (r) gdk_region_get_clipbox (r, &b); cairo_clip_extents (cr, &x1, &y1, &x2, &y2);
+      m = g_strdup_printf ("[phegdk] direct clip: window %p abs %d,%d occluders %s box %d,%d %dx%d, clip extents after the core %.0f,%.0f %.0f,%.0f", (void *) drawable, p->abs_x, p->abs_y, r ? "yes" : "none", b.x, b.y, b.width, b.height, x1, y1, x2, y2);
+      phe_log (m); g_free (m); } }
+  if (r) {
+    GdkRectangle *rects; gint n, k;
+    gdk_region_offset (r, -p->abs_x, -p->abs_y);                                  /* from the coordinates of the native window to those of this window */
+    gdk_region_get_rectangles (r, &rects, &n);
+    cairo_new_path (cr);
+    cairo_rectangle (cr, -32768, -32768, 65536, 65536);
+    for (k = 0; k < n; k++) cairo_rectangle (cr, rects[k].x, rects[k].y, rects[k].width, rects[k].height);
+    cairo_set_fill_rule (cr, CAIRO_FILL_RULE_EVEN_ODD); cairo_clip (cr); cairo_set_fill_rule (cr, CAIRO_FILL_RULE_WINDING); cairo_new_path (cr);
+    g_free (rects); gdk_region_destroy (r);
+  }
+}
 
 static cairo_surface_t *
 window_ref_cairo_surface_marking (GdkDrawable *drawable)
@@ -512,7 +547,7 @@ void
 _gdk_symbian_window_hooks (void)
 {
   GdkDrawableClass *wc = GDK_DRAWABLE_CLASS (g_type_class_ref (GDK_TYPE_WINDOW));
-  if (!orig_ref_cairo_surface) { orig_ref_cairo_surface = wc->ref_cairo_surface; wc->ref_cairo_surface = window_ref_cairo_surface_marking; }
+  if (!orig_ref_cairo_surface) { orig_ref_cairo_surface = wc->ref_cairo_surface; wc->ref_cairo_surface = window_ref_cairo_surface_marking; orig_set_cairo_clip = wc->set_cairo_clip; wc->set_cairo_clip = window_set_cairo_clip_occluded; }
 }
 
 void

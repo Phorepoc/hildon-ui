@@ -1,22 +1,11 @@
-0:[bootui] phehildonwin: started
 1:[phehildonwin] gtk + hildon init ok: GTK 2.24.33, libhildon 2.2.24
-0:[phehildonwin] selftest done: 8 passed, 0 failed
-1:[phehildonwin] window shown (mapped 1)
-1:[phehildonwin] loop running
-1:[phehildonwin] hildon button pressed: A HildonButton / title above, value below
-1:[phehildonwin] banner shown
-0:[phecanberra] playing z:\resource\phehi
-1:[phehildonwin] sound requested
-1:[phecanberra] sample opened, error 0
-1:[phecanberra] playback of the sample ended, error 0
-0:[phehildonwin] note shown
-0:[phecanberra] playing z:\usr\share\sounds\ui
-1:[phecanberra] sample opened, error -12
-1:[phecanberra] playback of the sample ended, error -12
-1:[bootui] phehildonwin: started
-0:[phehildonwin] gtk + hildon init ok: GTK 2.24.33, libhildon 2.2.24
 1:[phehildonwin] selftest done: 8 passed, 0 failed
 1:[phehildonwin] window shown (mapped 1)
 1:[phehildonwin] loop running
-0:[phehildonwin] HildonProgram is-topmost: 1, window is-topmost: 1
+1:[phehildonwin] HildonProgram is-topmost: 1, window is-topmost: 1
+1:[phegdk] launch picture take c:/data/launch/phehildonwin.png: ok, file there: 1
+1:[phehildonwin] take_screenshot_sync returned; picture c:/data/launch/phehildonwin.png: 1, 0 bytes
+1:[phegdk] direct clip: window 0x60af30 abs 0,0 occluders none box 0,0 0x0, clip extents after the core 0,0 120,120
+1:[phegdk] direct clip: window 0x60ae80 abs 0,0 occluders yes box 40,100 120x100, clip extents after the core 0,0 200,200
+1:[phehildonwin] direct clip: pixel under the window above 0000ff (want 0000ff), free pixel of the lower window ff0000 (want ff0000)
 1:[phehildonwin] hildon button pressed: A HildonButton / title above, value below

@@ -49,6 +49,37 @@ report_topmost (gpointer d)
   return FALSE;
 }
 
+/* direct cairo drawing on a window must not paint over a window stacked above it */
+static gboolean
+clip_test (gpointer d)
+{
+  GdkWindowAttr a; GdkWindow *lower, *upper, *root = gdk_get_default_root_window (); cairo_t *cr; GdkImage *im; guint covered, free_;
+  (void) d;
+  memset (&a, 0, sizeof a); a.wclass = GDK_INPUT_OUTPUT; a.window_type = GDK_WINDOW_TOPLEVEL; a.event_mask = GDK_EXPOSURE_MASK;
+  a.x = 60; a.y = 200; a.width = 200; a.height = 200; lower = gdk_window_new (NULL, &a, GDK_WA_X | GDK_WA_Y); gdk_window_show (lower);
+  a.x = 100; a.y = 300; a.width = 120; a.height = 120; upper = gdk_window_new (NULL, &a, GDK_WA_X | GDK_WA_Y); gdk_window_show (upper);
+  gdk_window_process_all_updates ();
+  cr = gdk_cairo_create (upper); cairo_set_source_rgb (cr, 0, 0, 1); cairo_paint (cr); cairo_destroy (cr);
+  cr = gdk_cairo_create (lower); cairo_set_source_rgb (cr, 1, 0, 0); cairo_paint (cr); cairo_destroy (cr);          /* the whole lower window, directly: it must stop at the upper one */
+  gdk_display_sync (gdk_display_get_default ());
+  im = gdk_drawable_get_image (GDK_DRAWABLE (root), 150, 350, 1, 1); covered = gdk_image_get_pixel (im, 0, 0) & 0xffffff; g_object_unref (im);
+  im = gdk_drawable_get_image (GDK_DRAWABLE (root), 70, 210, 1, 1); free_ = gdk_image_get_pixel (im, 0, 0) & 0xffffff; g_object_unref (im);
+  LOG ("[phehildonwin] direct clip: pixel under the window above %06x (want 0000ff), free pixel of the lower window %06x (want ff0000)", covered, free_);
+  gdk_window_destroy (upper); gdk_window_destroy (lower); gtk_widget_queue_draw (window);
+  return FALSE;
+}
+
+static gboolean
+screenshot_test (gpointer d)
+{
+  gchar *path = g_build_filename (g_getenv ("PHE_LAUNCH_CACHE") ? g_getenv ("PHE_LAUNCH_CACHE") : "c:/data/launch", "phehildonwin.png", NULL); gsize len = 0; gchar *data = NULL;
+  (void) d;
+  hildon_gtk_window_take_screenshot_sync (GTK_WINDOW (window), TRUE);
+  { gboolean ok = g_file_get_contents (path, &data, &len, NULL); LOG ("[phehildonwin] take_screenshot_sync returned; picture %s readable: %d, %d bytes", path, ok, (int) len); }
+  g_free (data); g_free (path);
+  return FALSE;
+}
+
 static void
 selftest (void)
 {
@@ -107,7 +138,7 @@ phe_hildon_demo_main (void)
   g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
   gtk_widget_show_all (window);
   LOG ("[phehildonwin] window shown (mapped %d)", gtk_widget_get_mapped (window));
-  g_timeout_add (2500, report_topmost, NULL);
+  g_timeout_add (2500, report_topmost, NULL); g_timeout_add (4000, screenshot_test, NULL); g_timeout_add (7000, clip_test, NULL);
   LOG ("[phehildonwin] loop running");
   gtk_main ();
   return 0;

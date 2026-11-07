@@ -3,7 +3,8 @@
 #include <string.h>
 #include "phe_xlib.h"
 
-GdkFilterReturn gdk_symbian_apply_filters (GdkWindow *window, gpointer xevent, GdkEvent *event);       /* phegdk (gdkevents-symbian.c) */
+GdkFilterReturn gdk_symbian_apply_filters (GdkWindow *window, gpointer xevent, GdkEvent *event);
+gboolean gdk_symbian_wm_client_message (GdkWindow *target, GdkAtom message_type, const glong *data, gint format);       /* phegdk (gdkevents-symbian.c) */
 
 static GdkWindow *win_of (Window w) { return gdk_window_lookup ((GdkNativeWindow) w); }
 static GdkAtom ga (Atom a) { return GUINT_TO_POINTER ((guint) a); }
@@ -84,6 +85,8 @@ XSendEvent (Display *display, Window w, Bool propagate, glong event_mask, XEvent
   GdkEvent *ev; GdkWindow *win = win_of (w); gint i;
   (void) display; (void) propagate; (void) event_mask;
   if (!win || event_send->type != ClientMessage) return 0;
+  /* a message to the root window is a request to the window manager (the backend) */
+  if (gdk_symbian_wm_client_message (win, ga (event_send->xclient.message_type), event_send->xclient.data.l, event_send->xclient.format)) return 1;
   ev = gdk_event_new (GDK_CLIENT_EVENT);
   ev->client.window = g_object_ref (win); ev->client.send_event = TRUE; ev->client.message_type = ga (event_send->xclient.message_type); ev->client.data_format = event_send->xclient.format;
   for (i = 0; i < 5; i++) ev->client.data.l[i] = event_send->xclient.data.l[i];

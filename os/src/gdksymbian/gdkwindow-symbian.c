@@ -137,6 +137,7 @@ _gdk_window_impl_new (GdkWindow *window, GdkWindow *real_parent, GdkScreen *scre
   }
   (void) visual;
   if ((attributes_mask & GDK_WA_CURSOR) && attributes->cursor) gdk_window_set_cursor (window, attributes->cursor);
+  if (private->window_type == GDK_WINDOW_TOPLEVEL && attributes->wclass == GDK_INPUT_OUTPUT && (attributes_mask & GDK_WA_TITLE) && attributes->title) gdk_window_set_title (window, attributes->title);   /* the title a toolkit creates the window with */
   if (private->window_type == GDK_WINDOW_TOPLEVEL) {          /* like the X11 backend: every toplevel announces the protocols it takes part in */
     GdkAtom protocols[3];
     protocols[0] = gdk_atom_intern_static_string ("WM_DELETE_WINDOW"); protocols[1] = gdk_atom_intern_static_string ("WM_TAKE_FOCUS"); protocols[2] = gdk_atom_intern_static_string ("_NET_WM_PING");

@@ -720,3 +720,4 @@ EXPORTS
 	gdk_window_set_icon_name @ 719 NONAME
 	gdk_window_set_title @ 720 NONAME
 	gdk_symbian_apply_filters @ 721 NONAME
+	gdk_symbian_wm_client_message @ 722 NONAME
