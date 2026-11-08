@@ -1,0 +1,14 @@
+# What this repository must not name (pdk tools/ci/layering.sh, docs/layering.md): boards, chips, devices, the repositories above it
+# Refined for GTK/GLib sources: "vbox" is the GtkDialog/GtkVBox member, "@ 701" a .def ordinal, "arm-a64-neon" a pixman option.
+pine ?phone
+pine64
+\ba64\b([^:-]|$)
+allwinner
+sun50i
+virtualbox
+\bvboxmanage
+adaptation-
+(^|[^@[:space:]]|[^@][[:space:]])\b701\b
+\bmali\b
+\bbelle\b
+open4all
