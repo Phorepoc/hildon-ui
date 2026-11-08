@@ -6,6 +6,7 @@
 #include <e32base.h>
 #include <e32debug.h>
 #include <stdlib.h>
+extern "C" const char* phehome_res(const char* aRel);
 
 extern "C" void phe_log(const char* aMsg);
 extern "C" int phe_home_main(void);
@@ -31,7 +32,7 @@ extern "C" int phehome_spawn(const char* aExe, const char* aArgs)
 GLDEF_C TInt E32Main()
 	{
 	CTrapCleanup* cleanup = CTrapCleanup::New();
-	setenv("FONTCONFIG_FILE", "z:/resource/phehome/fonts.conf", 1);
+	setenv("FONTCONFIG_FILE", phehome_res("resource/phehome/fonts.conf"), 1);
 	TInt rc = 0;
 	TRAPD(err, rc = phe_home_main());
 	RDebug::Printf("[phehome] exit rc=%d err=%d", rc, err);

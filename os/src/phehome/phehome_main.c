@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <gtk/gtk.h>
+#include "phe_respath.h"
 #include <hildon/hildon.h>
 #include <libhildondesktop/libhildondesktop.h>
 
@@ -64,8 +65,12 @@ place_applets (gpointer data)
     if (HD_IS_HOME_PLUGIN_ITEM (w)) {
       gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w));
       gboolean fresh = n >= placed;
-      gtk_window_move (GTK_WINDOW (w), 24, y);
-      if (GTK_WIDGET_REALIZED (w)) gdk_window_raise (w->window);          /* the applets belong on top of the Home background (hildon-desktop stacks them there on a real device) */
+      if (GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), "phe-placed-y")) != y + 1 && GTK_WIDGET_REALIZED (w)) {      /* only an applet that is not at its place yet is moved and raised */
+        g_object_set_data (G_OBJECT (w), "phe-placed-y", GINT_TO_POINTER (y + 1));
+        gtk_window_move (GTK_WINDOW (w), 24, y);
+        gdk_window_raise (w->window);
+      }
+      if (FALSE) gdk_window_raise (w->window);          /* the applets belong on top of the Home background (hildon-desktop stacks them there on a real device) */
       if (fresh) LOG ("[phehome] home applet \"%s\" (%s): window at 24,%d, visible %d, realized %d", id ? id : "?", G_OBJECT_TYPE_NAME (w), y, GTK_WIDGET_VISIBLE (w) ? 1 : 0, GTK_WIDGET_REALIZED (w) ? 1 : 0);
       g_free (id);
       y += 130; n++;
@@ -125,6 +130,29 @@ alpha_demo (void)
   gtk_widget_add_events (home_window, GDK_BUTTON_PRESS_MASK); g_signal_connect (home_window, "button-press-event", G_CALLBACK (tap_seen), (gpointer) "the Home window");
 }
 
+/* The shipped home.conf / home.plugins name their files on Z: (where a ROM build has them). Installed from a package they are on the install drive: write the user's copies with
+ * that drive (home.conf every start, it holds nothing of the user's; home.plugins only the first time, it is the list of applet instances the user edits). */
+static void
+prepare_config (void)
+{
+  gchar *dir = g_strdup (phe_res ("resource/hildondesktop")); static const char *files[] = { "home.conf", "home.plugins", NULL }; int i;
+  if (dir[0] != 'z' && dir[0] != 'Z') {
+    gchar *repl = g_strdup_printf ("%c:/resource", dir[0]);
+    for (i = 0; files[i]; i++) {
+      gchar *src = g_build_filename (dir, files[i], NULL), *dst = g_build_filename ("c:/data/phehome/config/hildon-desktop", files[i], NULL), *text = NULL;
+      if ((i == 0 || !g_file_test (dst, G_FILE_TEST_EXISTS)) && g_file_get_contents (src, &text, NULL, NULL)) {
+        gchar **parts = g_strsplit (text, "z:/resource", -1), *out = g_strjoinv (repl, parts);
+        g_file_set_contents (dst, out, -1, NULL);
+        LOG ("[phehome] configuration %s of the install drive: %s", files[i], dst);
+        g_strfreev (parts); g_free (out);
+      }
+      g_free (text); g_free (src); g_free (dst);
+    }
+    g_free (repl);
+  }
+  g_free (dir);
+}
+
 int
 phe_home_main (void)
 {
@@ -133,7 +161,7 @@ phe_home_main (void)
   g_mkdir_with_parents ("c:/data/phehome/config/hildon-desktop", 0755);
   if (!gtk_init_check (NULL, NULL)) return 1;
   hildon_init ();
-  gtk_rc_parse ("z:/resource/phehome/phehildon.rc");
+  gtk_rc_parse (phe_res ("resource/phehome/phehildon.rc"));
   LOG ("[phehome] gtk + hildon init ok, screen %dx%d", gdk_screen_get_width (gdk_screen_get_default ()), gdk_screen_get_height (gdk_screen_get_default ()));
 
   /* the Home background window */
@@ -152,6 +180,7 @@ phe_home_main (void)
 
   /* the real applet manager: loads home.conf, finds the plug-in entries, loads the plug-in modules and creates the applets */
   hd_stamp_file_init ("c:/data/phehome/home.stamp");     /* what the plug-in manager uses to see that a plug-in loaded without crashing the process (hildon-home does the same at start-up) */
+  prepare_config ();
   hd_applet_manager_get ();
   LOG ("[phehome] applet manager created");
   phehome_dbus_start ();
@@ -160,4 +189,11 @@ phe_home_main (void)
   g_timeout_add (500, place_applets, NULL);
   gtk_main ();
   return 0;
+}
+
+/* the resource of an installed package, wherever it was installed (phe_respath.h); the C++ entry point asks for the font configuration through this */
+const char *
+phehome_res (const char *rel)
+{
+  return phe_res (rel);
 }

@@ -1,0 +1,1 @@
+libhildon, libhildondesktop and a reduced Home screen: the Maemo-style touch UI libraries on GTK

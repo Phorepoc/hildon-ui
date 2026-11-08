@@ -1,0 +1,18 @@
+Hildon for Phorepoc (hildon-symbian) -- licence notice and source offer
+
+This package contains Hildon libraries built for Phorepoc OS, from unmodified upstream sources plus the changes in our repository. The libraries and their licences:
+  - libhildon, libhildondesktop, hildon-home (applet manager): LGPL-2.1 (LICENSES/libhildon-COPYING.txt)
+All licence texts are installed with this package in \resource\hildon-symbian\licences\ (NOTICE says which file covers what). Our own files (recipes, platform code,
+overlays) are BSD-2-Clause. Each library is a separate DLL: you can replace it with your own build (modified or not) of the same library; the DLLs are linked from
+archives the build leaves (see recipes/build.sh).
+
+Corresponding source, available to anyone who has this package, for at least three years after the release you installed it from:
+
+  1. The unmodified upstream sources, pinned (recipes/pins.sh and the dl/ folder's names):
+  - libhildon, libhildondesktop and hildon-home from https://github.com/maemo-leste (the commits are pinned in recipes/pins.sh)
+  2. Our changes to them (overlay/, patches applied by recipes/), our own files and the scripts that fetch, patch, build and package it:
+       https://github.com/Phorepoc/hildon-symbian   (the release tag of this package)
+     with the toolchain images and build tools in https://github.com/Phorepoc/toolchain and https://github.com/Phorepoc/pdk.
+
+Written offer: if the links above are no longer available, send a request to the address given on the Phorepoc organisation page https://github.com/Phorepoc and we will
+send you the corresponding source on a medium of your choice for the cost of the medium.

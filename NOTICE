@@ -1,3 +1,7 @@
-hildon-symbian: build recipes for GLib (LGPL-2.1+), libffi (MIT) and later libhildon / libhildondesktop (LGPL-2.1) as
-app-private libraries for Phorepoc OS. Our recipe files are BSD-2-Clause. The libraries are downloaded, never copied here;
-they stay in their own replaceable DLLs. hildon-desktop and the Leste themes are GPL and are NOT used.
+hildon-symbian: libhildon, libhildondesktop and a reduced Home screen: the Maemo-style touch UI libraries on GTK.
+Copyright The Phorepoc Authors (see AUTHORS). Our files (os/src, recipes, overlay, registry) are BSD-2-Clause (LICENSE).
+
+Libraries built here, each in its own replaceable DLL, downloaded and never copied into this repository (recipes/pins.sh); licence texts are in LICENSES/:
+  - libhildon, libhildondesktop, hildon-home (applet manager): LGPL-2.1 (LICENSES/libhildon-COPYING.txt)
+
+The package installs LICENSE, NOTICE, SOURCE-OFFER.txt and LICENSES/* to \resource\hildon-symbian\licences\.

@@ -14,8 +14,8 @@ cat > $O/config.h <<EOC
 #define VERSION "0"
 EOC
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H \
- -DG_LOG_DOMAIN=\"phehome\" -DLOCALEDIR=\"z:/resource/locale\" -DDATADIR=\"z:/resource\" -DHD_DESKTOP_ENTRY_PATH=\"z:/resource/hildondesktop/entries\" -DHD_DESKTOP_CONFIG_PATH=\"z:/resource/hildondesktop\" \
+FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /glib/overlay/phe_respath.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H \
+ -DG_LOG_DOMAIN=\"phehome\" -DLOCALEDIR=\"z:/resource/locale\" -DDATADIR=\"z:/resource\" -DHD_DESKTOP_ENTRY_PATH=\"z:/resource/hildondesktop/entries\" -DHD_DESKTOP_CONFIG_PATH=phe_res(\"resource/hildondesktop\") \
  -DHD_DESKTOP_MODULE_PATH=\"z:/sys/bin\" -DHD_DESKTOP_MENU_PATH=\"z:/resource/hildondesktop/menu\" -DHD_DESKTOP_BACKGROUNDS_PATH=\"z:/resource/hildondesktop/backgrounds\" \
  -DHD_PLUGIN_LOADER_MODULES_PATH=\"z:/sys/bin\" -DHD_UI_POLICY_MODULES_PATH=\"z:/sys/bin\" -DDBUS_API_SUBJECT_TO_CHANGE \
  -I$O -I$H -I$HD -I/wk/hdesktop-x32/inc -I$SH/shims -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/wk/dbusglib-x32/inc -I/wk/dbus-glib-$DBUSGLIB_VER -I/wk/dbus-glib-$DBUSGLIB_VER/dbus \

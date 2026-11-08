@@ -6,6 +6,7 @@
  *   ShowEditMenu (view)        answers org.freedesktop.DBus.Error.NotSupported: the reduced Home has no edit mode (docs hildon-port.md 7.23) */
 #include <string.h>
 #include <spawn.h>
+#include "phe_respath.h"
 #include <gtk/gtk.h>
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
@@ -74,8 +75,8 @@ register_service (gpointer data)
   c = dbus_g_bus_get (DBUS_BUS_SESSION, &err);
   if (!c) {
     if (tries == 0) {                                             /* no session bus: start phedbusd on demand, as every client of this system does (dbus-symbian README) */
-      pid_t pid; char *dargv[] = { (char *) "phedbusd.exe", (char *) "--config-file=z:/resource/dbus/session.conf", (char *) "--nofork", (char *) "--nopidfile", NULL };
-      int sr = posix_spawn (&pid, "phedbusd.exe", NULL, NULL, dargv, NULL);
+      pid_t pid; char cfgarg[200]; char *dargv[] = { (char *) "phedbusd.exe", (char *) cfgarg, (char *) "--nofork", (char *) "--nopidfile", NULL };
+      int sr = (g_snprintf (cfgarg, sizeof cfgarg, "--config-file=%s", phe_res ("resource/dbus/session.conf")), 0) + posix_spawn (&pid, "phedbusd.exe", NULL, NULL, dargv, NULL);
       LOG ("[phehome] no session bus: starting phedbusd on demand -> %d", sr);
     }
     if (++tries == 1 || tries % 10 == 0) LOG ("[phehome] session bus not there yet (%s), asking again", err ? err->message : "?");
