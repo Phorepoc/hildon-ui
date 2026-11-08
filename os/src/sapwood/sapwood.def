@@ -1,0 +1,5 @@
+EXPORTS
+	theme_init @ 1 NONAME
+	theme_exit @ 2 NONAME
+	theme_create_rc_style @ 3 NONAME
+	g_module_check_init @ 4 NONAME

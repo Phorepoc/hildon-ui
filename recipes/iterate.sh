@@ -5,7 +5,7 @@ set -u
 H=$(cd "$(dirname "$0")/.." && pwd -W); R=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}
 cd "$R"
 P=${H%/*}
-for r in glib-symbian gtk-symbian dbus-symbian hildon-symbian; do
+for r in glib-symbian gtk-symbian dbus-symbian hildon-ui; do
   MSYS_NO_PATHCONV=1 docker.exe run --rm --name hildon-pk -e ONLY="${ONLY:-}" -e ONLY_LIMIT_MS="${ONLY_LIMIT_MS:-}" -v "$P/$r":/h -v "$P/glib-symbian":/glib:ro -v "$P/gtk-symbian":/gtk:ro -v "$P/dbus-symbian":/dbus:ro -v "$R":/repo:ro -v "$R/.phorepoc-x86-build/hildon":/o -v "${VOL:-hildon-wk}":/wk phorepoc-x86 bash /h/recipes/package_x32.sh | tail -1; [ ${PIPESTATUS[0]} = 0 ] || { echo PACKAGE FAILED $r; exit 1; }
 done
 ./ph build pheglib phegobject phegmodule phegthread phepng phegio phepixman phefreetype phehb phepng phefontconfig phecairo phepango phepixbuf pheatk phegdk phegtk phehildon phecairowin phegdkwin phegtkwin phehildonwin phedbus phedbustest pheglibtest > .hildon-build.log 2>&1 || { tail -5 .hildon-build.log; exit 1; }

@@ -1,0 +1,18 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// sapwood.mmp -- the sapwood GTK theme engine (maemo-leste/sapwood, LGPL-2.1; in-process tiles instead of the sapwood-server, recipes/build_sapwood_x32.sh) as the module GTK loads through GModule.
+// Code = prebuilt archive libsapwood.a (recipes/build_sapwood_x32.sh); its exports (theme_init, theme_exit, theme_create_rc_style, g_module_check_init) are looked up by name through resource/gmodule/sapwood.sym (GModule, glib-symbian).
+TARGET			sapwood.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7015795
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			sapwood_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phepango.lib phecairo.lib phepixbuf.lib phegdk.lib phegtk.lib
+SMPSAFE

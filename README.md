@@ -1,4 +1,4 @@
-# hildon-symbian
+# hildon-ui
 
 libhildon 2.2.30 (`phehildon.dll`) and libhildondesktop 2.1.44 (`phehildondesktop.dll`) for Phorepoc (x32), on gtk-symbian and dbus-symbian: the Maemo / Leste (LGPL) widget set
 and home / status plug-in framework, with the Hildon-specific platform bits: Xlib atom/property shims, a GConf store, libcanberra over the platform's MMF audio, libintl, libiphb.
@@ -11,4 +11,6 @@ Build: `REPO=<Symbian-ReverseEngineered checkout> bash recipes/build.sh [steps]`
 volume (`VOL`, default hildon-wk) as the build tree and `$REPO/.phorepoc-x86-build/hildon/` as the archive directory; the sibling repositories are mounted read-only at
 /glib /gtk /dbus in every container. Plan and findings: `docs/phorepoc/hildon-port.md` in Symbian-ReverseEngineered.
 
-Dependency graph:  glib-symbian  <-  gtk-symbian  <-  hildon-symbian  ->  dbus-symbian  ->  glib-symbian
+Dependency graph:  glib-symbian  <-  gtk-symbian  <-  hildon-ui  ->  dbus-symbian  ->  glib-symbian
+
+> **Renamed (2026-11-08).** This repository was `hildon-symbian`. A UI repository is named after the UI, without the `-symbian` suffix (the library ports glib-symbian, gtk-symbian and dbus-symbian keep theirs, like qt-symbian). The history is the same repository's.

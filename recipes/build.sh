@@ -3,7 +3,7 @@
 #
 #   REPO=<Symbian-ReverseEngineered checkout>  bash recipes/build.sh [steps]
 # steps (default: all, in order): hildon hildondesktop archives defs images boot
-# The sibling repositories (glib-symbian, gtk-symbian, dbus-symbian, hildon-symbian) are expected next to this one; they are mounted at /glib /gtk /dbus (read-only) in every container,
+# The sibling repositories (glib-symbian, gtk-symbian, dbus-symbian, hildon-ui) are expected next to this one; they are mounted at /glib /gtk /dbus (read-only) in every container,
 # this repository at /h. The docker volume (VOL) is the shared build tree of the whole stack; OUTD (the archives) is $REPO/.phorepoc-x86-build/hildon.
 set -eu
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}; PARENT=${HERE%/*}; SIB="-v $PARENT/glib-symbian:/glib:ro -v $PARENT/gtk-symbian:/gtk:ro -v $PARENT/dbus-symbian:/dbus:ro"
