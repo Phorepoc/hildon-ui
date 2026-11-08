@@ -21,6 +21,9 @@ $NAT/glib-genmarshal --prefix _hildon_marshal --header hildon-marshalers.list > 
 mkdir -p $O/hdr; rm -f $O/hdr/*; for h in $S/hildon-*.h $S/maemo-gtk-compat.h; do b=$(basename $h); case $b in *-private.h|hildon-enum-types.h|hildon-marshalers.h|hildon-animation-actor.h|hildon-remote-texture.h) ;; *) ln -s $h $O/hdr/$b;; esac; done; ln -sf $O/hildon-version.h $O/hdr/hildon-version.h
 PUB=$(cd $O/hdr && ls | tr '
 ' ' ')
+PUB=$(echo $PUB | tr -s " " "
+" | grep -v maemo-gtk-compat | tr "
+" " ")     # -DMAEMO_GTK: the enums of maemo-gtk-compat.h (HildonMode, HildonUIMode, ...) are GTK's own, with their GTypes in GTK
 cd $O/hdr
 python3 $NAT/glib-mkenums --fhead "#ifndef __HILDON_ENUM_TYPES_H__\n#define __HILDON_ENUM_TYPES_H__\n\n#include <glib-object.h>\n\nG_BEGIN_DECLS\n\n" \
   --fprod "/* Enumerations from \"@filename@\" */\n" \
@@ -38,11 +41,11 @@ cat > $O/config.h <<EOC
 #define HAVE_SYS_TIME_H 1
 EOC
 SRC=$(list 'libhildon_@API_VERSION_MAJOR@_la_SOURCES' | grep "\.c$" | grep -v "animation-actor\|remote-texture\|hildon-enum-types\|hildon-marshalers" | sed 's/\.c$//')
-SRC="$SRC maemo-gtk-compat"; SRC=$(echo $SRC | tr ' ' '\n' | sort -u | tr '\n' ' ')
+SRC=$(echo $SRC | tr ' ' '\n' | sort -u | tr '\n' ' ')
 echo "hildon: $(echo $SRC | wc -w) sources of libhildon $V"
 G=/wk/gtk+-$GTK_VER
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -DHAVE_CONFIG_H -DG_LOG_DOMAIN=\"hildon-1\" -DLOCALEDIR=\"z:/resource/locale\" \
+FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -DHAVE_CONFIG_H -DMAEMO_GTK -DG_LOG_DOMAIN=\"hildon-1\" -DLOCALEDIR=\"z:/resource/locale\" \
  -DGTK_DISABLE_DEPRECATION_WARNINGS -DGDK_DISABLE_DEPRECATION_WARNINGS -I$O -I$S -I$SH/shims -I$G -I$G/gdk -I/wk/gdk-x32 -I/wk/atk-$ATK_VER -I/wk/gtk-x32/inc $X32 \
  -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/pixman-0.42.2/pixman -I/wk/pango-1.40.14 -I/wk/pango-x32 -I/wk/harfbuzz-$HARFBUZZ_VER/src -I/wk/fontconfig-2.14.2 -I/wk/freetype-2.13.3/include -I/wk/gdk-pixbuf-2.36.12 -I/wk/pixbuf-x32 -I/wk/gtk-x32"
 # <hildon/hildon.h> style includes and <gtk/gtk.h>: symlink trees

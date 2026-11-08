@@ -3,7 +3,7 @@
 set -u
 CC=/wk/lsc/bin/pp-gcc; X=/wk/x32; S=/wk/glib-2.56.4; O=/o; mkdir -p $O /wk/out/t
 INC="-I$X -I$X/glib -I$S -I$S/glib -I$S/gobject -I$S/gmodule -I/wk/ffi-x32 -I/glib/overlay -include /glib/overlay/phe_glib_compat.h"
-CF="-O2 -g0 -w -fno-pic -DHAVE_CONFIG_H -DGLIB_STATIC_COMPILATION -DGOBJECT_STATIC_COMPILATION"
+CF="-O2 -g0 -w -fno-pic -DHAVE_CONFIG_H -DMAEMO_GTK -DGLIB_STATIC_COMPILATION -DGOBJECT_STATIC_COMPILATION"
 # libhildon (build_hildon_x32.sh) as libphehildon.a, and its demo (public libhildon API) as libphehildonwin.a
 if [ -f /wk/out/libphehildon.a ]; then
   cp /wk/out/libphehildon.a $O/libphehildon.a; echo "libphehildon.a: $(ar t $O/libphehildon.a | wc -l) members"
@@ -28,8 +28,9 @@ fi
 # the Home process (build_hildonhome_x32.sh): archives, and the symbol tables (GModule, glib-symbian) of this repository's DLLs
 [ -f /wk/out/libphehome.a ] && cp /wk/out/libphehome.a $O/libphehome.a && cp /wk/out/libphehomeexample.a $O/libphehomeexample.a && echo "libphehome.a copied"
 [ -f /wk/out/libsapwood.a ] && cp /wk/out/libsapwood.a $O/libsapwood.a && echo "libsapwood.a copied"
+[ -f /wk/out/libpixmap.a ] && cp /wk/out/libpixmap.a $O/libpixmap.a && echo "libpixmap.a copied"
 mkdir -p $O/testdata $O/gmodule
 cp $O/testdata/phehildonwin_fonts.conf $O/testdata/phehome_fonts.conf 2>/dev/null
-for d in /h/os/src/*/*.def; do n=$(basename $d .def); python3 /glib/recipes/gen_symtab.py $d $O/gmodule/$n.sym > /dev/null; done; echo "symbol tables: $(ls $O/gmodule | wc -l)"
+for d in /h/os/src/*/*.def /gtk/os/src/pheengpixmap/pixmap.def; do n=$(basename $d .def); python3 /glib/recipes/gen_symtab.py $d $O/gmodule/$n.sym > /dev/null; done; echo "symbol tables: $(ls $O/gmodule | wc -l)"
 true
 

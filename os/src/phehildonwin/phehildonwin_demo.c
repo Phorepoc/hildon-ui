@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "phe_respath.h"
+#include "phe_theme.h"
 #include <gtk/gtk.h>
 #include <hildon/hildon.h>
 #include <gdk/gdkkeysyms.h>
@@ -100,30 +101,12 @@ selftest (void)
   LOG ("[phehildonwin] selftest done: %d passed, %d failed", st_ok, st_fail);
 }
 
-/* The Hildon theme (hildon-theme-alpha, the Maemo Leste default, with the sapwood engine): GTK finds the engine module through GTK_PATH, the theme's gtkrc names its images relative to a
- * pixmap_path of /usr/share/themes/alpha/images, which is replaced by the install location. Returns TRUE when a theme was found and parsed. */
-static gboolean
-load_theme (void)
-{
-  const char *rc = phe_res ("resource/gtk/themes/alpha/gtk-2.0/gtkrc"); gchar *text = NULL, **parts, *out, *images, *gtkdir;
-  if (rc[0] == 'z' && access (rc, F_OK) != 0) return FALSE;
-  if (!g_file_get_contents (rc, &text, NULL, NULL)) return FALSE;
-  { char root[4] = { rc[0], 58, 47, 0 }; LOG ("[phehildonwin] chdir %s -> %d", root, chdir (root)); }       /* the drive of the theme becomes the current drive: GTK path lists are split at the colon, so the theme names its files without a drive */
-  images = g_strdup ("/resource/gtk/themes/alpha/images"); gtkdir = g_strndup (rc, strlen (rc) - strlen ("/themes/alpha/gtk-2.0/gtkrc"));
-  parts = g_strsplit (text, "/usr/share/themes/alpha/images", -1); out = g_strjoinv (images, parts);
-  g_strfreev (parts); parts = g_strsplit (out, "engine \"sapwood\"", -1); g_free (out); out = g_strjoinv ("engine \"/resource/gtk/engines/sapwood\"", parts);       /* an absolute engine name is used as it is (a search path cannot hold a drive letter: ':' separates) and GModule takes the DLL by name */
-  gtk_rc_parse_string (out);
-  LOG ("[phehildonwin] theme alpha parsed from %s (%d bytes)", rc, (int) strlen (out)); (void) gtkdir;
-  g_strfreev (parts); g_free (out); g_free (text); g_free (images); g_free (gtkdir);
-  return TRUE;
-}
-
 int
 phe_hildon_demo_main (void)
 {
   GtkWidget *vbox, *w, *picker, *selector, *b;
   gtk_init (NULL, NULL); hildon_init ();
-  if (!load_theme ()) gtk_rc_parse ("z:/resource/phehildonwin/phehildon.rc");                          /* the Phorepoc Hildon look (Etesian tokens) */
+  if (!phe_theme_load (phe_log)) gtk_rc_parse ("z:/resource/phehildonwin/phehildon.rc");                          /* the Phorepoc Hildon look (Etesian tokens) */
   LOG ("[phehildonwin] gtk + hildon init ok: GTK %d.%d.%d, libhildon %d.%d.%d", gtk_major_version, gtk_minor_version, gtk_micro_version, HILDON_MAJOR_VERSION, HILDON_MINOR_VERSION, HILDON_MICRO_VERSION);
   selftest ();
   program = hildon_program_get_instance ();

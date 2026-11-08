@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <gtk/gtk.h>
 #include "phe_respath.h"
+#include "phe_theme.h"
 #include <hildon/hildon.h>
 #include <libhildondesktop/libhildondesktop.h>
 
@@ -161,7 +162,7 @@ phe_home_main (void)
   g_mkdir_with_parents ("c:/data/phehome/config/hildon-desktop", 0755);
   if (!gtk_init_check (NULL, NULL)) return 1;
   hildon_init ();
-  gtk_rc_parse (phe_res ("resource/phehome/phehildon.rc"));
+  if (!phe_theme_load (phe_log)) gtk_rc_parse (phe_res ("resource/phehome/phehildon.rc"));            /* the Hildon theme (alpha, the Maemo Leste default) when its package is installed, else our own look */
   LOG ("[phehome] gtk + hildon init ok, screen %dx%d", gdk_screen_get_width (gdk_screen_get_default ()), gdk_screen_get_height (gdk_screen_get_default ()));
 
   /* the Home background window */
@@ -169,13 +170,11 @@ phe_home_main (void)
   gtk_window_set_title (GTK_WINDOW (home_window), "Home");
   gtk_window_set_default_size (GTK_WINDOW (home_window), gdk_screen_get_width (gdk_screen_get_default ()), gdk_screen_get_height (gdk_screen_get_default ()));
   box = gtk_vbox_new (FALSE, 0);
-  label = gtk_label_new (NULL);
-  gtk_label_set_markup (GTK_LABEL (label), "<span size='x-large' weight='bold'>Home</span>");
-  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.0); gtk_misc_set_padding (GTK_MISC (label), 24, 24);
-  gtk_box_pack_start (GTK_BOX (box), label, FALSE, FALSE, 0);
   gtk_container_add (GTK_CONTAINER (home_window), box);
   gtk_widget_set_app_paintable (home_window, TRUE);
   g_signal_connect (home_window, "expose-event", G_CALLBACK (home_expose), NULL);
+  { const char *wp = phe_res ("resource/gtk/themes/alpha/backgrounds/wallpaper1.png");                      /* the theme's first wallpaper (Leste's default background) */
+    if (access (wp, F_OK) == 0) phehome_set_background (wp); }
   gtk_widget_show_all (home_window);
 
   /* the real applet manager: loads home.conf, finds the plug-in entries, loads the plug-in modules and creates the applets */
