@@ -6,7 +6,7 @@
 import re, subprocess, sys, os
 adir, out = sys.argv[1:3]
 LIBS = [("phehildon", "libphehildon.a"), ("phehildondesktop", "libphehildondesktop.a")]
-OTHER = ['libpheglib.a', 'libphegobject.a', 'libphegmodule.a', 'libphegthread.a', 'libphegio.a', 'libphepixman.a', 'libphecairo.a', 'libphefreetype.a', 'libphehb.a', 'libphepng.a', 'libphefontconfig.a', 'libphepango.a', 'libphepixbuf.a', 'libpheatk.a', 'libphegdk.a', 'libphegtk.a', 'libphedbus.a', 'libphedbusglib.a'] + ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a", "libphehildonwin.a", "libphedbustest.a", "libphehildondesktoptest.a"]
+OTHER = ['libphehome.a', 'libphehomeexample.a', 'libpheglib.a', 'libphegobject.a', 'libphegmodule.a', 'libphegthread.a', 'libphegio.a', 'libphepixman.a', 'libphecairo.a', 'libphefreetype.a', 'libphehb.a', 'libphepng.a', 'libphefontconfig.a', 'libphepango.a', 'libphepixbuf.a', 'libpheatk.a', 'libphegdk.a', 'libphegtk.a', 'libphedbus.a', 'libphedbusglib.a'] + ["libpheglibtest.a", "libpheffi.a", "libphegdkwin.a", "libphegtkwin.a", "libphehildonwin.a", "libphedbustest.a", "libphehildondesktoptest.a"]
 def nm(a):
     d, u = {}, set()
     for line in subprocess.run(["nm", "-g", "--no-demangle", os.path.join(adir, a)], capture_output=True, text=True).stdout.splitlines():

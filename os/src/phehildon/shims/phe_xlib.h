@@ -52,6 +52,7 @@ typedef int Status;
 #define XA_VISUALID ((Atom) 32)
 #define XA_WINDOW ((Atom) 33)
 #define XA_WM_COMMAND ((Atom) 34)
+#define XA_WM_TRANSIENT_FOR ((Atom) 68)
 #define XA_WM_HINTS ((Atom) 35)
 #define XA_WM_CLIENT_MACHINE ((Atom) 36)
 #define XA_WM_ICON_NAME ((Atom) 37)
@@ -81,6 +82,7 @@ int    XChangeProperty (Display *display, Window w, Atom property, Atom type, in
 int    XGetWindowProperty (Display *display, Window w, Atom property, glong long_offset, glong long_length, Bool delete_prop, Atom req_type,
                            Atom *actual_type_return, int *actual_format_return, gulong *nitems_return, gulong *bytes_after_return, unsigned char **prop_return);
 int    XDeleteProperty (Display *display, Window w, Atom property);
+int    XSetTransientForHint (Display *display, Window w, Window prop_window);
 Status XSetWMProtocols (Display *display, Window w, Atom *protocols, int count);
 Status XGetWMProtocols (Display *display, Window w, Atom **protocols_return, int *count_return);
 XWMHints *XGetWMHints (Display *display, Window w);
@@ -90,6 +92,8 @@ int    XSync (Display *display, Bool discard);
 int    XFlush (Display *display);
 int    XFree (void *data);
 Window XDefaultRootWindow (Display *display);
+#define RootWindow(display, screen)      XDefaultRootWindow (display)       /* one screen */
+#define GDK_SCREEN_XNUMBER(screen)       0
 
 /* gdkx.h */
 Atom    gdk_x11_get_xatom_by_name_for_display (GdkDisplay *display, const gchar *atom_name);

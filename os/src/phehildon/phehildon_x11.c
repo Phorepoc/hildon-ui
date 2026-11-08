@@ -56,6 +56,14 @@ XDeleteProperty (Display *display, Window w, Atom property)
   return Success;
 }
 
+/* as Xlib: the WM_TRANSIENT_FOR property (a window id); a window transient for the root window is one that belongs to the desktop layer (Home applets) */
+int
+XSetTransientForHint (Display *display, Window w, Window prop_window)
+{
+  unsigned long id = (unsigned long) prop_window;
+  return XChangeProperty (display, w, XA_WM_TRANSIENT_FOR, XA_WINDOW, 32, PropModeReplace, (const unsigned char *) &id, 1);
+}
+
 Status
 XSetWMProtocols (Display *display, Window w, Atom *protocols, int count)
 {

@@ -1,0 +1,3 @@
+# the default home applets (the Home process copies them to its user configuration when it first stores a change): one group per applet instance
+[phehomeexample-0]
+X-Desktop-File=z:/resource/hildondesktop/entries/home/phehomeexample.desktop

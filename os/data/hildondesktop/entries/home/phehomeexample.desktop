@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Example Label Home Applet
+Comment=libhildondesktop example home applet
+Type=default
+X-Path=phehomeexample.so
+X-Text-Domain=maemo-af-desktop

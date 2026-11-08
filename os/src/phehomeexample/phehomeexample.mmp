@@ -1,0 +1,18 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phehomeexample.mmp -- OURS: libhildondesktop's own example home applet (examples/home/example-label-home-applet.c, LGPL-2.1) as a plug-in DLL for the Home process. Code = prebuilt archive
+// libphehomeexample.a (recipes/build_hildonhome_x32.sh); its two exports (hd_plugin_module_load / _unload) are looked up by name through resource/gmodule/phehomeexample.sym (GModule, glib-symbian).
+TARGET			phehomeexample.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7015792
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCALLOWDLLDATA
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phehomeexample_dll.c
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phepango.lib phecairo.lib phegdk.lib phegtk.lib phehildon.lib phehildondesktop.lib
+SMPSAFE

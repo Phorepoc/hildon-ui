@@ -25,3 +25,10 @@ if [ -f /wk/out/libphehildondesktop.a ]; then
   $CC $CF $INC $HD -include /wk/gdk-x32/gtkcompat.h -c /h/os/src/phehildondesktoptest/phehildondesktoptest_main.c -o /wk/out/hdt/phehildondesktoptest_main.o || echo "HILDONDESKTOP TEST COMPILE FAIL"
   ar rcs $O/libphehildondesktoptest.a /wk/out/hdt/*.o; cp /h/os/src/phehildondesktoptest/fonts.conf $O/testdata/phehildondesktoptest_fonts.conf; echo "libphehildondesktoptest.a built"
 fi
+# the Home process (build_hildonhome_x32.sh): archives, and the symbol tables (GModule, glib-symbian) of this repository's DLLs
+[ -f /wk/out/libphehome.a ] && cp /wk/out/libphehome.a $O/libphehome.a && cp /wk/out/libphehomeexample.a $O/libphehomeexample.a && echo "libphehome.a copied"
+mkdir -p $O/testdata $O/gmodule
+cp $O/testdata/phehildonwin_fonts.conf $O/testdata/phehome_fonts.conf 2>/dev/null
+for d in /h/os/src/*/*.def; do n=$(basename $d .def); python3 /glib/recipes/gen_symtab.py $d $O/gmodule/$n.sym > /dev/null; done; echo "symbol tables: $(ls $O/gmodule | wc -l)"
+true
+

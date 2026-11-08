@@ -539,3 +539,5 @@ EXPORTS
 	gconf_value_get_list_type @ 538 NONAME
 	gconf_value_get_string @ 539 NONAME
 	XDeleteProperty @ 540 NONAME
+	XSetTransientForHint @ 541 NONAME
+	XDefaultRootWindow @ 542 NONAME
