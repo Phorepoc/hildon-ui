@@ -1,0 +1,1 @@
+com.nokia.HildonHome /com/nokia/HildonHome com.nokia.HildonHome SetBackgroundImage string:z:/resource/phehome/wallpaper.png -- com.nokia.HildonHome /com/nokia/HildonHome com.nokia.HildonHome ShowEditMenu uint32:1

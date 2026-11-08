@@ -12,6 +12,22 @@ extern "C" int phe_home_main(void);
 
 extern "C" void phe_log(const char* aMsg) { RDebug::Printf("%s", aMsg); }
 
+extern "C" int phehome_spawn(const char* aExe, const char* aArgs)
+	{
+	TBuf<64> exe;
+	exe.Copy(TPtrC8((const TUint8*)aExe));
+	TBuf<256> args;
+	args.Copy(TPtrC8((const TUint8*)aArgs, Min((TInt)User::StringLength((const TUint8*)aArgs), 255)));
+	RProcess p;
+	TInt r = p.Create(exe, args);
+	if (r == KErrNone)
+		{
+		p.Resume();
+		p.Close();
+		}
+	return r;
+	}
+
 GLDEF_C TInt E32Main()
 	{
 	CTrapCleanup* cleanup = CTrapCleanup::New();
