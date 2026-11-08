@@ -63,17 +63,18 @@ place_applets (gpointer data)
     GtkWidget *w = l->data;
     if (HD_IS_HOME_PLUGIN_ITEM (w)) {
       gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w));
+      gboolean fresh = n >= placed;
       gtk_window_move (GTK_WINDOW (w), 24, y);
       if (GTK_WIDGET_REALIZED (w)) gdk_window_raise (w->window);          /* the applets belong on top of the Home background (hildon-desktop stacks them there on a real device) */
-      LOG ("[phehome] home applet \"%s\" (%s): window at 24,%d, visible %d, realized %d", id ? id : "?", G_OBJECT_TYPE_NAME (w), y, GTK_WIDGET_VISIBLE (w) ? 1 : 0, GTK_WIDGET_REALIZED (w) ? 1 : 0);
+      if (fresh) LOG ("[phehome] home applet \"%s\" (%s): window at 24,%d, visible %d, realized %d", id ? id : "?", G_OBJECT_TYPE_NAME (w), y, GTK_WIDGET_VISIBLE (w) ? 1 : 0, GTK_WIDGET_REALIZED (w) ? 1 : 0);
       g_free (id);
       y += 130; n++;
     }
   }
   g_list_free (tops);
-  if (n) placed = n;
-  LOG ("[phehome] %d home applet window(s) placed", n);
-  return n == 0 && !placed;      /* try again until the applets are there */
+  if (n != placed) LOG ("[phehome] %d home applet window(s) placed", n);
+  placed = n;
+  return TRUE;                   /* keep watching: applets come and go with the configuration */
 }
 
 /* test only (a marker file z:/resource/phehome/alpha.demo in the test ROM): a window of the RGBA colormap that paints a half transparent rounded rectangle, to see per-pixel alpha working */
@@ -89,6 +90,25 @@ alpha_demo_expose (GtkWidget *w, GdkEventExpose *e)
   return FALSE;
 }
 
+/* test only (marker z:/resource/phehome/livecfg.test): some seconds after start the user's home.plugins is rewritten with a second applet instance; the plug-in manager watches the configuration (GIO file monitor) and must create the applet without a restart */
+static gboolean
+livecfg_write (gpointer data)
+{
+  const gchar *cfg = "[phehomeexample-0]\nX-Desktop-File=z:/resource/hildondesktop/entries/home/phehomeexample.desktop\n\n[phehomeexample-1]\nX-Desktop-File=z:/resource/hildondesktop/entries/home/phehomeexample.desktop\n";
+  gboolean ok = g_file_set_contents ("c:/data/phehome/config/hildon-desktop/home.plugins", cfg, -1, NULL);
+  (void) data;
+  LOG ("[phehome] live config: wrote user home.plugins with a second applet instance: %s", ok ? "ok" : "FAILED");
+  return FALSE;
+}
+
+static gboolean
+tap_seen (GtkWidget *w, GdkEventButton *e, gpointer name)
+{
+  (void) w;
+  LOG ("[phehome] tap: button press on %s at %d,%d", (const char *) name, (int) e->x, (int) e->y);
+  return FALSE;
+}
+
 static void
 alpha_demo (void)
 {
@@ -101,6 +121,8 @@ alpha_demo (void)
   g_signal_connect (w, "expose-event", G_CALLBACK (alpha_demo_expose), NULL);
   { GtkWidget *l = gtk_label_new ("Alpha label"); gtk_misc_set_alignment (GTK_MISC (l), 0.0, 1.0); gtk_misc_set_padding (GTK_MISC (l), 6, 6); gtk_container_add (GTK_CONTAINER (w), l); gtk_widget_show (l); }
   gtk_widget_show (w); gtk_window_move (GTK_WINDOW (w), 24, 300);
+  gtk_widget_add_events (w, GDK_BUTTON_PRESS_MASK); g_signal_connect (w, "button-press-event", G_CALLBACK (tap_seen), (gpointer) "the alpha window");
+  gtk_widget_add_events (home_window, GDK_BUTTON_PRESS_MASK); g_signal_connect (home_window, "button-press-event", G_CALLBACK (tap_seen), (gpointer) "the Home window");
 }
 
 int
@@ -134,6 +156,7 @@ phe_home_main (void)
   LOG ("[phehome] applet manager created");
   phehome_dbus_start ();
   alpha_demo ();
+  if (g_file_test ("z:/resource/phehome/livecfg.test", G_FILE_TEST_EXISTS)) g_timeout_add_seconds (12, livecfg_write, NULL);
   g_timeout_add (500, place_applets, NULL);
   gtk_main ();
   return 0;
