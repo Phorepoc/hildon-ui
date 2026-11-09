@@ -23,6 +23,7 @@ enum { EPheWinFullscreen = 1, EPheWinModal = 2, EPheWinUrgent = 4, EPheWinHidden
 class TPheWinInfo
 	{
 public:
+	TPheWinInfo() : iId(0), iOwner(0), iType(EPheWinNormal), iTransientFor(0), iState(0), iBitmap(0), iContentSerial(0) {}
 	TInt iId;					// the registry's id (0 before registering)
 	TUint iOwner;				// the owner's process id (the registry fills it)
 	TInt iType;					// TPheWinType

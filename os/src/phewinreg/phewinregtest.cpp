@@ -28,7 +28,6 @@ static TInt Run()
 	frame.Notify(0, st);
 
 	TPheWinInfo w;
-	Mem::FillZ(&w, sizeof(w));
 	w.iType = EPheWinNormal;
 	w.iGeometry = TRect(TPoint(0, 0), TSize(360, 600));
 	w.iTitle = _L("Notes");
