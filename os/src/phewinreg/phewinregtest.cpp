@@ -197,9 +197,47 @@ static TInt Run()
 	return KErrNone;
 	}
 
+// phewinregtest close <title>: act as a frame's close button on the window with that title (subscribe to it as a watcher, send
+// EPheWinActClose), so a boot script can test what the owner does with it
+static TInt Close(const TDesC& aTitle)
+	{
+	RPheWinReg reg;
+	TInt r = reg.Connect();
+	if (r != KErrNone)
+		return r;
+	TPheWinInfo list[16];
+	const TInt n = ListAll(reg, list, 16);
+	r = KErrNotFound;
+	for (TInt i = 0; i < n && i < 16; ++i)
+		if (list[i].iTitle.CompareF(aTitle) == 0)
+			{
+			r = reg.Subscribe(list[i].iId, EPheWinWatch);
+			if (r == KErrNone)
+				r = reg.Action(list[i].iId, EPheWinActClose);
+			TBuf8<64> t8;
+			t8.Copy(aTitle);
+			RDebug::Printf("[phewinregtest] close \"%S\": window %d, action %d", &t8, list[i].iId, r);
+			break;
+			}
+	if (r == KErrNotFound)
+		RDebug::Printf("[phewinregtest] close: no window with that title (%d windows)", n);
+	reg.Close();
+	return r;
+	}
+
 GLDEF_C TInt E32Main()
 	{
 	CTrapCleanup* cleanup = CTrapCleanup::New();
+	TBuf<80> line;
+	User::CommandLine(line);
+	TLex lex(line);
+	if (lex.NextToken().CompareF(_L("close")) == 0)
+		{
+		lex.SkipSpace();
+		const TInt c = Close(lex.Remainder());
+		delete cleanup;
+		return c;
+		}
 	const TInt r = Run();
 	delete cleanup;
 	return r;

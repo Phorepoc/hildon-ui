@@ -6,7 +6,8 @@ TARGET			phescreenpub.exe
 TARGETTYPE		exe
 UID				0x1000007a 0xE701573B
 // WriteDeviceData: RWsSession::SetFocusScreen; SwEvent: RWsSession::SimulateRawEvent (a frame's click into the app)
-CAPABILITY		WriteDeviceData SwEvent
+// PowerMgmt: a closed app that does not end within its grace time is killed (RProcess::Kill of another process)
+CAPABILITY		WriteDeviceData SwEvent PowerMgmt
 VENDORID		0
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 USERINCLUDE		. ../phewinreg

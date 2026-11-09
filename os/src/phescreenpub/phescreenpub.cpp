@@ -21,10 +21,12 @@
 #include <fbs.h>
 #include <w32std.h>
 #include <apgwgnam.h>
+#include <apgtask.h>
 #include "phewinreg.h"
 
 static const TInt KPheDisplayHalDamage = 0x7103;		// the x86 display driver, virtual screens (xk_display.cpp)
-static const TInt KPollUs = 20000;						// 50 Hz, the display flusher's own rate
+static const TInt KPollUs = 20000;
+static const TInt KCloseGraceUs = 10000000;			// the app's own exit after a close, before it is killed						// 50 Hz, the display flusher's own rate
 
 static void Log(TRefByValue<const TDesC> aFmt, ...)
 	{
@@ -46,6 +48,7 @@ private:
 	void UpdateTitle();
 	void InjectPointer(const TPheWinPointer& aEv);
 	void AnswerPing();
+	TInt AppWindowGroup(TThreadId aApp);
 	TInt iScreen;
 	TUint32* iFb;
 	TInt iStride;					// words per line
@@ -186,12 +189,33 @@ void CScreenPub::AnswerPing()
 		Log(_L("screen %d: ping -> %S (group %d)"), iScreen, alive ? &_L("answered") : &_L("NOT answered: no live app"), wg);
 	}
 
+// the window group on this screen that the app's thread owns (0 = none)
+TInt CScreenPub::AppWindowGroup(TThreadId aApp)
+	{
+	CArrayFixFlat<TInt>* ids = new CArrayFixFlat<TInt>(4);
+	if (!ids)
+		return 0;
+	TInt found = 0;
+	if (iWs.WindowGroupList(ids, iScreen) == KErrNone)
+		for (TInt i = 0; i < ids->Count() && !found; ++i)
+			{
+			TThreadId t;
+			if (iWs.GetWindowGroupClientThreadId(ids->At(i), t) == KErrNone && t == aApp)
+				found = ids->At(i);
+			}
+	delete ids;
+	return found;
+	}
+
 void CScreenPub::RunL(TUint64 aWatch)
 	{
 	RTimer timer;
 	User::LeaveIfError(timer.CreateLocal());
-	TRequestStatus tick, action, pointer, died;
+	TRequestStatus tick, action, pointer, died, killTick;
 	RThread app;
+	RTimer killTimer;					// after a close: the app's own exit gets KCloseGraceUs, then it is killed
+	User::LeaveIfError(killTimer.CreateLocal());
+	TBool closing = EFalse;
 	if (aWatch)
 		{
 		User::LeaveIfError(app.Open(TThreadId(aWatch)));
@@ -209,11 +233,27 @@ void CScreenPub::RunL(TUint64 aWatch)
 			{
 			Log(_L("screen %d: its app ended (%d): the window goes"), iScreen, died.Int());
 			app.Close();
+			if (closing)
+				killTimer.Cancel();
+			killTimer.Close();
 			iReg.ActionCancel();
 			iReg.PointerCancel();
 			timer.Cancel();
 			timer.Close();
 			return;
+			}
+		if (closing && killTick != KRequestPending)
+			{
+			// the app did not end within the grace time: end it the hard way (as the 2010 task switcher's KillTask)
+			RProcess p;
+			if (app.Process(p) == KErrNone)
+				{
+				Log(_L("screen %d: the app did not end %d s after EndTask: killing it"), iScreen, KCloseGraceUs / 1000000);
+				p.Kill(KErrNone);
+				p.Close();
+				}
+			closing = EFalse;
+			continue;
 			}
 		if (pointer != KRequestPending)
 			{
@@ -238,7 +278,25 @@ void CScreenPub::RunL(TUint64 aWatch)
 			else if (ev > 0 && PheWinActionCode(ev) == EPheWinActPing)
 				AnswerPing();
 			else if (ev > 0 && PheWinActionCode(ev) == EPheWinActClose)
-				Log(_L("screen %d: close action (ignored: the app owns its life)"), iScreen);
+				{
+				if (!aWatch)
+					Log(_L("screen %d: close action (ignored: no app given, the app owns its life)"), iScreen);
+				else if (!closing)
+					{
+					// the 2010 way (task switcher, TApaTask::EndTask): an exit event to the app's window group, so the app
+					// exits through its own path and can save
+					const TInt wg = AppWindowGroup(app.Id());
+					if (wg > 0)
+						{
+						TApaTask task(iWs);
+						task.SetWgId(wg);
+						task.EndTask();
+						}
+					Log(_L("screen %d: close action -> EndTask on window group %d"), iScreen, wg);
+					killTimer.After(killTick, KCloseGraceUs);
+					closing = ETrue;
+					}
+				}
 			if (ev < 0)
 				{ Log(_L("screen %d: ActionNotify %d"), iScreen, ev); action = KRequestPending; }
 			else
