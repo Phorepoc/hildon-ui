@@ -30,7 +30,30 @@ public:
 				return i;
 		return KErrNotFound;
 		}
-	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; };
+	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; TUint iStack; };
+	TUint iStackTop = 0;			// the last raise / registration: a higher iStack is above its siblings
+	void AppendStacked(TDes8& aOut, TInt aParent, TInt aDepth) const
+		{
+		// the children of aParent (0 = top level; a window whose parent is gone counts as top level), lowest iStack first
+		TUint after = 0;
+		for (;;)
+			{
+			TInt best = -1;
+			for (TInt i = 0; i < iWins.Count(); ++i)
+				{
+				const TInt t = iWins[i].iInfo.iTransientFor;
+				const TInt parent = (t != 0 && t != iWins[i].iInfo.iId && Find(t) >= 0) ? t : 0;
+				if (parent == aParent && iWins[i].iStack > after && (best < 0 || iWins[i].iStack < iWins[best].iStack))
+					best = i;
+				}
+			if (best < 0)
+				return;
+			after = iWins[best].iStack;
+			aOut.Append((const TUint8*)&iWins[best].iInfo, sizeof(TPheWinInfo));
+			if (aDepth < 16)		// (a transient-for cycle stops here; its windows are then missing from the list)
+				AppendStacked(aOut, iWins[best].iInfo.iId, aDepth + 1);
+			}
+		}
 	RArray<TWin> iWins;
 	TInt iNextId = 1;
 	TUint iSerial = 1;
@@ -196,6 +219,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 				client.Close();
 				}
 			w.iSession = this;
+			w.iStack = ++srv.iStackTop;
 			srv.iWins.AppendL(w);
 			RDebug::Print(_L("[phewinreg] window %d registered: type %d, %dx%d, '%S'"), w.iInfo.iId, w.iInfo.iType,
 				w.iInfo.iGeometry.Width(), w.iInfo.iGeometry.Height(), &w.iInfo.iTitle);
@@ -253,11 +277,11 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		if (room < n) { aMessage.Complete(n); return; }
 		HBufC8* buf = HBufC8::NewLC(n * sizeof(TPheWinInfo) + 1);
 		TPtr8 b = buf->Des();
-		for (TInt i = 0; i < n; ++i)
-			b.Append((const TUint8*)&srv.iWins[i].iInfo, sizeof(TPheWinInfo));
+		srv.AppendStacked(b, 0, 0);
+		const TInt listed = b.Length() / (TInt)sizeof(TPheWinInfo);
 		aMessage.WriteL(0, b);
 		CleanupStack::PopAndDestroy(buf);
-		aMessage.Complete(n);
+		aMessage.Complete(listed);
 		return;
 		}
 	case EPheWinNotify:
@@ -321,7 +345,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 	case EPheWinAction:
 		{
 		const TInt id = aMessage.Int0(), act = aMessage.Int1();
-		if (act < EPheWinActClose || act > EPheWinActFocus || id <= 0 || id > 0x7FFFFFF) { aMessage.Complete(KErrArgument); return; }
+		if (act < EPheWinActClose || act > EPheWinActRaise || id <= 0 || id > 0x7FFFFFF) { aMessage.Complete(KErrArgument); return; }
 		const TInt i = srv.Find(id);
 		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
 		TInt s = 0;
@@ -329,6 +353,11 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			++s;
 		if (s == iSubs.Count()) { aMessage.Complete(KErrPermissionDenied); return; }	// (only a frame that shows the window)
 		CRegSession* owner = const_cast<CRegSession*>(srv.iWins[i].iSession);
+		if (act == EPheWinActRaise)
+			{
+			srv.iWins[i].iStack = ++srv.iStackTop;
+			srv.Changed();
+			}
 		if (act == EPheWinActFocus)		// the one focused window: the registry records it, everyone hears it through Notify
 			{
 			for (TInt k = 0; k < srv.iWins.Count(); ++k)

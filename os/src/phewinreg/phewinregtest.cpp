@@ -124,6 +124,21 @@ static TInt Run()
 	User::WaitForRequest(st);
 	CHECK(st.Int() == KErrCancel);
 
+	// stacking: bottom first; a dialog right above its parent; a raise puts a window (and its dialogs) on top
+	{
+	TPheWinInfo w3 = w; w3.iId = 0; w3.iTransientFor = 0; w3.iTitle = _L("second");
+	CHECK(app.Register(w3) == KErrNone);
+	CHECK(ListAll(frame, list, 4) == 3 && list[0].iId == w.iId && list[1].iId == d.iId && list[2].iId == w3.iId);
+	CHECK(frame.Action(w.iId, EPheWinActRaise) == KErrNone);
+	CHECK(ListAll(frame, list, 4) == 3 && list[0].iId == w3.iId && list[1].iId == w.iId && list[2].iId == d.iId);
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionId(st.Int()) == w.iId && PheWinActionCode(st.Int()) == EPheWinActRaise);
+	CHECK(frame.Action(w.iId, 6) == KErrArgument);
+	CHECK(app.Remove(w3.iId) == KErrNone);
+	CHECK(ListAll(frame, list, 4) == 2 && list[0].iId == w.iId && list[1].iId == d.iId);
+	}
+
 	// metadata update, then the application goes away: its windows with it
 	d.iTitle = _L("Delete 1 note?");
 	CHECK(app.Update(d) == KErrNone);
@@ -135,7 +150,7 @@ static TInt Run()
 	frame.Close();
 	delete bmp;
 	RFbsSession::Disconnect();
-	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, one focused window, cleanup on close");
+	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, one focused window, stacking + raise, cleanup on close");
 	return KErrNone;
 	}
 

@@ -47,7 +47,9 @@ typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel };
 
 // a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
-enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4 };
+enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4, EPheWinActRaise = 5 };
+// List() returns the windows in stacking order, bottom first: top-level windows by their raise order, each followed by the windows
+// transient for it (dialogs above their parent, recursively). EPheWinActRaise (a frame's Action) puts a window on top of its siblings
 // ActionNotify completes with (window id << 4) | action
 inline TInt PheWinActionId(TInt aEvent) { return aEvent >> 4; }
 inline TInt PheWinActionCode(TInt aEvent) { return aEvent & 0xF; }
