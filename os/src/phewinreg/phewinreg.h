@@ -44,7 +44,8 @@ public:
 enum TPheWinSubscription { EPheWinUnsubscribe = 0, EPheWinWatch = 1, EPheWinComposite = 2 };
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
-enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel };
+enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel,
+	EPheWinPointer, EPheWinPointerNotify, EPheWinPointerCancel };
 
 // a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
 enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4, EPheWinActRaise = 5 };
@@ -53,6 +54,18 @@ enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaxi
 // ActionNotify completes with (window id << 4) | action
 inline TInt PheWinActionId(TInt aEvent) { return aEvent >> 4; }
 inline TInt PheWinActionCode(TInt aEvent) { return aEvent & 0xF; }
+
+// a pointer event a frame sends to a window's owner (multi-window: a classic app's screen shown as a window): iType = a
+// TRawEvent::TType (EButton1Down, EButton1Up, EPointerMove), iPos in the window's content pixels
+class TPheWinPointer
+	{
+public:
+	TPheWinPointer() : iId(0), iType(0) {}
+	TInt iId;
+	TInt iType;
+	TPoint iPos;
+	};
+typedef TPckgBuf<TPheWinPointer> TPheWinPointerPckg;
 
 class RPheWinReg : public RSessionBase
 	{
@@ -88,6 +101,13 @@ public:
 	// for a window owner: completes with the next queued action on one of its windows (PheWinActionId / PheWinActionCode)
 	inline void ActionNotify(TRequestStatus& aStatus) { SendReceive(EPheWinActionNotify, TIpcArgs(), aStatus); }
 	inline void ActionCancel() { SendReceive(EPheWinActionCancel, TIpcArgs()); }
+	// for a frame process: a pointer event for window aId (content coordinates). As Action: only a subscriber may send, queued in
+	// order for the owner, returns at once
+	inline TInt Pointer(TInt aId, TInt aType, const TPoint& aPos)
+		{ TPckgC<TPoint> p(aPos); return SendReceive(EPheWinPointer, TIpcArgs(aId, aType, &p)); }
+	// for a window owner: completes when the next queued pointer event for one of its windows is in aEvent
+	inline void PointerNotify(TPheWinPointerPckg& aEvent, TRequestStatus& aStatus) { SendReceive(EPheWinPointerNotify, TIpcArgs(&aEvent), aStatus); }
+	inline void PointerCancel() { SendReceive(EPheWinPointerCancel, TIpcArgs()); }
 	};
 
 inline TInt RPheWinReg::Connect()

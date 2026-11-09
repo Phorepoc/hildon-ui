@@ -41,6 +41,7 @@ public:
 private:
 	TBool CopyDamage(TRect& aRect);
 	void UpdateTitle();
+	void InjectPointer(const TPheWinPointer& aEv);
 	TInt iScreen;
 	TUint32* iFb;
 	TInt iStride;					// words per line
@@ -128,17 +129,48 @@ void CScreenPub::UpdateTitle()
 	delete name;
 	}
 
+// a frame's pointer event in this screen's pixels: the key focus (and with it WSERV's pointer, pointer_board.cpp) moves to this
+// screen first, then the raw event goes in as the digitiser's would (SimulateRawEvent: SwEvent)
+void CScreenPub::InjectPointer(const TPheWinPointer& aEv)
+	{
+	if (iWs.GetFocusScreen() != iScreen)
+		{
+		const TInt r = iWs.SetFocusScreen(iScreen);
+		Log(_L("screen %d: pointer -> SetFocusScreen %d"), iScreen, r);
+		}
+	TRawEvent raw;
+	raw.Set((TRawEvent::TType)aEv.iType, aEv.iPos.iX, aEv.iPos.iY);
+	iWs.SimulateRawEvent(raw);
+	iWs.Flush();
+	if (aEv.iType != TRawEvent::EPointerMove)
+		Log(_L("screen %d: pointer %d at %d,%d"), iScreen, aEv.iType, aEv.iPos.iX, aEv.iPos.iY);
+	}
+
 void CScreenPub::RunL()
 	{
 	RTimer timer;
 	User::LeaveIfError(timer.CreateLocal());
-	TRequestStatus tick, action;
+	TRequestStatus tick, action, pointer;
+	TPheWinPointerPckg ev;
 	iReg.ActionNotify(action);
+	iReg.PointerNotify(ev, pointer);
 	timer.After(tick, 0);
 	TInt titleCountdown = 0;
 	for (;;)
 		{
-		User::WaitForRequest(tick, action);
+		User::WaitForAnyRequest();
+		if (pointer != KRequestPending)
+			{
+			if (pointer.Int() == KErrNone)
+				InjectPointer(ev());
+			else
+				Log(_L("screen %d: PointerNotify %d"), iScreen, pointer.Int());
+			if (pointer.Int() == KErrNone)
+				iReg.PointerNotify(ev, pointer);
+			else
+				pointer = KRequestPending;		// (stop listening: one error line, not a loop)
+			continue;
+			}
 		if (action != KRequestPending)
 			{
 			const TInt ev = action.Int();

@@ -65,7 +65,7 @@ public:
 class CRegSession : public CSession2
 	{
 public:
-	~CRegSession() { Server().SessionClosed(this); iSubs.Close(); iActions.Close(); }
+	~CRegSession() { Server().SessionClosed(this); iSubs.Close(); iActions.Close(); iPointers.Close(); }
 	void CreateL() { Server().SessionOpened(); }
 	void ServiceL(const RMessage2& aMessage);
 	void Complete(TUint aSerial)
@@ -87,6 +87,19 @@ public:
 			{
 			iAction.Complete(iActions[0]);
 			iActions.Remove(0);
+			}
+		}
+	RMessagePtr2 iPointerMsg;		// an owner waiting for a pointer event on its windows
+	RArray<TPheWinPointer> iPointers;	// queued pointer events, oldest first (bounded: KMaxPointers)
+	enum { KMaxPointers = 64 };
+	void DeliverPointer()
+		{
+		if (!iPointerMsg.IsNull() && iPointers.Count())
+			{
+			TPheWinPointerPckg p(iPointers[0]);
+			const TInt r = iPointerMsg.Write(0, p);
+			iPointerMsg.Complete(r);
+			iPointers.Remove(0);
 			}
 		}
 	TInt iSubSerial = 0;			// moves when a subscription to one of this session's windows changes
@@ -374,6 +387,37 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		aMessage.Complete(r);
 		return;
 		}
+	case EPheWinPointer:
+		{
+		const TInt id = aMessage.Int0();
+		const TInt i = id > 0 ? srv.Find(id) : KErrNotFound;
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		TInt s = 0;
+		while (s < iSubs.Count() && iSubs[s].iId != id)
+			++s;
+		if (s == iSubs.Count()) { aMessage.Complete(KErrPermissionDenied); return; }	// (only a frame that shows the window)
+		TPckgBuf<TPoint> pos;
+		aMessage.ReadL(2, pos);
+		CRegSession* owner = const_cast<CRegSession*>(srv.iWins[i].iSession);
+		if (owner->iPointers.Count() >= KMaxPointers) { aMessage.Complete(KErrOverflow); return; }
+		TPheWinPointer ev;
+		ev.iId = id;  ev.iType = aMessage.Int1();  ev.iPos = pos();
+		const TInt r = owner->iPointers.Append(ev);
+		if (r == KErrNone)
+			owner->DeliverPointer();
+		aMessage.Complete(r);
+		return;
+		}
+	case EPheWinPointerNotify:
+		if (!iPointerMsg.IsNull()) { aMessage.Complete(KErrInUse); return; }
+		iPointerMsg = aMessage;
+		DeliverPointer();
+		return;
+	case EPheWinPointerCancel:
+		if (!iPointerMsg.IsNull())
+			iPointerMsg.Complete(KErrCancel);
+		aMessage.Complete(KErrNone);
+		return;
 	case EPheWinActionNotify:
 		if (!iAction.IsNull()) { aMessage.Complete(KErrInUse); return; }
 		iAction = aMessage;
