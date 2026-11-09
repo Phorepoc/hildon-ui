@@ -182,6 +182,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			w.iInfo.iGpuToken = 0;
 			w.iInfo.iSubscribers = 0;
 			w.iInfo.iComposited = 0;
+			w.iInfo.iState &= ~EPheWinFocused;
 			RThread client;
 			RProcess proc;
 			w.iInfo.iOwner = 0;
@@ -208,7 +209,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			cur.iType = in.iType;
 			cur.iTransientFor = in.iTransientFor;
 			cur.iGeometry = in.iGeometry;
-			cur.iState = in.iState;
+			cur.iState = (in.iState & ~EPheWinFocused) | (cur.iState & EPheWinFocused);
 			cur.iTitle = in.iTitle;
 			aMessage.Complete(KErrNone);
 			}
@@ -328,6 +329,13 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			++s;
 		if (s == iSubs.Count()) { aMessage.Complete(KErrPermissionDenied); return; }	// (only a frame that shows the window)
 		CRegSession* owner = const_cast<CRegSession*>(srv.iWins[i].iSession);
+		if (act == EPheWinActFocus)		// the one focused window: the registry records it, everyone hears it through Notify
+			{
+			for (TInt k = 0; k < srv.iWins.Count(); ++k)
+				srv.iWins[k].iInfo.iState &= ~EPheWinFocused;
+			srv.iWins[i].iInfo.iState |= EPheWinFocused;
+			srv.Changed();
+			}
 		const TInt r = owner->iActions.Append((id << 4) | act);
 		if (r == KErrNone)
 			{

@@ -18,7 +18,8 @@ _LIT(KPheWinRegExe, "phewinreg.exe");
 // the window types of the EWMH _NET_WM_WINDOW_TYPE set matchbox handles
 enum TPheWinType { EPheWinNormal, EPheWinDialog, EPheWinMenu, EPheWinNotification, EPheWinDesktop, EPheWinInput, EPheWinSplash };
 // state flags (_NET_WM_STATE): fullscreen, modal, urgent (demands attention), hidden (iconified)
-enum { EPheWinFullscreen = 1, EPheWinModal = 2, EPheWinUrgent = 4, EPheWinHidden = 8 };
+enum { EPheWinFullscreen = 1, EPheWinModal = 2, EPheWinUrgent = 4, EPheWinHidden = 8,
+	EPheWinFocused = 16 };	// registry-owned: set only by a frame's EPheWinActFocus (at most one window), owners cannot set or clear it
 
 class TPheWinInfo
 	{

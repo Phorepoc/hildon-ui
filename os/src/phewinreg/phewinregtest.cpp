@@ -104,6 +104,21 @@ static TInt Run()
 	CHECK(frame.Action(w.iId, EPheWinActFocus) == KErrNone);
 	User::WaitForRequest(st);
 	CHECK(PheWinActionCode(st.Int()) == EPheWinActFocus);
+	CHECK(ListAll(frame, list, 4) == 2 && (list[0].iState & EPheWinFocused) && !(list[1].iState & EPheWinFocused));
+	{	// the owner cannot clear (or set) focus itself: the registry keeps it
+	TPheWinInfo w2 = w; w2.iState = 0;
+	CHECK(app.Update(w2) == KErrNone);
+	TPheWinInfo d2 = d; d2.iState |= EPheWinFocused;
+	CHECK(app.Update(d2) == KErrNone);
+	CHECK(ListAll(frame, list, 4) == 2 && (list[0].iState & EPheWinFocused) && !(list[1].iState & EPheWinFocused));
+	}
+	CHECK(frame.Subscribe(d.iId, EPheWinWatch) == KErrNone);				// focus moves to the dialog: exactly one focused window
+	CHECK(frame.Action(d.iId, EPheWinActFocus) == KErrNone);
+	CHECK(ListAll(frame, list, 4) == 2 && !(list[0].iState & EPheWinFocused) && (list[1].iState & EPheWinFocused));
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionId(st.Int()) == d.iId && PheWinActionCode(st.Int()) == EPheWinActFocus);
+	CHECK(frame.Subscribe(d.iId, EPheWinUnsubscribe) == KErrNone);
 	app.ActionNotify(st);
 	app.ActionCancel();
 	User::WaitForRequest(st);
@@ -120,7 +135,7 @@ static TInt Run()
 	frame.Close();
 	delete bmp;
 	RFbsSession::Disconnect();
-	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, cleanup on close");
+	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, one focused window, cleanup on close");
 	return KErrNone;
 	}
 
