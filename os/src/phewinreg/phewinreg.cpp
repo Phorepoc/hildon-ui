@@ -20,7 +20,8 @@ public:
 	void Changed();
 	void SessionOpened() { ++iSessions; }
 	void SessionClosed(CRegSession* aSession);
-	void WatchersChanged();
+	void SubsChanged(const CRegSession* aOwner);
+	void Unsubscribe(CRegSession* aFrame, TInt aSubIndex);
 	TInt Find(TInt aId) const
 		{
 		for (TInt i = 0; i < iWins.Count(); ++i)
@@ -33,14 +34,13 @@ public:
 	TInt iNextId = 1;
 	TUint iSerial = 1;
 	TInt iSessions = 0;
-	TInt iWatchers = 0;			// sessions that asked for change notification (the frame process): content is worth publishing
 	RPointerArray<CRegSession> iWaiters;
 	};
 
 class CRegSession : public CSession2
 	{
 public:
-	~CRegSession() { Server().SessionClosed(this); }
+	~CRegSession() { Server().SessionClosed(this); iSubs.Close(); }
 	void CreateL() { Server().SessionOpened(); }
 	void ServiceL(const RMessage2& aMessage);
 	void Complete(TUint aSerial)
@@ -50,9 +50,11 @@ public:
 		}
 	RMessagePtr2 iNotify;
 	TUint iSeen;
-	TBool iWatcher = EFalse;
-	RMessagePtr2 iWatch;			// an owner waiting for the watcher count to change
+	RMessagePtr2 iWatch;			// an owner waiting for its subscription serial to change
 	TInt iWatchSeen;
+	TInt iSubSerial = 0;			// moves when a subscription to one of this session's windows changes
+	struct TSub { TInt iId; TInt iMode; };
+	RArray<TSub> iSubs;				// this session's subscriptions (a frame process)
 private:
 	CRegServer& Server() const { return *static_cast<CRegServer*>(const_cast<CServer2*>(CSession2::Server())); }
 	TInt Owns(TInt aId) const
@@ -81,17 +83,30 @@ void CRegServer::Changed()
 		}
 	}
 
-// the watcher count changed: every owner waiting on it hears the new count
-void CRegServer::WatchersChanged()
+// a subscription to one of aOwner's windows changed: the owner, if it waits, hears its new serial (and then reads its windows)
+void CRegServer::SubsChanged(const CRegSession* aOwner)
 	{
-	iSessionIter.SetToFirst();
-	for (CSession2* s; (s = iSessionIter++) != NULL; )
-		{
-		CRegSession* r = static_cast<CRegSession*>(s);
-		if (!r->iWatch.IsNull() && r->iWatchSeen != iWatchers)
-			r->iWatch.Complete(iWatchers);
-		}
-	RDebug::Printf("[phewinreg] %d watching", iWatchers);
+	CRegSession* r = const_cast<CRegSession*>(aOwner);
+	++r->iSubSerial;
+	if (!r->iWatch.IsNull() && r->iWatchSeen != r->iSubSerial)
+		r->iWatch.Complete(r->iSubSerial);
+	}
+
+// aFrame's subscription aSubIndex ends: the window's counts drop, its owner hears it
+void CRegServer::Unsubscribe(CRegSession* aFrame, TInt aSubIndex)
+	{
+	const CRegSession::TSub s = aFrame->iSubs[aSubIndex];
+	aFrame->iSubs.Remove(aSubIndex);
+	const TInt i = Find(s.iId);
+	if (i < 0)
+		return;					// (the window went first)
+	TPheWinInfo& w = iWins[i].iInfo;
+	--w.iSubscribers;
+	if (s.iMode == EPheWinComposite)
+		--w.iComposited;
+	RDebug::Printf("[phewinreg] window %d: %d subscribers (%d compositing)", w.iId, w.iSubscribers, w.iComposited);
+	SubsChanged(iWins[i].iSession);
+	Changed();
 	}
 
 void CRegServer::SessionClosed(CRegSession* aSession)
@@ -105,11 +120,8 @@ void CRegServer::SessionClosed(CRegSession* aSession)
 			removed = ETrue;
 			}
 	aSession->iWatch = RMessagePtr2();		// (the kernel completes a closing session's messages)
-	if (aSession->iWatcher)
-		{
-		--iWatchers;
-		WatchersChanged();
-		}
+	while (aSession->iSubs.Count())
+		Unsubscribe(aSession, aSession->iSubs.Count() - 1);
 	const TInt w = iWaiters.Find(aSession);
 	if (w >= 0)
 		iWaiters.Remove(w);
@@ -138,6 +150,9 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			w.iInfo.iBitmap = 0;
 			w.iInfo.iContentSerial = 0;
 			w.iInfo.iDamage = TRect();
+			w.iInfo.iGpuToken = 0;
+			w.iInfo.iSubscribers = 0;
+			w.iInfo.iComposited = 0;
 			RThread client;
 			RProcess proc;
 			w.iInfo.iOwner = 0;
@@ -182,7 +197,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		cur.iDamage = d();
 		cur.iGpuToken = aMessage.Int3();
 		++cur.iContentSerial;
-		aMessage.Complete(srv.iWatchers);		// how many watch
+		aMessage.Complete(cur.iSubscribers);		// how many subscribed to this window
 		srv.Changed();
 		return;
 		}
@@ -211,7 +226,6 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		}
 	case EPheWinNotify:
 		if (!iNotify.IsNull()) { aMessage.Complete(KErrInUse); return; }
-		if (!iWatcher) { iWatcher = ETrue; ++srv.iWatchers; srv.WatchersChanged(); }
 		iSeen = (TUint)aMessage.Int0();
 		if (iSeen && iSeen != srv.iSerial) { aMessage.Complete((TInt)srv.iSerial); return; }	// it changed since the caller looked
 		iNotify = aMessage;
@@ -229,9 +243,39 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 	case EPheWinWatchers:
 		if (!iWatch.IsNull()) { aMessage.Complete(KErrInUse); return; }
 		iWatchSeen = aMessage.Int0();
-		if (iWatchSeen != srv.iWatchers) { aMessage.Complete(srv.iWatchers); return; }
+		if (iWatchSeen != iSubSerial) { aMessage.Complete(iSubSerial); return; }
 		iWatch = aMessage;
 		return;
+	case EPheWinSubscribe:
+		{
+		const TInt id = aMessage.Int0(), mode = aMessage.Int1();
+		if (mode < EPheWinUnsubscribe || mode > EPheWinComposite) { aMessage.Complete(KErrArgument); return; }
+		const TInt i = srv.Find(id);
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		if (srv.iWins[i].iSession == this) { aMessage.Complete(KErrArgument); return; }	// (a frame does not subscribe to itself)
+		TInt s = 0;
+		while (s < iSubs.Count() && iSubs[s].iId != id)
+			++s;
+		if (s < iSubs.Count())
+			{
+			if (iSubs[s].iMode == mode) { aMessage.Complete(KErrNone); return; }
+			srv.Unsubscribe(this, s);
+			}
+		if (mode != EPheWinUnsubscribe)
+			{
+			const TSub sub = { id, mode };
+			iSubs.AppendL(sub);
+			TPheWinInfo& w = srv.iWins[i].iInfo;
+			++w.iSubscribers;
+			if (mode == EPheWinComposite)
+				++w.iComposited;
+			RDebug::Printf("[phewinreg] window %d: %d subscribers (%d compositing)", w.iId, w.iSubscribers, w.iComposited);
+			srv.SubsChanged(srv.iWins[i].iSession);
+			srv.Changed();
+			}
+		aMessage.Complete(KErrNone);
+		return;
+		}
 	case EPheWinWatchersCancel:
 		if (!iWatch.IsNull())
 			iWatch.Complete(KErrCancel);

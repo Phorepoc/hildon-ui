@@ -23,7 +23,7 @@ enum { EPheWinFullscreen = 1, EPheWinModal = 2, EPheWinUrgent = 4, EPheWinHidden
 class TPheWinInfo
 	{
 public:
-	TPheWinInfo() : iId(0), iOwner(0), iType(EPheWinNormal), iTransientFor(0), iState(0), iBitmap(0), iContentSerial(0), iGpuToken(0) {}
+	TPheWinInfo() : iId(0), iOwner(0), iType(EPheWinNormal), iTransientFor(0), iState(0), iBitmap(0), iContentSerial(0), iGpuToken(0), iSubscribers(0), iComposited(0) {}
 	TInt iId;					// the registry's id (0 before registering)
 	TUint iOwner;				// the owner's process id (the registry fills it)
 	TInt iType;					// TPheWinType
@@ -34,11 +34,16 @@ public:
 	TUint iContentSerial;		// counts content updates (the registry increments it)
 	TRect iDamage;				// the area of the last content update, in window coordinates
 	TInt iGpuToken;				// the front texture's SVGA share token (EGL_SYMBIAN_SVGA_SHARE_PH, hildon-port.md 7.47), 0 = bitmap only
+	TInt iSubscribers;			// frame sessions that subscribed to this window's content (the registry fills it)
+	TInt iComposited;			// ... of them, those that composite it: the owner keeps the window off the window server's screen
 	TBuf<64> iTitle;
 	};
+
+// Subscribe() modes (hildon-port.md 7.48)
+enum TPheWinSubscription { EPheWinUnsubscribe = 0, EPheWinWatch = 1, EPheWinComposite = 2 };
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
-enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel };
+enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe };
 
 class RPheWinReg : public RSessionBase
 	{
@@ -48,7 +53,7 @@ public:
 	inline TInt Register(TPheWinInfo& aInfo);
 	// new metadata for window aInfo.iId (the bitmap and serial are kept)
 	inline TInt Update(const TPheWinInfo& aInfo) { TPheWinInfoPckg p(aInfo); return SendReceive(EPheWinUpdate, TIpcArgs(&p)); }
-	// the window's front bitmap, the area that changed and (0 = none) its GPU share token; returns the number of watchers (frame processes), or an error
+	// the window's front bitmap, the area that changed and (0 = none) its GPU share token; returns the window's subscriber count, or an error
 	inline TInt Content(TInt aId, TInt aBitmapHandle, const TRect& aDamage, TInt aGpuToken = 0)
 		{ TPckgC<TRect> d(aDamage); return SendReceive(EPheWinContent, TIpcArgs(aId, aBitmapHandle, &d, aGpuToken)); }
 	inline TInt Remove(TInt aId) { return SendReceive(EPheWinRemove, TIpcArgs(aId)); }
@@ -57,9 +62,13 @@ public:
 	// completes with the registry's change serial when anything changes after aSeen (0 = at the next change)
 	inline void Notify(TUint aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinNotify, TIpcArgs((TInt)aSeen), aStatus); }
 	inline void NotifyCancel() { SendReceive(EPheWinNotifyCancel, TIpcArgs()); }
-	// for a window owner: completes with the number of watchers (frame processes) when it differs from aSeen (-1 = at once):
-	// with 0 watchers an owner publishes no content; when one appears it publishes a full frame
+	// for a window owner: completes with its subscription serial when it differs from aSeen (-1 = at once): the serial moves whenever a
+	// subscription to one of the owner's windows changes; the owner then reads iSubscribers / iComposited of its windows (List).
+	// A window without subscribers publishes no content; when one appears it publishes a full frame
 	inline void Watchers(TInt aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinWatchers, TIpcArgs(aSeen), aStatus); }
+	// for a frame process: subscribe to one window's content (TPheWinSubscription; EPheWinUnsubscribe ends it). Only other sessions'
+	// windows; a session's subscriptions end with it
+	inline TInt Subscribe(TInt aId, TInt aMode) { return SendReceive(EPheWinSubscribe, TIpcArgs(aId, aMode)); }
 	inline void WatchersCancel() { SendReceive(EPheWinWatchersCancel, TIpcArgs()); }
 	};
 

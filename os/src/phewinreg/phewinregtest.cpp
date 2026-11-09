@@ -27,11 +27,8 @@ static TInt Run()
 	TRequestStatus st, wst;
 	app.Watchers(-1, wst);
 	User::WaitForRequest(wst);
-	CHECK(wst.Int() == 0);										// nobody watches yet
-	app.Watchers(0, wst);										// the owner waits for a frame process
+	CHECK(wst.Int() == 0);										// no subscriptions yet
 	frame.Notify(0, st);
-	User::WaitForRequest(wst);
-	CHECK(wst.Int() == 1);										// it came: publish a full frame now
 
 	TPheWinInfo w;
 	w.iType = EPheWinNormal;
@@ -39,6 +36,12 @@ static TInt Run()
 	w.iTitle = _L("Notes");
 	CHECK(app.Register(w) == KErrNone && w.iId > 0);
 	User::WaitForRequest(st);
+	app.Watchers(0, wst);										// the owner waits for a subscription
+	CHECK(app.Subscribe(w.iId, EPheWinWatch) == KErrArgument);	// not to its own window
+	CHECK(frame.Subscribe(w.iId + 100, EPheWinWatch) == KErrNotFound);
+	CHECK(frame.Subscribe(w.iId, EPheWinComposite) == KErrNone);
+	User::WaitForRequest(wst);
+	CHECK(wst.Int() == 1);										// it came: publish a full frame now
 	CHECK(st.Int() > 0);
 	TUint seen = (TUint)st.Int();
 
@@ -68,6 +71,12 @@ static TInt Run()
 	CHECK(ListAll(frame, list, 1) == 2);								// too small: the count needed
 	CHECK(ListAll(frame, list, 4) == 2);
 	CHECK(list[0].iId == w.iId && list[0].iBitmap == bmp->Handle() && list[0].iContentSerial == 1 && list[0].iOwner == (TUint)RProcess().Id().Id());
+	CHECK(list[0].iSubscribers == 1 && list[0].iComposited == 1 && list[1].iSubscribers == 0);	// per window: the dialog has none
+	app.Watchers(1, wst);
+	CHECK(frame.Subscribe(w.iId, EPheWinWatch) == KErrNone);				// composite -> watch only
+	User::WaitForRequest(wst);
+	CHECK(wst.Int() > 1);
+	CHECK(ListAll(frame, list, 4) == 2 && list[0].iSubscribers == 1 && list[0].iComposited == 0);
 	CHECK(list[1].iType == EPheWinDialog && list[1].iTransientFor == w.iId && (list[1].iState & EPheWinModal) && list[1].iTitle == _L("Delete note?"));
 	CFbsBitmap* imported = new CFbsBitmap;
 	CHECK(imported && imported->Duplicate(list[0].iBitmap) == KErrNone);
@@ -88,7 +97,7 @@ static TInt Run()
 	frame.Close();
 	delete bmp;
 	RFbsSession::Disconnect();
-	RDebug::Printf("[phewinregtest] PASS: register, transient dialog, content handle + duplicate, notify, list, cleanup on close");
+	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, cleanup on close");
 	return KErrNone;
 	}
 
