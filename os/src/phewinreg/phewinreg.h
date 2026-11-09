@@ -43,7 +43,13 @@ public:
 enum TPheWinSubscription { EPheWinUnsubscribe = 0, EPheWinWatch = 1, EPheWinComposite = 2 };
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
-enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify };
+enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel };
+
+// a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
+enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4 };
+// ActionNotify completes with (window id << 4) | action
+inline TInt PheWinActionId(TInt aEvent) { return aEvent >> 4; }
+inline TInt PheWinActionCode(TInt aEvent) { return aEvent & 0xF; }
 
 class RPheWinReg : public RSessionBase
 	{
@@ -73,6 +79,12 @@ public:
 	// windows; a session's subscriptions end with it
 	inline TInt Subscribe(TInt aId, TInt aMode) { return SendReceive(EPheWinSubscribe, TIpcArgs(aId, aMode)); }
 	inline void WatchersCancel() { SendReceive(EPheWinWatchersCancel, TIpcArgs()); }
+	// for a frame process: ask the owner of window aId to act (TPheWinAction: its close button, minimise, ...). Only a session that
+	// subscribed to the window may send; the registry queues the action for the owner (in order) and returns at once
+	inline TInt Action(TInt aId, TInt aAction) { return SendReceive(EPheWinAction, TIpcArgs(aId, aAction)); }
+	// for a window owner: completes with the next queued action on one of its windows (PheWinActionId / PheWinActionCode)
+	inline void ActionNotify(TRequestStatus& aStatus) { SendReceive(EPheWinActionNotify, TIpcArgs(), aStatus); }
+	inline void ActionCancel() { SendReceive(EPheWinActionCancel, TIpcArgs()); }
 	};
 
 inline TInt RPheWinReg::Connect()

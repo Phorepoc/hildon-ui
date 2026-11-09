@@ -42,7 +42,7 @@ public:
 class CRegSession : public CSession2
 	{
 public:
-	~CRegSession() { Server().SessionClosed(this); iSubs.Close(); }
+	~CRegSession() { Server().SessionClosed(this); iSubs.Close(); iActions.Close(); }
 	void CreateL() { Server().SessionOpened(); }
 	void ServiceL(const RMessage2& aMessage);
 	void Complete(TUint aSerial)
@@ -56,6 +56,16 @@ public:
 	TUint iContentSeen;
 	RMessagePtr2 iWatch;			// an owner waiting for its subscription serial to change
 	TInt iWatchSeen;
+	RMessagePtr2 iAction;			// an owner waiting for a decoration action on its windows
+	RArray<TInt> iActions;			// queued actions ((id << 4) | action), oldest first
+	void DeliverAction()
+		{
+		if (!iAction.IsNull() && iActions.Count())
+			{
+			iAction.Complete(iActions[0]);
+			iActions.Remove(0);
+			}
+		}
 	TInt iSubSerial = 0;			// moves when a subscription to one of this session's windows changes
 	struct TSub { TInt iId; TInt iMode; };
 	RArray<TSub> iSubs;				// this session's subscriptions (a frame process)
@@ -137,6 +147,7 @@ void CRegServer::SessionClosed(CRegSession* aSession)
 			removed = ETrue;
 			}
 	aSession->iWatch = RMessagePtr2();
+	aSession->iAction = RMessagePtr2();
 	aSession->iContentNotify = RMessagePtr2();		// (the kernel completes a closing session's messages)
 	while (aSession->iSubs.Count())
 		Unsubscribe(aSession, aSession->iSubs.Count() - 1);
@@ -306,6 +317,36 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		aMessage.Complete(KErrNone);
 		return;
 		}
+	case EPheWinAction:
+		{
+		const TInt id = aMessage.Int0(), act = aMessage.Int1();
+		if (act < EPheWinActClose || act > EPheWinActFocus || id <= 0 || id > 0x7FFFFFF) { aMessage.Complete(KErrArgument); return; }
+		const TInt i = srv.Find(id);
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		TInt s = 0;
+		while (s < iSubs.Count() && iSubs[s].iId != id)
+			++s;
+		if (s == iSubs.Count()) { aMessage.Complete(KErrPermissionDenied); return; }	// (only a frame that shows the window)
+		CRegSession* owner = const_cast<CRegSession*>(srv.iWins[i].iSession);
+		const TInt r = owner->iActions.Append((id << 4) | act);
+		if (r == KErrNone)
+			{
+			RDebug::Printf("[phewinreg] window %d: action %d for its owner", id, act);
+			owner->DeliverAction();
+			}
+		aMessage.Complete(r);
+		return;
+		}
+	case EPheWinActionNotify:
+		if (!iAction.IsNull()) { aMessage.Complete(KErrInUse); return; }
+		iAction = aMessage;
+		DeliverAction();
+		return;
+	case EPheWinActionCancel:
+		if (!iAction.IsNull())
+			iAction.Complete(KErrCancel);
+		aMessage.Complete(KErrNone);
+		return;
 	case EPheWinWatchersCancel:
 		if (!iWatch.IsNull())
 			iWatch.Complete(KErrCancel);

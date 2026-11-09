@@ -86,6 +86,29 @@ static TInt Run()
 	CHECK(back == 0xFF336699u && imported->SizeInPixels() == TSize(360, 600));
 	delete imported;
 
+	// decoration actions back to the owner: only a subscribed frame may send; queued in order; one waiter at a time; cancel
+	CHECK(frame.Action(w.iId, 0) == KErrArgument);
+	CHECK(frame.Action(w.iId + 100, EPheWinActClose) == KErrNotFound);
+	CHECK(frame.Action(d.iId, EPheWinActClose) == KErrPermissionDenied);	// the frame did not subscribe to the dialog
+	CHECK(app.Action(w.iId, EPheWinActClose) == KErrPermissionDenied);		// nor does an owner act on itself
+	CHECK(frame.Action(w.iId, EPheWinActMinimise) == KErrNone);				// queued before the owner waits
+	CHECK(frame.Action(w.iId, EPheWinActClose) == KErrNone);
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionId(st.Int()) == w.iId && PheWinActionCode(st.Int()) == EPheWinActMinimise);
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionId(st.Int()) == w.iId && PheWinActionCode(st.Int()) == EPheWinActClose);
+	app.ActionNotify(st);													// nothing queued: waits
+	CHECK(st.Int() == KRequestPending);
+	CHECK(frame.Action(w.iId, EPheWinActFocus) == KErrNone);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionCode(st.Int()) == EPheWinActFocus);
+	app.ActionNotify(st);
+	app.ActionCancel();
+	User::WaitForRequest(st);
+	CHECK(st.Int() == KErrCancel);
+
 	// metadata update, then the application goes away: its windows with it
 	d.iTitle = _L("Delete 1 note?");
 	CHECK(app.Update(d) == KErrNone);
@@ -97,7 +120,7 @@ static TInt Run()
 	frame.Close();
 	delete bmp;
 	RFbsSession::Disconnect();
-	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, cleanup on close");
+	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, cleanup on close");
 	return KErrNone;
 	}
 
