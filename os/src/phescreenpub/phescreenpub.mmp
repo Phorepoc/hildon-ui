@@ -1,0 +1,16 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phescreenpub.mmp -- publish a WSERV screen as a window of the registry (multi-window stage 2, see phescreenpub.cpp)
+TARGET			phescreenpub.exe
+TARGETTYPE		exe
+UID				0x1000007a 0xE701573B
+// WriteDeviceData: RWsSession::SetFocusScreen
+CAPABILITY		WriteDeviceData
+VENDORID		0
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+USERINCLUDE		. ../phewinreg
+SOURCEPATH		.
+SOURCE			phescreenpub.cpp
+LIBRARY			euser.lib hal.lib fbscli.lib ws32.lib apgrfx.lib
+SMPSAFE
