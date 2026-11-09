@@ -139,6 +139,49 @@ static TInt Run()
 	CHECK(ListAll(frame, list, 4) == 2 && list[0].iId == w.iId && list[1].iId == d.iId);
 	}
 
+	// geometry both ways: owner size hints + icon -> frame; frame "resize to" -> owner, clamped to the hints
+	{
+	TPheWinHints h;
+	h.iId = w.iId; h.iMinSize = TSize(200, 300); h.iMaxSize = TSize(800, 900); h.iPreferredSize = TSize(360, 600); h.iIcon = bmp->Handle();
+	CHECK(frame.SetHints(h) == KErrNotFound);								// only the owner
+	TPheWinHints bad = h; bad.iMaxSize = TSize(100, 900);
+	CHECK(app.SetHints(bad) == KErrArgument);								// max below min
+	frame.Notify(0, st);
+	CHECK(app.SetHints(h) == KErrNone);
+	User::WaitForRequest(st);												// frames hear new hints
+	CHECK(st.Int() > 0);
+	TPheWinHints got;
+	CHECK(frame.Hints(w.iId, got) == KErrNone && got.iMinSize == TSize(200, 300) && got.iPreferredSize == TSize(360, 600) && got.iIcon == bmp->Handle() && got.iRequested.IsEmpty());
+	CHECK(frame.Hints(w.iId + 100, got) == KErrNotFound);
+	CHECK(frame.Resize(d.iId, TRect(0, 0, 400, 400)) == KErrPermissionDenied);	// not subscribed to the dialog
+	CHECK(app.Resize(w.iId, TRect(0, 0, 400, 400)) == KErrPermissionDenied);	// nor the owner itself
+	CHECK(frame.Resize(w.iId, TRect(10, 20, 110, 2020)) == KErrNone);			// 100 x 2000: clamped to 200 x 900
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionId(st.Int()) == w.iId && PheWinActionCode(st.Int()) == EPheWinActResize);
+	CHECK(app.Hints(w.iId, got) == KErrNone && got.iRequested == TRect(TPoint(10, 20), TSize(200, 900)));
+	CHECK(frame.Action(w.iId, EPheWinActResize) == KErrArgument);			// only the registry queues it
+
+	// ping / not responding: unanswered pings show with their age; one Pong clears them and is a registry change
+	CHECK(frame.Ping(d.iId) == KErrPermissionDenied);
+	CHECK(frame.Ping(w.iId) == KErrNone);
+	CHECK(frame.Ping(w.iId) == KErrNone);
+	User::After(50000);
+	CHECK(frame.Hints(w.iId, got) == KErrNone && got.iPingPending == 2 && got.iPingAgeMs >= 40);
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionCode(st.Int()) == EPheWinActPing);
+	app.ActionNotify(st);
+	User::WaitForRequest(st);
+	CHECK(PheWinActionCode(st.Int()) == EPheWinActPing);
+	CHECK(frame.Pong(w.iId) == KErrNotFound);								// only the owner answers
+	frame.Notify(0, st);
+	CHECK(app.Pong(w.iId) == KErrNone);
+	User::WaitForRequest(st);
+	CHECK(st.Int() > 0);
+	CHECK(frame.Hints(w.iId, got) == KErrNone && got.iPingPending == 0 && got.iPingAgeMs == 0);
+	}
+
 	// metadata update, then the application goes away: its windows with it
 	d.iTitle = _L("Delete 1 note?");
 	CHECK(app.Update(d) == KErrNone);
@@ -150,7 +193,7 @@ static TInt Run()
 	frame.Close();
 	delete bmp;
 	RFbsSession::Disconnect();
-	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, one focused window, stacking + raise, cleanup on close");
+	RDebug::Printf("[phewinregtest] PASS: register, per-window subscribe (watch / composite), transient dialog, content handle + duplicate, notify, list, actions back to the owner, one focused window, stacking + raise, size hints + icon, resize requests, ping / pong, cleanup on close");
 	return KErrNone;
 	}
 

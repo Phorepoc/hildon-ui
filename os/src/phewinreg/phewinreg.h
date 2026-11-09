@@ -45,10 +45,14 @@ enum TPheWinSubscription { EPheWinUnsubscribe = 0, EPheWinWatch = 1, EPheWinComp
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
 enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel,
-	EPheWinPointer, EPheWinPointerNotify, EPheWinPointerCancel };
+	EPheWinPointer, EPheWinPointerNotify, EPheWinPointerCancel,
+	EPheWinSetHints, EPheWinHints, EPheWinResize, EPheWinPing, EPheWinPong };
 
 // a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
 enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4, EPheWinActRaise = 5 };
+// actions that only the registry queues, never Action(): EPheWinActResize (a frame's Resize; the owner reads the rect with Hints),
+// EPheWinActPing (a frame's Ping; the owner answers with Pong)
+enum { EPheWinActResize = 6, EPheWinActPing = 7 };
 // List() returns the windows in stacking order, bottom first: top-level windows by their raise order, each followed by the windows
 // transient for it (dialogs above their parent, recursively). EPheWinActRaise (a frame's Action) puts a window on top of its siblings
 // ActionNotify completes with (window id << 4) | action
@@ -66,6 +70,23 @@ public:
 	TPoint iPos;
 	};
 typedef TPckgBuf<TPheWinPointer> TPheWinPointerPckg;
+
+// per-window data beside TPheWinInfo (hildon-port.md C5 items 4 and 5): the owner's size hints and icon, the frame's last
+// geometry request, and the ping state. The owner sets the hints part (SetHints); the registry fills the rest
+class TPheWinHints
+	{
+public:
+	TPheWinHints() : iId(0), iIcon(0), iPingPending(0), iPingAgeMs(0) {}
+	TInt iId;
+	TSize iMinSize;				// owner: the smallest size it can lay out in (0 x 0 = no limit)
+	TSize iMaxSize;				// owner: the largest useful size (0 x 0 = no limit)
+	TSize iPreferredSize;		// owner: its natural size (0 x 0 = no preference)
+	TInt iIcon;					// owner: an FBSERV bitmap handle for the window's icon (task switcher, title bar), 0 = none
+	TRect iRequested;			// registry: the frame's last Resize request (empty = none since the owner set its hints)
+	TInt iPingPending;			// registry: pings the owner has not answered yet
+	TInt iPingAgeMs;			// registry: ms since the oldest unanswered ping (0 when none): a frame shows "not responding" past its limit
+	};
+typedef TPckgBuf<TPheWinHints> TPheWinHintsPckg;
 
 class RPheWinReg : public RSessionBase
 	{
@@ -108,6 +129,19 @@ public:
 	// for a window owner: completes when the next queued pointer event for one of its windows is in aEvent
 	inline void PointerNotify(TPheWinPointerPckg& aEvent, TRequestStatus& aStatus) { SendReceive(EPheWinPointerNotify, TIpcArgs(&aEvent), aStatus); }
 	inline void PointerCancel() { SendReceive(EPheWinPointerCancel, TIpcArgs()); }
+	// for a window owner: its size hints and icon (iId names the window; the registry keeps iRequested / ping fields). Frames
+	// hear it through Notify
+	inline TInt SetHints(const TPheWinHints& aHints) { TPheWinHintsPckg p(aHints); return SendReceive(EPheWinSetHints, TIpcArgs(&p)); }
+	// anyone: window aId's hints, the frame's last request and the ping state
+	inline TInt Hints(TInt aId, TPheWinHints& aHints) { TPheWinHintsPckg p; const TInt r = SendReceive(EPheWinHints, TIpcArgs(aId, &p)); if (r == KErrNone) aHints = p(); return r; }
+	// for a frame process: ask the owner of window aId to take geometry aRect (a subscriber only, as Action). The registry clamps
+	// the size to the owner's min / max hints, records it as iRequested and queues EPheWinActResize for the owner, who then reads
+	// it (Hints) and answers with Update (its new iGeometry), or keeps its size
+	inline TInt Resize(TInt aId, const TRect& aRect) { TPckgC<TRect> p(aRect); return SendReceive(EPheWinResize, TIpcArgs(aId, &p)); }
+	// for a frame process: queue EPheWinActPing for the owner (a subscriber only); the owner answers with Pong. Unanswered pings
+	// show in Hints (iPingPending / iPingAgeMs); an answer is a registry change (Notify)
+	inline TInt Ping(TInt aId) { return SendReceive(EPheWinPing, TIpcArgs(aId)); }
+	inline TInt Pong(TInt aId) { return SendReceive(EPheWinPong, TIpcArgs(aId)); }
 	};
 
 inline TInt RPheWinReg::Connect()

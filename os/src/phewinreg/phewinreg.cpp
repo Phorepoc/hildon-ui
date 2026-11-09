@@ -7,6 +7,7 @@
 // Exits when the last session closes and no window is left, as transient servers do.
 #include <e32base.h>
 #include <e32debug.h>
+#include <hal.h>
 #include "phewinreg.h"
 
 class CRegSession;
@@ -30,7 +31,7 @@ public:
 				return i;
 		return KErrNotFound;
 		}
-	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; TUint iStack; };
+	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; TUint iStack; TPheWinHints iHints; TUint iPingTick; };	// iPingTick: NTickCount of the oldest unanswered ping
 	TUint iStackTop = 0;			// the last raise / registration: a higher iStack is above its siblings
 	void AppendStacked(TDes8& aOut, TInt aParent, TInt aDepth) const
 		{
@@ -107,6 +108,30 @@ public:
 	RArray<TSub> iSubs;				// this session's subscriptions (a frame process)
 private:
 	CRegServer& Server() const { return *static_cast<CRegServer*>(const_cast<CServer2*>(CSession2::Server())); }
+	TBool Subscribed(TInt aId) const
+		{
+		for (TInt s = 0; s < iSubs.Count(); ++s)
+			if (iSubs[s].iId == aId)
+				return ETrue;
+		return EFalse;
+		}
+	// a frame's request for window aId (a subscriber only): the window's index, or the error to complete with
+	TInt FrameTarget(TInt aId) const
+		{
+		const TInt i = aId > 0 && aId <= 0x7FFFFFF ? Server().Find(aId) : KErrNotFound;
+		if (i < 0)
+			return KErrNotFound;
+		return Subscribed(aId) ? i : KErrPermissionDenied;
+		}
+	TInt QueueAction(TInt aIndex, TInt aAction)
+		{
+		CRegServer::TWin& w = Server().iWins[aIndex];
+		CRegSession* owner = const_cast<CRegSession*>(w.iSession);
+		const TInt r = owner->iActions.Append((w.iInfo.iId << 4) | aAction);
+		if (r == KErrNone)
+			owner->DeliverAction();
+		return r;
+		}
 	TInt Owns(TInt aId) const
 		{
 		const TInt i = Server().Find(aId);
@@ -233,6 +258,9 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 				}
 			w.iSession = this;
 			w.iStack = ++srv.iStackTop;
+			w.iHints = TPheWinHints();
+			w.iHints.iId = w.iInfo.iId;
+			w.iPingTick = 0;
 			srv.iWins.AppendL(w);
 			RDebug::Print(_L("[phewinreg] window %d registered: type %d, %dx%d, '%S'"), w.iInfo.iId, w.iInfo.iType,
 				w.iInfo.iGeometry.Width(), w.iInfo.iGeometry.Height(), &w.iInfo.iTitle);
@@ -406,6 +434,83 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		if (r == KErrNone)
 			owner->DeliverPointer();
 		aMessage.Complete(r);
+		return;
+		}
+	case EPheWinSetHints:
+		{
+		TPheWinHintsPckg p;
+		aMessage.ReadL(0, p);
+		const TInt i = Owns(p().iId);
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		const TPheWinHints& in = p();
+		if (in.iMinSize.iWidth < 0 || in.iMinSize.iHeight < 0 || in.iMaxSize.iWidth < 0 || in.iMaxSize.iHeight < 0
+			|| (in.iMaxSize.iWidth && in.iMaxSize.iWidth < in.iMinSize.iWidth) || (in.iMaxSize.iHeight && in.iMaxSize.iHeight < in.iMinSize.iHeight))
+			{ aMessage.Complete(KErrArgument); return; }
+		TPheWinHints& h = srv.iWins[i].iHints;
+		h.iMinSize = in.iMinSize;
+		h.iMaxSize = in.iMaxSize;
+		h.iPreferredSize = in.iPreferredSize;
+		h.iIcon = in.iIcon;
+		h.iRequested = TRect();
+		aMessage.Complete(KErrNone);
+		srv.Changed();
+		return;
+		}
+	case EPheWinHints:
+		{
+		const TInt i = srv.Find(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		TPheWinHintsPckg p(srv.iWins[i].iHints);
+		if (p().iPingPending)
+			{
+			TInt period = 1000;
+			HAL::Get(HAL::ENanoTickPeriod, period);		// us per nanokernel tick
+			p().iPingAgeMs = (TInt)((TInt64)(User::NTickCount() - srv.iWins[i].iPingTick) * period / 1000);
+			}
+		aMessage.WriteL(1, p);
+		aMessage.Complete(KErrNone);
+		return;
+		}
+	case EPheWinResize:
+		{
+		const TInt i = FrameTarget(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(i); return; }
+		TPckgBuf<TRect> rp;
+		aMessage.ReadL(1, rp);
+		TRect r = rp();
+		r.Normalize();
+		const TPheWinHints& h = srv.iWins[i].iHints;
+		TSize sz = r.Size();
+		if (sz.iWidth < h.iMinSize.iWidth) sz.iWidth = h.iMinSize.iWidth;
+		if (sz.iHeight < h.iMinSize.iHeight) sz.iHeight = h.iMinSize.iHeight;
+		if (h.iMaxSize.iWidth && sz.iWidth > h.iMaxSize.iWidth) sz.iWidth = h.iMaxSize.iWidth;
+		if (h.iMaxSize.iHeight && sz.iHeight > h.iMaxSize.iHeight) sz.iHeight = h.iMaxSize.iHeight;
+		if (sz.iWidth <= 0 || sz.iHeight <= 0) { aMessage.Complete(KErrArgument); return; }
+		srv.iWins[i].iHints.iRequested = TRect(r.iTl, sz);
+		aMessage.Complete(QueueAction(i, EPheWinActResize));
+		return;
+		}
+	case EPheWinPing:
+		{
+		const TInt i = FrameTarget(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(i); return; }
+		CRegServer::TWin& w = srv.iWins[i];
+		const TInt r = QueueAction(i, EPheWinActPing);
+		if (r == KErrNone && w.iHints.iPingPending++ == 0)
+			w.iPingTick = User::NTickCount();
+		aMessage.Complete(r);
+		return;
+		}
+	case EPheWinPong:
+		{
+		const TInt i = Owns(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		TPheWinHints& h = srv.iWins[i].iHints;
+		const TBool was = h.iPingPending != 0;
+		h.iPingPending = 0;		// one answer covers every ping before it (the owner was responsive when it read them)
+		aMessage.Complete(KErrNone);
+		if (was)
+			srv.Changed();
 		return;
 		}
 	case EPheWinPointerNotify:
