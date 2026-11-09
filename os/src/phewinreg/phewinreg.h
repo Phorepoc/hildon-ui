@@ -47,7 +47,7 @@ public:
 	inline TInt Register(TPheWinInfo& aInfo);
 	// new metadata for window aInfo.iId (the bitmap and serial are kept)
 	inline TInt Update(const TPheWinInfo& aInfo) { TPheWinInfoPckg p(aInfo); return SendReceive(EPheWinUpdate, TIpcArgs(&p)); }
-	// the window's front bitmap and the area that changed
+	// the window's front bitmap and the area that changed; returns the number of watchers (frame processes), or an error
 	inline TInt Content(TInt aId, TInt aBitmapHandle, const TRect& aDamage)
 		{ TPckgC<TRect> d(aDamage); return SendReceive(EPheWinContent, TIpcArgs(aId, aBitmapHandle, &d)); }
 	inline TInt Remove(TInt aId) { return SendReceive(EPheWinRemove, TIpcArgs(aId)); }

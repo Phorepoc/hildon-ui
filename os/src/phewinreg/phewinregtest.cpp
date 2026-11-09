@@ -51,7 +51,7 @@ static TInt Run()
 	TUint32* px = (TUint32*)bmp->DataAddress();
 	px[0] = 0xFF336699u;
 	bmp->UnlockHeap();
-	CHECK(app.Content(w.iId, bmp->Handle(), TRect(0, 0, 360, 600)) == KErrNone);
+	CHECK(app.Content(w.iId, bmp->Handle(), TRect(0, 0, 360, 600)) == 1);	// one watcher: the frame session
 	CHECK(frame.Content(w.iId, bmp->Handle(), TRect()) == KErrNotFound);	// only the owner publishes a window's content
 
 	// the frame side: a change since `seen`, then the list

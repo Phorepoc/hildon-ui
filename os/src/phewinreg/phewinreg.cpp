@@ -32,6 +32,7 @@ public:
 	TInt iNextId = 1;
 	TUint iSerial = 1;
 	TInt iSessions = 0;
+	TInt iWatchers = 0;			// sessions that asked for change notification (the frame process): content is worth publishing
 	RPointerArray<CRegSession> iWaiters;
 	};
 
@@ -48,6 +49,7 @@ public:
 		}
 	RMessagePtr2 iNotify;
 	TUint iSeen;
+	TBool iWatcher = EFalse;
 private:
 	CRegServer& Server() const { return *static_cast<CRegServer*>(const_cast<CServer2*>(CSession2::Server())); }
 	TInt Owns(TInt aId) const
@@ -86,6 +88,8 @@ void CRegServer::SessionClosed(CRegSession* aSession)
 			iWins.Remove(i);
 			removed = ETrue;
 			}
+	if (aSession->iWatcher)
+		--iWatchers;
 	const TInt w = iWaiters.Find(aSession);
 	if (w >= 0)
 		iWaiters.Remove(w);
@@ -157,7 +161,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		cur.iBitmap = aMessage.Int1();
 		cur.iDamage = d();
 		++cur.iContentSerial;
-		aMessage.Complete(KErrNone);
+		aMessage.Complete(srv.iWatchers);		// how many watch: 0 = the owner may stop copying its content until one appears
 		srv.Changed();
 		return;
 		}
@@ -186,6 +190,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		}
 	case EPheWinNotify:
 		if (!iNotify.IsNull()) { aMessage.Complete(KErrInUse); return; }
+		if (!iWatcher) { iWatcher = ETrue; ++srv.iWatchers; }
 		iSeen = (TUint)aMessage.Int0();
 		if (iSeen && iSeen != srv.iSerial) { aMessage.Complete((TInt)srv.iSerial); return; }	// it changed since the caller looked
 		iNotify = aMessage;
