@@ -180,6 +180,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		TPheWinInfo& cur = srv.iWins[i].iInfo;
 		cur.iBitmap = aMessage.Int1();
 		cur.iDamage = d();
+		cur.iGpuToken = aMessage.Int3();
 		++cur.iContentSerial;
 		aMessage.Complete(srv.iWatchers);		// how many watch
 		srv.Changed();

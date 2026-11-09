@@ -23,7 +23,7 @@ enum { EPheWinFullscreen = 1, EPheWinModal = 2, EPheWinUrgent = 4, EPheWinHidden
 class TPheWinInfo
 	{
 public:
-	TPheWinInfo() : iId(0), iOwner(0), iType(EPheWinNormal), iTransientFor(0), iState(0), iBitmap(0), iContentSerial(0) {}
+	TPheWinInfo() : iId(0), iOwner(0), iType(EPheWinNormal), iTransientFor(0), iState(0), iBitmap(0), iContentSerial(0), iGpuToken(0) {}
 	TInt iId;					// the registry's id (0 before registering)
 	TUint iOwner;				// the owner's process id (the registry fills it)
 	TInt iType;					// TPheWinType
@@ -33,6 +33,7 @@ public:
 	TInt iBitmap;				// the front bitmap's FBSERV handle (CFbsBitmap::Handle()), 0 = no content yet
 	TUint iContentSerial;		// counts content updates (the registry increments it)
 	TRect iDamage;				// the area of the last content update, in window coordinates
+	TInt iGpuToken;				// the front texture's SVGA share token (EGL_SYMBIAN_SVGA_SHARE_PH, hildon-port.md 7.47), 0 = bitmap only
 	TBuf<64> iTitle;
 	};
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
@@ -47,9 +48,9 @@ public:
 	inline TInt Register(TPheWinInfo& aInfo);
 	// new metadata for window aInfo.iId (the bitmap and serial are kept)
 	inline TInt Update(const TPheWinInfo& aInfo) { TPheWinInfoPckg p(aInfo); return SendReceive(EPheWinUpdate, TIpcArgs(&p)); }
-	// the window's front bitmap and the area that changed; returns the number of watchers (frame processes), or an error
-	inline TInt Content(TInt aId, TInt aBitmapHandle, const TRect& aDamage)
-		{ TPckgC<TRect> d(aDamage); return SendReceive(EPheWinContent, TIpcArgs(aId, aBitmapHandle, &d)); }
+	// the window's front bitmap, the area that changed and (0 = none) its GPU share token; returns the number of watchers (frame processes), or an error
+	inline TInt Content(TInt aId, TInt aBitmapHandle, const TRect& aDamage, TInt aGpuToken = 0)
+		{ TPckgC<TRect> d(aDamage); return SendReceive(EPheWinContent, TIpcArgs(aId, aBitmapHandle, &d, aGpuToken)); }
 	inline TInt Remove(TInt aId) { return SendReceive(EPheWinRemove, TIpcArgs(aId)); }
 	// every window, in registration order: fills aBuf with TPheWinInfo records; returns the count (or the count needed, when > the buffer)
 	inline TInt List(TDes8& aBuf) { return SendReceive(EPheWinList, TIpcArgs(&aBuf)); }
