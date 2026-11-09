@@ -42,12 +42,14 @@ private:
 	TBool CopyDamage(TRect& aRect);
 	void UpdateTitle();
 	void InjectPointer(const TPheWinPointer& aEv);
+	void AnswerPing();
 	TInt iScreen;
 	TUint32* iFb;
 	TInt iStride;					// words per line
 	TSize iSize;
 	RPheWinReg iReg;
 	RWsSession iWs;
+	CWsScreenDevice* iDevice;		// this screen (the session's primary device: SetPointerCursorArea acts on it)
 	CFbsBitmap* iBitmap;
 	TPheWinInfo iInfo;
 	TUint iGen;
@@ -59,6 +61,7 @@ CScreenPub::~CScreenPub()
 		iReg.Remove(iInfo.iId);
 	iReg.Close();
 	delete iBitmap;
+	delete iDevice;
 	iWs.Close();
 	}
 
@@ -76,6 +79,13 @@ void CScreenPub::ConstructL(TInt aScreen)
 	iStride = pitch / 4;
 	iSize.SetSize(w, h);
 	User::LeaveIfError(iWs.Connect());
+	// the screen's pointer area. WSERV gives only screen 0 a digitiser area (CWsTop::InitScreenL): every other screen's pointer
+	// cursor area is empty, and RestrictPos clamps any pointer position there to (-1,-1). A frame's click for this screen needs the
+	// whole screen; the 2010 API for it is SetPointerCursorArea (WriteDeviceData), which acts on this session's primary screen
+	// device -- hence a device on this screen, made first (CWsClient: iScreen = the primary device's screen)
+	iDevice = new(ELeave) CWsScreenDevice(iWs);
+	User::LeaveIfError(iDevice->Construct(aScreen));
+	iWs.SetPointerCursorArea(iDevice->CurrentScreenMode(), TRect(TPoint(0, 0), iDevice->SizeInPixels()));
 	User::LeaveIfError(RFbsSession::Connect());
 	iBitmap = new(ELeave) CFbsBitmap;
 	User::LeaveIfError(iBitmap->Create(iSize, EColor16MU));
@@ -142,8 +152,35 @@ void CScreenPub::InjectPointer(const TPheWinPointer& aEv)
 	raw.Set((TRawEvent::TType)aEv.iType, aEv.iPos.iX, aEv.iPos.iY);
 	iWs.SimulateRawEvent(raw);
 	iWs.Flush();
-	if (aEv.iType != TRawEvent::EPointerMove)
-		Log(_L("screen %d: pointer %d at %d,%d"), iScreen, aEv.iType, aEv.iPos.iX, aEv.iPos.iY);
+	static TInt moves;									// (drags: one line per gesture, with its move count)
+	if (aEv.iType == TRawEvent::EPointerMove)
+		++moves;
+	else
+		{
+		Log(_L("screen %d: pointer %d at %d,%d (%d moves before)"), iScreen, aEv.iType, aEv.iPos.iX, aEv.iPos.iY, moves);
+		moves = 0;
+		}
+	}
+
+// a frame's ping (its "not responding" decoration, hildon-port.md 7.51.12): a classic app has no registry session to answer it, so
+// the publisher answers for the app in front on this screen -- while that window group's owning thread is alive. (2010 has no
+// responsiveness probe for a classic app: a hung but living app is not detected here; a dead or missing one is never answered.)
+void CScreenPub::AnswerPing()
+	{
+	const TInt wg = iWs.GetFocusWindowGroup(iScreen);
+	TThreadId id;
+	TBool alive = EFalse;
+	RThread t;
+	if (wg > 0 && iWs.GetWindowGroupClientThreadId(wg, id) == KErrNone && t.Open(id) == KErrNone)
+		{
+		alive = t.ExitType() == EExitPending;
+		t.Close();
+		}
+	if (alive)
+		iReg.Pong(iInfo.iId);
+	static TInt logged;
+	if (logged++ < 3 || !alive)
+		Log(_L("screen %d: ping -> %S (group %d)"), iScreen, alive ? &_L("answered") : &_L("NOT answered: no live app"), wg);
 	}
 
 void CScreenPub::RunL()
@@ -179,6 +216,8 @@ void CScreenPub::RunL()
 				const TInt r = iWs.SetFocusScreen(iScreen);
 				Log(_L("screen %d: focus action -> SetFocusScreen %d"), iScreen, r);
 				}
+			else if (ev > 0 && PheWinActionCode(ev) == EPheWinActPing)
+				AnswerPing();
 			else if (ev > 0 && PheWinActionCode(ev) == EPheWinActClose)
 				Log(_L("screen %d: close action (ignored: the app owns its life)"), iScreen);
 			if (ev < 0)
