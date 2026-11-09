@@ -190,8 +190,11 @@ void CScreenPub::RunL()
 		TRect r;
 		if (CopyDamage(r))
 			{
+			const TBool first = iInfo.iBitmap == 0;
 			iInfo.iBitmap = iBitmap->Handle();
-			iReg.Content(iInfo.iId, iInfo.iBitmap, r);
+			const TInt subs = iReg.Content(iInfo.iId, iInfo.iBitmap, r);
+			if (first)
+				Log(_L("screen %d: first content, bitmap %d, %d subscriber(s)"), iScreen, iInfo.iBitmap, subs);
 			}
 		if (--titleCountdown <= 0)
 			{
