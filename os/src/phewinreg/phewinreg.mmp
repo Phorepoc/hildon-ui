@@ -1,0 +1,15 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phewinreg.mmp -- the window registry server (hildon-port.md C4)
+TARGET			phewinreg.exe
+TARGETTYPE		exe
+UID				0x1000007a 0xE7016B40
+CAPABILITY		none
+VENDORID		0
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+USERINCLUDE		.
+SOURCEPATH		.
+SOURCE			phewinreg.cpp
+LIBRARY			euser.lib
+SMPSAFE
