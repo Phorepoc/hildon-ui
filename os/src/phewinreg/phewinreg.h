@@ -43,7 +43,7 @@ public:
 enum TPheWinSubscription { EPheWinUnsubscribe = 0, EPheWinWatch = 1, EPheWinComposite = 2 };
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
-enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe };
+enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify };
 
 class RPheWinReg : public RSessionBase
 	{
@@ -62,6 +62,9 @@ public:
 	// completes with the registry's change serial when anything changes after aSeen (0 = at the next change)
 	inline void Notify(TUint aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinNotify, TIpcArgs((TInt)aSeen), aStatus); }
 	inline void NotifyCancel() { SendReceive(EPheWinNotifyCancel, TIpcArgs()); }
+	// for a compositor: completes with the content tick when a GPU window published its next frame (same token: nothing to re-list)
+	// after aSeen (0 = at the next one). Notify still reports everything else (metadata, new tokens, bitmaps)
+	inline void ContentNotify(TUint aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinContentNotify, TIpcArgs((TInt)aSeen), aStatus); }
 	// for a window owner: completes with its subscription serial when it differs from aSeen (-1 = at once): the serial moves whenever a
 	// subscription to one of the owner's windows changes; the owner then reads iSubscribers / iComposited of its windows (List).
 	// A window without subscribers publishes no content; when one appears it publishes a full frame

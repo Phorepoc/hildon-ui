@@ -18,6 +18,7 @@ public:
 	~CRegServer() { iWins.Close(); }
 	CSession2* NewSessionL(const TVersion& aVersion, const RMessage2& aMessage) const;
 	void Changed();
+	void ContentChanged();
 	void SessionOpened() { ++iSessions; }
 	void SessionClosed(CRegSession* aSession);
 	void SubsChanged(const CRegSession* aOwner);
@@ -35,6 +36,7 @@ public:
 	TUint iSerial = 1;
 	TInt iSessions = 0;
 	RPointerArray<CRegSession> iWaiters;
+	TUint iContentTicks = 1;		// moves on a content-only update (a GPU window's new frame: same token, no metadata change)
 	};
 
 class CRegSession : public CSession2
@@ -50,6 +52,8 @@ public:
 		}
 	RMessagePtr2 iNotify;
 	TUint iSeen;
+	RMessagePtr2 iContentNotify;		// a compositor waiting for the next content-only update
+	TUint iContentSeen;
 	RMessagePtr2 iWatch;			// an owner waiting for its subscription serial to change
 	TInt iWatchSeen;
 	TInt iSubSerial = 0;			// moves when a subscription to one of this session's windows changes
@@ -80,6 +84,19 @@ void CRegServer::Changed()
 		s->Complete(iSerial);
 		if (s->iNotify.IsNull())
 			iWaiters.Remove(i);
+		}
+	}
+
+// a content-only update: every compositor waiting for one hears the new tick
+void CRegServer::ContentChanged()
+	{
+	++iContentTicks;
+	iSessionIter.SetToFirst();
+	for (CSession2* s; (s = iSessionIter++) != NULL; )
+		{
+		CRegSession* r = static_cast<CRegSession*>(s);
+		if (!r->iContentNotify.IsNull() && r->iContentSeen != iContentTicks)
+			r->iContentNotify.Complete((TInt)iContentTicks);
 		}
 	}
 
@@ -119,7 +136,8 @@ void CRegServer::SessionClosed(CRegSession* aSession)
 			iWins.Remove(i);
 			removed = ETrue;
 			}
-	aSession->iWatch = RMessagePtr2();		// (the kernel completes a closing session's messages)
+	aSession->iWatch = RMessagePtr2();
+	aSession->iContentNotify = RMessagePtr2();		// (the kernel completes a closing session's messages)
 	while (aSession->iSubs.Count())
 		Unsubscribe(aSession, aSession->iSubs.Count() - 1);
 	const TInt w = iWaiters.Find(aSession);
@@ -193,12 +211,18 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		TPckgBuf<TRect> d;
 		aMessage.ReadL(2, d);
 		TPheWinInfo& cur = srv.iWins[i].iInfo;
+		// a GPU window's next frame (same token, no bitmap) changes nothing a compositor has to re-read: only the content tick moves
+		// (hildon-port.md 7.49); a new token or a bitmap is a registry change (the compositor lists again)
+		const TBool contentOnly = aMessage.Int3() != 0 && aMessage.Int3() == cur.iGpuToken && aMessage.Int1() == 0;
 		cur.iBitmap = aMessage.Int1();
 		cur.iDamage = d();
 		cur.iGpuToken = aMessage.Int3();
 		++cur.iContentSerial;
 		aMessage.Complete(cur.iSubscribers);		// how many subscribed to this window
-		srv.Changed();
+		if (contentOnly)
+			srv.ContentChanged();
+		else
+			srv.Changed();
 		return;
 		}
 	case EPheWinRemove:
@@ -230,6 +254,12 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		if (iSeen && iSeen != srv.iSerial) { aMessage.Complete((TInt)srv.iSerial); return; }	// it changed since the caller looked
 		iNotify = aMessage;
 		srv.iWaiters.AppendL(this);
+		return;
+	case EPheWinContentNotify:
+		if (!iContentNotify.IsNull()) { aMessage.Complete(KErrInUse); return; }
+		iContentSeen = (TUint)aMessage.Int0();
+		if (iContentSeen && iContentSeen != srv.iContentTicks) { aMessage.Complete((TInt)srv.iContentTicks); return; }
+		iContentNotify = aMessage;
 		return;
 	case EPheWinNotifyCancel:
 		if (!iNotify.IsNull())
