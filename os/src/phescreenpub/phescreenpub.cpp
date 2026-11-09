@@ -4,7 +4,10 @@
 // phescreenpub -- publish a (virtual) WSERV screen as one window of the window registry (phewinreg), so a compositor shows a
 // classic app that runs on its own screen as a decorated window (multi-window stage 2).
 //
-//   phescreenpub <screen>
+//   phescreenpub <screen> [thread id]
+//
+// With a thread id (phescreenlaunch window: the app it started on that screen) the publisher ends when that thread ends, and
+// its window leaves the registry with its session.
 //
 // The screen's framebuffer is the display driver's RAM buffer (HAL EDisplayMemoryAddress of HAL device <screen>); the driver
 // keeps what changed since the last read (display HAL function 0x7103 on that device: x0,y0,x1,y1,generation). Each change is
@@ -37,7 +40,7 @@ class CScreenPub : public CBase
 public:
 	~CScreenPub();
 	void ConstructL(TInt aScreen);
-	void RunL();
+	void RunL(TUint64 aWatch);
 private:
 	TBool CopyDamage(TRect& aRect);
 	void UpdateTitle();
@@ -183,11 +186,17 @@ void CScreenPub::AnswerPing()
 		Log(_L("screen %d: ping -> %S (group %d)"), iScreen, alive ? &_L("answered") : &_L("NOT answered: no live app"), wg);
 	}
 
-void CScreenPub::RunL()
+void CScreenPub::RunL(TUint64 aWatch)
 	{
 	RTimer timer;
 	User::LeaveIfError(timer.CreateLocal());
-	TRequestStatus tick, action, pointer;
+	TRequestStatus tick, action, pointer, died;
+	RThread app;
+	if (aWatch)
+		{
+		User::LeaveIfError(app.Open(TThreadId(aWatch)));
+		app.Logon(died);
+		}
 	TPheWinPointerPckg ev;
 	iReg.ActionNotify(action);
 	iReg.PointerNotify(ev, pointer);
@@ -196,6 +205,16 @@ void CScreenPub::RunL()
 	for (;;)
 		{
 		User::WaitForAnyRequest();
+		if (aWatch && died != KRequestPending)
+			{
+			Log(_L("screen %d: its app ended (%d): the window goes"), iScreen, died.Int());
+			app.Close();
+			iReg.ActionCancel();
+			iReg.PointerCancel();
+			timer.Cancel();
+			timer.Close();
+			return;
+			}
 		if (pointer != KRequestPending)
 			{
 			if (pointer.Int() == KErrNone)
@@ -246,17 +265,21 @@ void CScreenPub::RunL()
 
 static void MainL()
 	{
-	TBuf<32> arg;
+	TBuf<64> arg;
 	User::CommandLine(arg);
 	TLex lex(arg);
 	TInt screen = 1;
 	if (lex.Val(screen) != KErrNone || screen < 0)
 		User::Leave(KErrArgument);
+	TInt64 watch = 0;
+	lex.SkipSpace();
+	if (!lex.Eos() && (lex.Val(watch) != KErrNone || watch <= 0))
+		User::Leave(KErrArgument);
 	CScreenPub* pub = new(ELeave) CScreenPub;
 	CleanupStack::PushL(pub);
 	pub->ConstructL(screen);
 	RProcess::Rendezvous(KErrNone);
-	pub->RunL();
+	pub->RunL(watch);
 	CleanupStack::PopAndDestroy(pub);
 	}
 
