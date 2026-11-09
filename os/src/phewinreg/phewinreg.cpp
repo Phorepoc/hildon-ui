@@ -20,6 +20,7 @@ public:
 	void Changed();
 	void SessionOpened() { ++iSessions; }
 	void SessionClosed(CRegSession* aSession);
+	void WatchersChanged();
 	TInt Find(TInt aId) const
 		{
 		for (TInt i = 0; i < iWins.Count(); ++i)
@@ -50,6 +51,8 @@ public:
 	RMessagePtr2 iNotify;
 	TUint iSeen;
 	TBool iWatcher = EFalse;
+	RMessagePtr2 iWatch;			// an owner waiting for the watcher count to change
+	TInt iWatchSeen;
 private:
 	CRegServer& Server() const { return *static_cast<CRegServer*>(const_cast<CServer2*>(CSession2::Server())); }
 	TInt Owns(TInt aId) const
@@ -78,6 +81,19 @@ void CRegServer::Changed()
 		}
 	}
 
+// the watcher count changed: every owner waiting on it hears the new count
+void CRegServer::WatchersChanged()
+	{
+	iSessionIter.SetToFirst();
+	for (CSession2* s; (s = iSessionIter++) != NULL; )
+		{
+		CRegSession* r = static_cast<CRegSession*>(s);
+		if (!r->iWatch.IsNull() && r->iWatchSeen != iWatchers)
+			r->iWatch.Complete(iWatchers);
+		}
+	RDebug::Printf("[phewinreg] %d watching", iWatchers);
+	}
+
 void CRegServer::SessionClosed(CRegSession* aSession)
 	{
 	TBool removed = EFalse;
@@ -88,8 +104,12 @@ void CRegServer::SessionClosed(CRegSession* aSession)
 			iWins.Remove(i);
 			removed = ETrue;
 			}
+	aSession->iWatch = RMessagePtr2();		// (the kernel completes a closing session's messages)
 	if (aSession->iWatcher)
+		{
 		--iWatchers;
+		WatchersChanged();
+		}
 	const TInt w = iWaiters.Find(aSession);
 	if (w >= 0)
 		iWaiters.Remove(w);
@@ -161,7 +181,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		cur.iBitmap = aMessage.Int1();
 		cur.iDamage = d();
 		++cur.iContentSerial;
-		aMessage.Complete(srv.iWatchers);		// how many watch: 0 = the owner may stop copying its content until one appears
+		aMessage.Complete(srv.iWatchers);		// how many watch
 		srv.Changed();
 		return;
 		}
@@ -190,7 +210,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		}
 	case EPheWinNotify:
 		if (!iNotify.IsNull()) { aMessage.Complete(KErrInUse); return; }
-		if (!iWatcher) { iWatcher = ETrue; ++srv.iWatchers; }
+		if (!iWatcher) { iWatcher = ETrue; ++srv.iWatchers; srv.WatchersChanged(); }
 		iSeen = (TUint)aMessage.Int0();
 		if (iSeen && iSeen != srv.iSerial) { aMessage.Complete((TInt)srv.iSerial); return; }	// it changed since the caller looked
 		iNotify = aMessage;
@@ -203,6 +223,17 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		const TInt w = srv.iWaiters.Find(this);
 		if (w >= 0) srv.iWaiters.Remove(w);
 		}
+		aMessage.Complete(KErrNone);
+		return;
+	case EPheWinWatchers:
+		if (!iWatch.IsNull()) { aMessage.Complete(KErrInUse); return; }
+		iWatchSeen = aMessage.Int0();
+		if (iWatchSeen != srv.iWatchers) { aMessage.Complete(srv.iWatchers); return; }
+		iWatch = aMessage;
+		return;
+	case EPheWinWatchersCancel:
+		if (!iWatch.IsNull())
+			iWatch.Complete(KErrCancel);
 		aMessage.Complete(KErrNone);
 		return;
 	default:

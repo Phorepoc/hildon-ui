@@ -24,8 +24,14 @@ static TInt Run()
 	RPheWinReg app, frame;
 	CHECK(app.Connect() == KErrNone);
 	CHECK(frame.Connect() == KErrNone);
-	TRequestStatus st;
+	TRequestStatus st, wst;
+	app.Watchers(-1, wst);
+	User::WaitForRequest(wst);
+	CHECK(wst.Int() == 0);										// nobody watches yet
+	app.Watchers(0, wst);										// the owner waits for a frame process
 	frame.Notify(0, st);
+	User::WaitForRequest(wst);
+	CHECK(wst.Int() == 1);										// it came: publish a full frame now
 
 	TPheWinInfo w;
 	w.iType = EPheWinNormal;

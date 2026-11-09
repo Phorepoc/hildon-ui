@@ -37,7 +37,7 @@ public:
 	};
 typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
-enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel };
+enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel };
 
 class RPheWinReg : public RSessionBase
 	{
@@ -56,6 +56,10 @@ public:
 	// completes with the registry's change serial when anything changes after aSeen (0 = at the next change)
 	inline void Notify(TUint aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinNotify, TIpcArgs((TInt)aSeen), aStatus); }
 	inline void NotifyCancel() { SendReceive(EPheWinNotifyCancel, TIpcArgs()); }
+	// for a window owner: completes with the number of watchers (frame processes) when it differs from aSeen (-1 = at once):
+	// with 0 watchers an owner publishes no content; when one appears it publishes a full frame
+	inline void Watchers(TInt aSeen, TRequestStatus& aStatus) { SendReceive(EPheWinWatchers, TIpcArgs(aSeen), aStatus); }
+	inline void WatchersCancel() { SendReceive(EPheWinWatchersCancel, TIpcArgs()); }
 	};
 
 inline TInt RPheWinReg::Connect()
