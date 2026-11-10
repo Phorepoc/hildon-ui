@@ -466,6 +466,25 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		srv.Changed();
 		return;
 		}
+	case EPheWinRaiseApp:
+		{
+		const TInt32 uid = aMessage.Int0();
+		TInt i = KErrNotFound;
+		for (TInt k = 0; uid && k < srv.iWins.Count(); ++k)
+			if (srv.iWins[k].iAppUid == uid && (i < 0 || srv.iWins[k].iStack > srv.iWins[i].iStack))
+				i = k;
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		srv.iWins[i].iStack = ++srv.iStackTop;
+		for (TInt k = 0; k < srv.iWins.Count(); ++k)
+			srv.iWins[k].iInfo.iState &= ~EPheWinFocused;
+		srv.iWins[i].iInfo.iState |= EPheWinFocused;
+		const TInt id = srv.iWins[i].iInfo.iId;
+		const TInt r = QueueAction(i, EPheWinActFocus);
+		RDebug::Printf("[phewinreg] app %08x: window %d raised and focused (%d)", uid, id, r);
+		aMessage.Complete(r == KErrNone ? id : r);
+		srv.Changed();
+		return;
+		}
 	case EPheWinAppUid:
 		{
 		const TInt i = srv.Find(aMessage.Int0());

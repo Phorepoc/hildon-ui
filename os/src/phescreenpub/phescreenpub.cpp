@@ -68,6 +68,7 @@ private:
 	TPheWinInfo iInfo;
 	TUint iGen;
 	TUid iAppUid;
+	TThreadId iAppTid;				// the watched app's thread (0 = none given)
 	};
 
 CScreenPub::~CScreenPub()
@@ -195,7 +196,8 @@ void CScreenPub::AnswerPing()
 	// at the next ping (the frame pings every 2 s) its request count is back to <= 0. A count still above 0 means the thread has
 	// not returned to its scheduler since: busy, or blocked on something else. That ping goes unanswered, and the frame shows
 	// "not responding" once the oldest unanswered ping is old enough (hildon-port.md 7.51.19)
-	const TInt wg = iWs.GetFocusWindowGroup(iScreen);
+	// the watched app's own task group, not the focus group (that can be the app's helper group, hildon-port.md 7.51.21)
+	const TInt wg = iAppTid.Id() ? AppWindowGroup(iAppTid) : iWs.GetFocusWindowGroup(iScreen);
 	TThreadId id;
 	TBool alive = EFalse, stuck = EFalse;
 	TInt pending = 0;
@@ -253,16 +255,25 @@ TInt CScreenPub::AppWindowGroup(TThreadId aApp)
 	CArrayFixFlat<TInt>* ids = new CArrayFixFlat<TInt>(4);
 	if (!ids)
 		return 0;
-	TInt found = 0;
+	TInt found = 0, any = 0;
 	if (iWs.WindowGroupList(ids, iScreen) == KErrNone)
 		for (TInt i = 0; i < ids->Count() && !found; ++i)
 			{
 			TThreadId t;
-			if (iWs.GetWindowGroupClientThreadId(ids->At(i), t) == KErrNone && t == aApp)
+			if (iWs.GetWindowGroupClientThreadId(ids->At(i), t) != KErrNone || t != aApp)
+				continue;
+			// an app thread can own more than one window group (an Avkon app has a helper group too); the task is the one
+			// whose name carries the app UID and is not hidden -- what TApaTaskList::FindApp matches (hildon-port.md 7.51.21)
+			if (!any)
+				any = ids->At(i);
+			CApaWindowGroupName* name = NULL;
+			TRAPD(r, name = CApaWindowGroupName::NewL(iWs, ids->At(i)));
+			if (r == KErrNone && name->AppUid() != KNullUid && !name->Hidden())
 				found = ids->At(i);
+			delete name;
 			}
 	delete ids;
-	return found;
+	return found ? found : any;
 	}
 
 void CScreenPub::RunL(TUint64 aWatch)
@@ -277,6 +288,7 @@ void CScreenPub::RunL(TUint64 aWatch)
 	if (aWatch)
 		{
 		User::LeaveIfError(app.Open(TThreadId(aWatch)));
+		iAppTid = app.Id();
 		app.Logon(died);
 		}
 	TPheWinPointerPckg ev;

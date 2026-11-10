@@ -47,7 +47,7 @@ typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel,
 	EPheWinPointer, EPheWinPointerNotify, EPheWinPointerCancel,
 	EPheWinSetHints, EPheWinHints, EPheWinResize, EPheWinPing, EPheWinPong,
-	EPheWinSetAppUid, EPheWinAppUid };
+	EPheWinSetAppUid, EPheWinAppUid, EPheWinRaiseApp };
 
 // a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
 enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4, EPheWinActRaise = 5 };
@@ -149,6 +149,9 @@ public:
 	// anyone: window aId's application UID (KNullUid = none set)
 	inline TInt AppUid(TInt aId, TUid& aUid)
 		{ TPckgBuf<TInt32> p; const TInt r = SendReceive(EPheWinAppUid, TIpcArgs(aId, &p)); aUid = TUid::Uid(r == KErrNone ? p() : 0); return r; }
+	// anyone (a launcher): raise and focus the top window that shows application aUid, as a frame's EPheWinActRaise + EPheWinActFocus;
+	// its owner gets EPheWinActFocus. Returns the window id, or KErrNotFound when no window shows that app (then start it)
+	inline TInt RaiseApp(TUid aUid) { return SendReceive(EPheWinRaiseApp, TIpcArgs(aUid.iUid)); }
 	};
 
 inline TInt RPheWinReg::Connect()
