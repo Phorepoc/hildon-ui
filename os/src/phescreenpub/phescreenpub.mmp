@@ -10,7 +10,7 @@ UID				0x1000007a 0xE701573B
 CAPABILITY		WriteDeviceData SwEvent PowerMgmt
 VENDORID		0
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
-USERINCLUDE		. ../phewinreg
+USERINCLUDE		. ../../../../core/os/inc/phorepoc
 SOURCEPATH		.
 SOURCE			phescreenpub.cpp
 LIBRARY			euser.lib hal.lib fbscli.lib ws32.lib apgrfx.lib

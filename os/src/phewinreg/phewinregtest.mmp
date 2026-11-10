@@ -9,7 +9,7 @@ UID				0x1000007a 0xE7016B41
 CAPABILITY		PowerMgmt
 VENDORID		0
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
-USERINCLUDE		.
+USERINCLUDE		. ../../../../core/os/inc/phorepoc
 SOURCEPATH		.
 SOURCE			phewinregtest.cpp
 LIBRARY			euser.lib fbscli.lib

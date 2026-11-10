@@ -8,7 +8,7 @@ UID				0x1000007a 0xE7016B40
 CAPABILITY		none
 VENDORID		0
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
-USERINCLUDE		.
+USERINCLUDE		. ../../../../core/os/inc/phorepoc
 SOURCEPATH		.
 SOURCE			phewinreg.cpp
 LIBRARY			euser.lib hal.lib
