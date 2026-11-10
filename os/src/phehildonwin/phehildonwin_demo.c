@@ -10,6 +10,9 @@
 #include <hildon/hildon.h>
 #include <gdk/gdkkeysyms.h>
 
+/* a resource of this program on whatever drive it is: Z: in a ROM, the install drive from its package (used by phehildonwin.cpp) */
+const char *phe_hildon_demo_res (const char *rel) { return phe_res (rel); }
+
 extern void phe_log (const char *msg);
 #define LOG(...) do { char m_[240]; g_snprintf (m_, sizeof m_, __VA_ARGS__); phe_log (m_); } while (0)
 
@@ -31,7 +34,7 @@ static void on_button (GtkButton *b, gpointer d) { (void) d; presses++; update_s
 static void on_menu_item (GtkButton *b, gpointer d) { (void) d; LOG ("[phehildonwin] app menu item: %s", hildon_button_get_title (HILDON_BUTTON (b))); }
 static void on_picked (HildonPickerButton *p, gpointer d) { (void) d; LOG ("[phehildonwin] picker value: %s", hildon_button_get_value (HILDON_BUTTON (p))); }
 static void on_menu_open (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_app_menu_popup (app_menu, GTK_WINDOW (window)); LOG ("[phehildonwin] app menu popped up"); }
-static void on_sound (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_play_system_sound ("z:/resource/phehildonwin/beep.wav"); LOG ("[phehildonwin] sound requested"); }
+static void on_sound (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_play_system_sound (phe_res ("resource/phehildonwin/beep.wav")); LOG ("[phehildonwin] sound requested"); }
 static void on_banner (GtkButton *b, gpointer d) { (void) b; (void) d; hildon_banner_show_information (window, NULL, "A HildonBanner"); LOG ("[phehildonwin] banner shown"); }
 
 static void
@@ -106,7 +109,7 @@ phe_hildon_demo_main (void)
 {
   GtkWidget *vbox, *w, *picker, *selector, *b;
   gtk_init (NULL, NULL); hildon_init ();
-  if (!phe_theme_load (phe_log)) gtk_rc_parse ("z:/resource/phehildonwin/phehildon.rc");                          /* the Phorepoc Hildon look (Etesian tokens) */
+  if (!phe_theme_load (phe_log)) gtk_rc_parse (phe_res ("resource/phehildonwin/phehildon.rc"));                          /* the Phorepoc Hildon look (Etesian tokens) */
   LOG ("[phehildonwin] gtk + hildon init ok: GTK %d.%d.%d, libhildon %d.%d.%d", gtk_major_version, gtk_minor_version, gtk_micro_version, HILDON_MAJOR_VERSION, HILDON_MINOR_VERSION, HILDON_MICRO_VERSION);
   selftest ();
   program = hildon_program_get_instance ();

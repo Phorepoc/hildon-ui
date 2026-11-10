@@ -10,13 +10,14 @@
 
 extern "C" void phe_log(const char* aMsg);
 extern "C" int phe_hildon_demo_main(void);
+extern "C" const char* phe_hildon_demo_res(const char* aRel);
 
 extern "C" void phe_log(const char* aMsg) { RDebug::Printf("%s", aMsg); }
 
 GLDEF_C TInt E32Main()
 	{
 	CTrapCleanup* cleanup = CTrapCleanup::New();
-	setenv("FONTCONFIG_FILE", "z:/resource/phehildonwin/fonts.conf", 1);
+	setenv("FONTCONFIG_FILE", phe_hildon_demo_res("resource/phehildonwin/fonts.conf"), 1);
 	setenv("PHEGDK_TRACE_PRESENT", "1", 1);
 	setenv("PHEGDK_TRACE_CLIP", "1", 1);
 	TInt rc = 0;
