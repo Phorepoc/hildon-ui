@@ -5,7 +5,8 @@
 TARGET			phewinregtest.exe
 TARGETTYPE		exe
 UID				0x1000007a 0xE7016B41
-CAPABILITY		none
+// PowerMgmt: the ping test suspends another process's thread (a hung app)
+CAPABILITY		PowerMgmt
 VENDORID		0
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 USERINCLUDE		.

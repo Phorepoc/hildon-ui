@@ -46,7 +46,8 @@ typedef TPckgBuf<TPheWinInfo> TPheWinInfoPckg;
 
 enum TPheWinRegOp { EPheWinRegister, EPheWinUpdate, EPheWinContent, EPheWinRemove, EPheWinList, EPheWinNotify, EPheWinNotifyCancel, EPheWinWatchers, EPheWinWatchersCancel, EPheWinSubscribe, EPheWinContentNotify, EPheWinAction, EPheWinActionNotify, EPheWinActionCancel,
 	EPheWinPointer, EPheWinPointerNotify, EPheWinPointerCancel,
-	EPheWinSetHints, EPheWinHints, EPheWinResize, EPheWinPing, EPheWinPong };
+	EPheWinSetHints, EPheWinHints, EPheWinResize, EPheWinPing, EPheWinPong,
+	EPheWinSetAppUid, EPheWinAppUid };
 
 // a frame's decoration actions, sent back to the window's owner (hildon-port.md 7.53)
 enum TPheWinAction { EPheWinActClose = 1, EPheWinActMinimise = 2, EPheWinActMaximise = 3, EPheWinActFocus = 4, EPheWinActRaise = 5 };
@@ -142,6 +143,12 @@ public:
 	// show in Hints (iPingPending / iPingAgeMs); an answer is a registry change (Notify)
 	inline TInt Ping(TInt aId) { return SendReceive(EPheWinPing, TIpcArgs(aId)); }
 	inline TInt Pong(TInt aId) { return SendReceive(EPheWinPong, TIpcArgs(aId)); }
+	// for a window owner: the application (AppArc UID) the window shows, e.g. phescreenpub for a classic app's screen; a frame
+	// raises an app's existing window instead of starting it again. Kept beside TPheWinInfo (its layout is every client's ABI)
+	inline TInt SetAppUid(TInt aId, TUid aUid) { return SendReceive(EPheWinSetAppUid, TIpcArgs(aId, aUid.iUid)); }
+	// anyone: window aId's application UID (KNullUid = none set)
+	inline TInt AppUid(TInt aId, TUid& aUid)
+		{ TPckgBuf<TInt32> p; const TInt r = SendReceive(EPheWinAppUid, TIpcArgs(aId, &p)); aUid = TUid::Uid(r == KErrNone ? p() : 0); return r; }
 	};
 
 inline TInt RPheWinReg::Connect()

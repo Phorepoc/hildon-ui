@@ -31,7 +31,7 @@ public:
 				return i;
 		return KErrNotFound;
 		}
-	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; TUint iStack; TPheWinHints iHints; TUint iPingTick; };	// iPingTick: NTickCount of the oldest unanswered ping
+	struct TWin { TPheWinInfo iInfo; const CRegSession* iSession; TUint iStack; TPheWinHints iHints; TUint iPingTick; TInt32 iAppUid; };	// iAppUid: SetAppUid, 0 = none	// iPingTick: NTickCount of the oldest unanswered ping
 	TUint iStackTop = 0;			// the last raise / registration: a higher iStack is above its siblings
 	void AppendStacked(TDes8& aOut, TInt aParent, TInt aDepth) const
 		{
@@ -260,6 +260,7 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 			w.iStack = ++srv.iStackTop;
 			w.iHints = TPheWinHints();
 			w.iHints.iId = w.iInfo.iId;
+			w.iAppUid = 0;
 			w.iPingTick = 0;
 			srv.iWins.AppendL(w);
 			RDebug::Print(_L("[phewinreg] window %d registered: type %d, %dx%d, '%S'"), w.iInfo.iId, w.iInfo.iType,
@@ -454,6 +455,24 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		h.iRequested = TRect();
 		aMessage.Complete(KErrNone);
 		srv.Changed();
+		return;
+		}
+	case EPheWinSetAppUid:
+		{
+		const TInt i = Owns(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		srv.iWins[i].iAppUid = aMessage.Int1();
+		aMessage.Complete(KErrNone);
+		srv.Changed();
+		return;
+		}
+	case EPheWinAppUid:
+		{
+		const TInt i = srv.Find(aMessage.Int0());
+		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
+		TPckgBuf<TInt32> p(srv.iWins[i].iAppUid);
+		aMessage.WriteL(1, p);
+		aMessage.Complete(KErrNone);
 		return;
 		}
 	case EPheWinHints:

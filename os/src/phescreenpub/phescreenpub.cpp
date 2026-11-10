@@ -25,6 +25,10 @@
 #include "phewinreg.h"
 
 static const TInt KPheDisplayHalDamage = 0x7103;		// the x86 display driver, virtual screens (xk_display.cpp)
+static const TInt KPheDisplayHalTile = 0x7105;			// ... the screen's framebuffer tile off (a compositor shows it) / on
+_LIT(KOff, "off");
+_LIT(KOn, "on");
+static const TInt KPheDisplayHalDamageNotify = 0x7106;	// ... complete a request when the screen's generation moves
 static const TInt KPollUs = 20000;
 static const TInt KCloseGraceUs = 10000000;			// the app's own exit after a close, before it is killed						// 50 Hz, the display flusher's own rate
 
@@ -49,6 +53,10 @@ private:
 	void InjectPointer(const TPheWinPointer& aEv);
 	void AnswerPing();
 	TInt AppWindowGroup(TThreadId aApp);
+	void UpdateTile();
+	TInt iPingWg;
+	TBool iPingStuck;
+	TBool iTileOff;
 	TInt iScreen;
 	TUint32* iFb;
 	TInt iStride;					// words per line
@@ -59,6 +67,7 @@ private:
 	CFbsBitmap* iBitmap;
 	TPheWinInfo iInfo;
 	TUint iGen;
+	TUid iAppUid;
 	};
 
 CScreenPub::~CScreenPub()
@@ -109,6 +118,7 @@ TBool CScreenPub::CopyDamage(TRect& aRect)
 	TInt d[5];
 	if (UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalDamage, d, NULL, iScreen) != KErrNone)
 		return EFalse;
+	iGen = (TUint)d[4];												// (seen, even when the change was already read: no re-wake)
 	if (iInfo.iBitmap == 0)											// the first frame: all of it
 		{
 		d[0] = 0;  d[1] = 0;  d[2] = iSize.iWidth;  d[3] = iSize.iHeight;
@@ -116,7 +126,6 @@ TBool CScreenPub::CopyDamage(TRect& aRect)
 	else if (d[0] >= d[2] || d[1] >= d[3])
 		return EFalse;
 	aRect.SetRect(d[0], d[1], d[2], d[3]);
-	iGen = (TUint)d[4];
 	iBitmap->LockHeap();
 	TUint32* dst = iBitmap->DataAddress();
 	const TInt dstride = CFbsBitmap::ScanLineLength(iSize.iWidth, EColor16MU) / 4;
@@ -141,6 +150,14 @@ void CScreenPub::UpdateTitle()
 		iInfo.iTitle = caption.Left(iInfo.iTitle.MaxLength());
 		iReg.Update(iInfo);
 		Log(_L("screen %d: title %S"), iScreen, &iInfo.iTitle);
+		}
+	// the app in front, for a frame that raises an app's window instead of starting it twice (RPheWinReg::AppUid)
+	const TUid uid = name->AppUid();
+	if (uid != KNullUid && uid != iAppUid)
+		{
+		iAppUid = uid;
+		const TInt e = iReg.SetAppUid(iInfo.iId, uid);
+		Log(_L("screen %d: app uid %08x (%d)"), iScreen, uid.iUid, e);
 		}
 	delete name;
 	}
@@ -173,20 +190,61 @@ void CScreenPub::InjectPointer(const TPheWinPointer& aEv)
 // responsiveness probe for a classic app: a hung but living app is not detected here; a dead or missing one is never answered.)
 void CScreenPub::AnswerPing()
 	{
+	// Alive is not enough: a hung app's thread lives on. Each ping also sends the app's window group a no-op event, which signals
+	// the app's thread (WSERV completes its event request). A responsive app runs its event loop and takes that signal at once, so
+	// at the next ping (the frame pings every 2 s) its request count is back to <= 0. A count still above 0 means the thread has
+	// not returned to its scheduler since: busy, or blocked on something else. That ping goes unanswered, and the frame shows
+	// "not responding" once the oldest unanswered ping is old enough (hildon-port.md 7.51.19)
 	const TInt wg = iWs.GetFocusWindowGroup(iScreen);
 	TThreadId id;
-	TBool alive = EFalse;
+	TBool alive = EFalse, stuck = EFalse;
+	TInt pending = 0;
 	RThread t;
 	if (wg > 0 && iWs.GetWindowGroupClientThreadId(wg, id) == KErrNone && t.Open(id) == KErrNone)
 		{
 		alive = t.ExitType() == EExitPending;
+		pending = t.RequestCount();
+		stuck = alive && iPingWg == wg && pending > 0;
 		t.Close();
 		}
+	iPingWg = wg;
 	if (alive)
+		{
+		TWsEvent e;
+		e.SetType(EEventUser + 0x5045);		// (an event type no app handles: AppUi HandleWsEventL ignores unknown types)
+		e.SetTimeNow();
+		iWs.SendEventToWindowGroup(wg, e);
+		}
+	if (alive && !stuck)
 		iReg.Pong(iInfo.iId);
 	static TInt logged;
-	if (logged++ < 3 || !alive)
-		Log(_L("screen %d: ping -> %S (group %d)"), iScreen, alive ? &_L("answered") : &_L("NOT answered: no live app"), wg);
+	if (logged++ < 3 || !alive || stuck != iPingStuck)
+		Log(_L("screen %d: ping -> %S (group %d, %d signal(s) unread)"), iScreen,
+			!alive ? &_L("NOT answered: no live app") : stuck ? &_L("NOT answered: the app has not run its event loop since the last ping") : &_L("answered"),
+			wg, pending);
+	iPingStuck = stuck;
+	}
+
+// a frame that composites this window shows the screen itself: the display driver then stops copying the screen into its
+// framebuffer tile (hildon-port.md 7.51.19); the tile comes back when no frame composites it
+void CScreenPub::UpdateTile()
+	{
+	TPheWinInfo list[16];
+	TPtr8 p((TUint8*)list, 0, sizeof(list));
+	const TInt n = iReg.List(p);
+	for (TInt i = 0; i < n && i < 16; ++i)
+		if (list[i].iId == iInfo.iId)
+			{
+			const TBool off = list[i].iComposited > 0;
+			if (off != iTileOff)
+				{
+				iTileOff = off;
+				const TInt e = UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalTile, (TAny*)(off ? 0 : 1), NULL, iScreen);
+				Log(_L("screen %d: composited by %d frame(s): framebuffer tile %S (%d)"), iScreen, list[i].iComposited,
+					off ? &KOff : &KOn, e);
+				}
+			break;
+			}
 	}
 
 // the window group on this screen that the app's thread owns (0 = none)
@@ -224,6 +282,16 @@ void CScreenPub::RunL(TUint64 aWatch)
 	TPheWinPointerPckg ev;
 	iReg.ActionNotify(action);
 	iReg.PointerNotify(ev, pointer);
+	// content: the display driver completes a request when this screen changed (7.51.19); an older driver = the 50 Hz poll
+	TRequestStatus damage, watch;
+	damage = KRequestPending;				// (a HAL call is not an async request: the caller marks it pending, the driver completes it)
+	const TBool notify = UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalDamageNotify, &damage, (TAny*)iGen, iScreen) == KErrNone;
+	if (!notify)
+		damage = KRequestPending;
+	_LIT(KNotify, "on damage (driver notify)");
+	_LIT(KPoll, "polled at 50 Hz");
+	Log(_L("screen %d: content %S"), iScreen, notify ? &KNotify : &KPoll);
+	iReg.Watchers(-1, watch);
 	timer.After(tick, 0);
 	TInt titleCountdown = 0;
 	for (;;)
@@ -232,6 +300,11 @@ void CScreenPub::RunL(TUint64 aWatch)
 		if (aWatch && died != KRequestPending)
 			{
 			Log(_L("screen %d: its app ended (%d): the window goes"), iScreen, died.Int());
+			if (notify)
+				UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalDamageNotify, NULL, NULL, iScreen);
+			iReg.WatchersCancel();
+			if (iTileOff)
+				UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalTile, (TAny*)1, NULL, iScreen);
 			app.Close();
 			if (closing)
 				killTimer.Cancel();
@@ -303,6 +376,31 @@ void CScreenPub::RunL(TUint64 aWatch)
 				iReg.ActionNotify(action);
 			continue;
 			}
+		if (watch != KRequestPending)
+			{
+			const TInt serial = watch.Int();
+			if (serial < 0)
+				{ Log(_L("screen %d: Watchers %d"), iScreen, serial); watch = KRequestPending; continue; }
+			UpdateTile();
+			iReg.Watchers(serial, watch);
+			continue;
+			}
+		TBool damaged = EFalse;
+		if (notify && damage != KRequestPending)
+			damaged = ETrue;
+		else if (tick != KRequestPending)
+			{
+			if (!notify)
+				damaged = ETrue;
+			if (--titleCountdown <= 0)
+				{
+				UpdateTitle();
+				titleCountdown = notify ? 1 : 50;						// once a second
+				}
+			timer.After(tick, notify ? 1000000 : KPollUs);
+			}
+		if (!damaged)
+			continue;
 		TRect r;
 		if (CopyDamage(r))
 			{
@@ -312,12 +410,11 @@ void CScreenPub::RunL(TUint64 aWatch)
 			if (first)
 				Log(_L("screen %d: first content, bitmap %d, %d subscriber(s)"), iScreen, iInfo.iBitmap, subs);
 			}
-		if (--titleCountdown <= 0)
+		if (notify)
 			{
-			UpdateTitle();
-			titleCountdown = 50;										// once a second
+			damage = KRequestPending;
+			UserSvr::HalFunction(EHalGroupDisplay, KPheDisplayHalDamageNotify, &damage, (TAny*)iGen, iScreen);
 			}
-		timer.After(tick, KPollUs);
 		}
 	}
 

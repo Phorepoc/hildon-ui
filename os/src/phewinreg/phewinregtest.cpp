@@ -216,11 +216,58 @@ static TInt Close(const TDesC& aTitle)
 				r = reg.Action(list[i].iId, EPheWinActClose);
 			TBuf8<64> t8;
 			t8.Copy(aTitle);
-			RDebug::Printf("[phewinregtest] close \"%S\": window %d, action %d", &t8, list[i].iId, r);
+			TUid uid;
+			const TInt u = reg.AppUid(list[i].iId, uid);
+			RDebug::Printf("[phewinregtest] close \"%S\": window %d (app uid %08x, %d), action %d", &t8, list[i].iId, uid.iUid, u, r);
 			break;
 			}
 	if (r == KErrNotFound)
 		RDebug::Printf("[phewinregtest] close: no window with that title (%d windows)", n);
+	reg.Close();
+	return r;
+	}
+
+// phewinregtest ping <title> [thread-name-pattern]: act as a frame's pinger on that window (watch it, ping every 2 s, 5 times) and
+// log its unanswered pings. With a thread pattern (e.g. Notepad*) that thread is suspended first and resumed at the end: a hung app
+static TInt PingTest(const TDesC& aTitle, const TDesC& aHang)
+	{
+	RPheWinReg reg;
+	TInt r = reg.Connect();
+	if (r != KErrNone)
+		return r;
+	TPheWinInfo list[16];
+	const TInt n = ListAll(reg, list, 16);
+	TInt id = 0;
+	for (TInt i = 0; i < n && i < 16 && !id; ++i)
+		if (list[i].iTitle.CompareF(aTitle) == 0)
+			id = list[i].iId;
+	RThread hang;
+	TBool hung = EFalse;
+	if (aHang.Length())
+		{
+		TFindThread f(aHang);
+		TFullName name;
+		if (f.Next(name) == KErrNone && hang.Open(f) == KErrNone)
+			{
+			hang.Suspend();
+			hung = ETrue;
+			}
+		}
+	r = id ? reg.Subscribe(id, EPheWinWatch) : KErrNotFound;
+	for (TInt k = 0; r == KErrNone && k < 5; ++k)
+		{
+		reg.Ping(id);
+		User::After(2000000);
+		TPheWinHints h;
+		reg.Hints(id, h);
+		RDebug::Printf("[phewinregtest] ping window %d (%s): %d unanswered, oldest %d ms", id, hung ? "app suspended" : "app running",
+					   h.iPingPending, h.iPingAgeMs);
+		}
+	if (hung)
+		{
+		hang.Resume();
+		hang.Close();
+		}
 	reg.Close();
 	return r;
 	}
@@ -231,7 +278,16 @@ GLDEF_C TInt E32Main()
 	TBuf<80> line;
 	User::CommandLine(line);
 	TLex lex(line);
-	if (lex.NextToken().CompareF(_L("close")) == 0)
+	TPtrC cmd = lex.NextToken();
+	if (cmd.CompareF(_L("ping")) == 0)
+		{
+		TPtrC title = lex.NextToken();
+		TPtrC hang = lex.NextToken();
+		const TInt c = PingTest(title, hang);
+		delete cleanup;
+		return c;
+		}
+	if (cmd.CompareF(_L("close")) == 0)
 		{
 		lex.SkipSpace();
 		const TInt c = Close(lex.Remainder());
