@@ -22,6 +22,8 @@
 #include <w32std.h>
 #include <apgwgnam.h>
 #include <apgtask.h>
+#include <apgcli.h>
+#include <apgicnfl.h>
 #include "phewinreg.h"
 
 static const TInt KPheDisplayHalDamage = 0x7103;		// the x86 display driver, virtual screens (xk_display.cpp)
@@ -69,6 +71,8 @@ private:
 	TUint iGen;
 	TUid iAppUid;
 	TThreadId iAppTid;				// the watched app's thread (0 = none given)
+	CApaMaskedBitmap* iIcon;		// the app's icon, its FBSERV handle in the window's hints (kept while the window is up)
+	void PublishHints();
 	};
 
 CScreenPub::~CScreenPub()
@@ -77,6 +81,7 @@ CScreenPub::~CScreenPub()
 		iReg.Remove(iInfo.iId);
 	iReg.Close();
 	delete iBitmap;
+	delete iIcon;
 	delete iDevice;
 	iWs.Close();
 	}
@@ -138,7 +143,8 @@ TBool CScreenPub::CopyDamage(TRect& aRect)
 
 void CScreenPub::UpdateTitle()
 	{
-	const TInt wg = iWs.GetFocusWindowGroup(iScreen);
+	// the watched app's task group, as the ping (a focused helper group or dialog has no caption of its own, hildon-port.md 7.51.22)
+	const TInt wg = iAppTid.Id() ? AppWindowGroup(iAppTid) : iWs.GetFocusWindowGroup(iScreen);
 	if (wg <= 0)
 		return;
 	CApaWindowGroupName* name = NULL;
@@ -159,8 +165,35 @@ void CScreenPub::UpdateTitle()
 		iAppUid = uid;
 		const TInt e = iReg.SetAppUid(iInfo.iId, uid);
 		Log(_L("screen %d: app uid %08x (%d)"), iScreen, uid.iUid, e);
+		PublishHints();
 		}
 	delete name;
+	}
+
+// the window's hints for a frame (C5 item 4): a classic app lays out for its screen only, so min = max = preferred = the screen
+// size (the frame scales, 7.51.13), and the app's AppArc icon for the title bar / task switcher
+void CScreenPub::PublishHints()
+	{
+	TPheWinHints h;
+	h.iId = iInfo.iId;
+	h.iMinSize = h.iMaxSize = h.iPreferredSize = iSize;
+	delete iIcon;
+	iIcon = NULL;
+	RApaLsSession ls;
+	TInt r = ls.Connect();
+	if (r == KErrNone)
+		{
+		TRAP(r, iIcon = CApaMaskedBitmap::NewLC(); CleanupStack::Pop(iIcon));
+		if (r == KErrNone)
+			r = ls.GetAppIcon(iAppUid, TSize(48, 48), *iIcon);
+		ls.Close();
+		}
+	if (r != KErrNone)
+		{ delete iIcon; iIcon = NULL; }
+	h.iIcon = iIcon ? iIcon->Handle() : 0;
+	const TInt e = iReg.SetHints(h);
+	Log(_L("screen %d: hints %dx%d, icon %d (%dx%d, AppArc %d): %d"), iScreen, iSize.iWidth, iSize.iHeight, h.iIcon,
+		iIcon ? iIcon->SizeInPixels().iWidth : 0, iIcon ? iIcon->SizeInPixels().iHeight : 0, r, e);
 	}
 
 // a frame's pointer event in this screen's pixels: the key focus (and with it WSERV's pointer, pointer_board.cpp) moves to this
