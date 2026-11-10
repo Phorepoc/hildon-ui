@@ -8,6 +8,9 @@
 #include <e32base.h>
 #include <e32debug.h>
 #include <hal.h>
+#include <fbs.h>
+#include <apgcli.h>
+#include <akniconutils.h>
 #include "phewinreg.h"
 
 class CRegSession;
@@ -16,7 +19,14 @@ class CRegServer : public CServer2
 	{
 public:
 	CRegServer() : CServer2(EPriorityStandard, ESharableSessions) {}
-	~CRegServer() { iWins.Close(); }
+	~CRegServer() { iWins.Close(); iApps.Close(); iIconBmps.ResetAndDestroy(); if (iFbs) RFbsSession::Disconnect(); }
+	// the launch API (hildon-port.md 7.51.23): the launchable apps, built at the first Apps / Open call; the icons are owned here
+	RArray<TPheWinApp> iApps;
+	RPointerArray<CFbsBitmap> iIconBmps;
+	TBool iAppsBuilt = EFalse;
+	TBool iFbs = EFalse;
+	void BuildAppsL();
+	void LoadIconL(TPheWinApp& aApp, RApaLsSession& aLs);
 	CSession2* NewSessionL(const TVersion& aVersion, const RMessage2& aMessage) const;
 	void Changed();
 	void ContentChanged();
@@ -137,6 +147,26 @@ private:
 		const TInt i = Server().Find(aId);
 		return i >= 0 && Server().iWins[i].iSession == this ? i : KErrNotFound;
 		}
+	// raise + focus the top window of app aUid (RaiseApp, Open): its id, or KErrNotFound
+	TInt RaiseUid(TInt32 aUid)
+		{
+		CRegServer& srv = Server();
+		TInt i = KErrNotFound;
+		for (TInt k = 0; aUid && k < srv.iWins.Count(); ++k)
+			if (srv.iWins[k].iAppUid == aUid && (i < 0 || srv.iWins[k].iStack > srv.iWins[i].iStack))
+				i = k;
+		if (i < 0)
+			return KErrNotFound;
+		srv.iWins[i].iStack = ++srv.iStackTop;
+		for (TInt k = 0; k < srv.iWins.Count(); ++k)
+			srv.iWins[k].iInfo.iState &= ~EPheWinFocused;
+		srv.iWins[i].iInfo.iState |= EPheWinFocused;
+		const TInt id = srv.iWins[i].iInfo.iId;
+		const TInt r = QueueAction(i, EPheWinActFocus);
+		RDebug::Printf("[phewinreg] app %08x: window %d raised and focused (%d)", aUid, id, r);
+		srv.Changed();
+		return r == KErrNone ? id : r;
+		}
 	};
 
 CSession2* CRegServer::NewSessionL(const TVersion& aVersion, const RMessage2&) const
@@ -156,6 +186,67 @@ void CRegServer::Changed()
 		if (s->iNotify.IsNull())
 			iWaiters.Remove(i);
 		}
+	}
+
+// one app's 48x48 icon + mask. S^3 app icons are MIF (SVG) files that AppArc's GetAppIcon(uid, size, bitmap) cannot render (-5):
+// AppArc names the file, AknIconUtils renders it (a MIF's first icon is 16384, its mask 16385; an MBM's are 0 and 1)
+void CRegServer::LoadIconL(TPheWinApp& aApp, RApaLsSession& aLs)
+	{
+	HBufC* file = NULL;
+	User::LeaveIfError(aLs.GetAppIcon(TUid::Uid(aApp.iUid), file));
+	CleanupStack::PushL(file);
+	CFbsBitmap* bmp = NULL;
+	CFbsBitmap* mask = NULL;
+	const TBool mif = file->Right(4).CompareF(_L(".mif")) == 0;
+	AknIconUtils::CreateIconL(bmp, mask, *file, mif ? 16384 : 0, mif ? 16385 : 1);
+	CleanupStack::PopAndDestroy(file);
+	AknIconUtils::SetSize(bmp, TSize(48, 48), EAspectRatioPreserved);
+	if (iIconBmps.Append(bmp) != KErrNone)
+		{ delete bmp; delete mask; User::Leave(KErrNoMemory); }
+	aApp.iIcon = bmp->Handle();
+	if (mask && iIconBmps.Append(mask) == KErrNone)
+		aApp.iIconMask = mask->Handle();
+	}
+
+static TInt ByCaption(const TPheWinApp& aA, const TPheWinApp& aB) { return aA.iCaption.CompareC(aB.iCaption); }
+
+void CRegServer::BuildAppsL()
+	{
+	if (!iFbs)
+		{
+		User::LeaveIfError(RFbsSession::Connect());
+		iFbs = ETrue;
+		}
+	RApaLsSession ls;
+	User::LeaveIfError(ls.Connect());
+	CleanupClosePushL(ls);
+	User::LeaveIfError(ls.GetAllApps());
+	TApaAppInfo info;
+	TInt icons = 0, firstErr = KErrNone;
+	for (TInt tries = 0; ; )
+		{
+		const TInt r = ls.GetNextApp(info);
+		if (r == RApaLsSession::EAppListInvalid && tries++ < 20)		// (AppArc still scanning)
+			{ User::After(100000); User::LeaveIfError(ls.GetAllApps()); continue; }
+		if (r != KErrNone)
+			break;
+		TApaAppCapabilityBuf cap;
+		if (ls.GetAppCapability(cap, info.iUid) != KErrNone || cap().iAppIsHidden)
+			continue;
+		TPheWinApp a;
+		a.iUid = info.iUid.iUid;
+		a.iCaption = info.iCaption.Left(a.iCaption.MaxLength());
+		TRAPD(e, LoadIconL(a, ls));
+		if (e == KErrNone)
+			++icons;
+		else if (firstErr == KErrNone)
+			firstErr = e;
+		iApps.AppendL(a);
+		}
+	CleanupStack::PopAndDestroy(&ls);
+	iApps.Sort(TLinearOrder<TPheWinApp>(ByCaption));
+	iAppsBuilt = ETrue;
+	RDebug::Printf("[phewinreg] apps: %d launchable, %d with an icon (first icon error %d)", iApps.Count(), icons, firstErr);
 	}
 
 // a content-only update: every compositor waiting for one hears the new tick
@@ -467,22 +558,66 @@ void CRegSession::ServiceL(const RMessage2& aMessage)
 		return;
 		}
 	case EPheWinRaiseApp:
+		aMessage.Complete(RaiseUid(aMessage.Int0()));
+		return;
+	case EPheWinApps:
 		{
+		if (!srv.iAppsBuilt)
+			srv.BuildAppsL();
+		const TInt n = srv.iApps.Count();
+		const TInt room = aMessage.GetDesMaxLengthL(0) / (TInt)sizeof(TPheWinApp);
+		if (room < n) { aMessage.Complete(n); return; }
+		HBufC8* buf = HBufC8::NewLC(n * sizeof(TPheWinApp) + 1);
+		TPtr8 b = buf->Des();
+		for (TInt k = 0; k < n; ++k)
+			{
+			TPheWinApp a = srv.iApps[k];
+			a.iWindow = 0;
+			for (TInt w = 0; w < srv.iWins.Count() && !a.iWindow; ++w)
+				if (srv.iWins[w].iAppUid == a.iUid)
+					a.iWindow = srv.iWins[w].iInfo.iId;
+			b.Append((const TUint8*)&a, sizeof(a));
+			}
+		aMessage.WriteL(0, b);
+		CleanupStack::PopAndDestroy(buf);
+		aMessage.Complete(n);
+		return;
+		}
+	case EPheWinOpen:
+		{
+		if (!srv.iAppsBuilt)
+			srv.BuildAppsL();
 		const TInt32 uid = aMessage.Int0();
-		TInt i = KErrNotFound;
-		for (TInt k = 0; uid && k < srv.iWins.Count(); ++k)
-			if (srv.iWins[k].iAppUid == uid && (i < 0 || srv.iWins[k].iStack > srv.iWins[i].iStack))
-				i = k;
-		if (i < 0) { aMessage.Complete(KErrNotFound); return; }
-		srv.iWins[i].iStack = ++srv.iStackTop;
-		for (TInt k = 0; k < srv.iWins.Count(); ++k)
-			srv.iWins[k].iInfo.iState &= ~EPheWinFocused;
-		srv.iWins[i].iInfo.iState |= EPheWinFocused;
-		const TInt id = srv.iWins[i].iInfo.iId;
-		const TInt r = QueueAction(i, EPheWinActFocus);
-		RDebug::Printf("[phewinreg] app %08x: window %d raised and focused (%d)", uid, id, r);
-		aMessage.Complete(r == KErrNone ? id : r);
-		srv.Changed();
+		TInt k = 0;
+		while (k < srv.iApps.Count() && srv.iApps[k].iUid != uid)
+			++k;
+		if (!uid || k == srv.iApps.Count()) { aMessage.Complete(KErrNotFound); return; }
+		const TInt id = RaiseUid(uid);
+		if (id > 0) { aMessage.Complete(id); return; }
+		// not open: the launcher takes (or makes) a screen and starts the app there; the screen's publisher registers the window
+		TFileName doc;
+		const TInt dl = aMessage.GetDesLengthL(1);
+		if (dl > 0 && dl <= doc.MaxLength())
+			aMessage.ReadL(1, doc);
+		RApaLsSession ls;
+		User::LeaveIfError(ls.Connect());
+		TApaAppInfo info;
+		TInt r = ls.GetAppInfo(info, TUid::Uid(uid));
+		ls.Close();
+		if (r == KErrNone)
+			{
+			TParsePtrC exe(info.iFullName);
+			HBufC* args = HBufC::NewLC(16 + exe.NameAndExt().Length() + doc.Length());
+			TPtrC name = exe.NameAndExt();
+			args->Des().Format(_L("window %S %S"), &name, &doc);
+			RProcess p;
+			r = p.Create(_L("phescreenlaunch.exe"), *args);
+			if (r == KErrNone)
+				{ p.Resume(); p.Close(); }
+			CleanupStack::PopAndDestroy(args);
+			}
+		RDebug::Printf("[phewinreg] open app %08x: not open, launcher started (%d)", uid, r);
+		aMessage.Complete(r);
 		return;
 		}
 	case EPheWinAppUid:

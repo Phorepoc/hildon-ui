@@ -23,7 +23,7 @@
 #include <apgwgnam.h>
 #include <apgtask.h>
 #include <apgcli.h>
-#include <apgicnfl.h>
+#include <akniconutils.h>
 #include "phewinreg.h"
 
 static const TInt KPheDisplayHalDamage = 0x7103;		// the x86 display driver, virtual screens (xk_display.cpp)
@@ -71,7 +71,8 @@ private:
 	TUint iGen;
 	TUid iAppUid;
 	TThreadId iAppTid;				// the watched app's thread (0 = none given)
-	CApaMaskedBitmap* iIcon;		// the app's icon, its FBSERV handle in the window's hints (kept while the window is up)
+	CFbsBitmap* iIcon;				// the app's icon and its mask, their FBSERV handles in the window's hints (kept while the window is up)
+	CFbsBitmap* iIconMask;
 	void PublishHints();
 	};
 
@@ -82,6 +83,7 @@ CScreenPub::~CScreenPub()
 	iReg.Close();
 	delete iBitmap;
 	delete iIcon;
+	delete iIconMask;
 	delete iDevice;
 	iWs.Close();
 	}
@@ -177,23 +179,37 @@ void CScreenPub::PublishHints()
 	TPheWinHints h;
 	h.iId = iInfo.iId;
 	h.iMinSize = h.iMaxSize = h.iPreferredSize = iSize;
+	if (iScreen == 0)
+		h.iFlags = EPheWinHintPermanent;		// the phone screen: a close ends the app in front, the screen stays (7.51.23)
 	delete iIcon;
 	iIcon = NULL;
+	delete iIconMask;
+	iIconMask = NULL;
+	// S^3 app icons are MIF (SVG): AppArc's GetAppIcon(uid, size, bitmap) cannot render them (-5, 7.51.22). AppArc names the
+	// file, AknIconUtils renders it (a MIF's first icon is 16384, its mask 16385; an MBM's are 0 and 1)
 	RApaLsSession ls;
 	TInt r = ls.Connect();
 	if (r == KErrNone)
 		{
-		TRAP(r, iIcon = CApaMaskedBitmap::NewLC(); CleanupStack::Pop(iIcon));
-		if (r == KErrNone)
-			r = ls.GetAppIcon(iAppUid, TSize(48, 48), *iIcon);
+		HBufC* file = NULL;
+		r = ls.GetAppIcon(iAppUid, file);
 		ls.Close();
+		if (r == KErrNone)
+			{
+			const TBool mif = file->Right(4).CompareF(_L(".mif")) == 0;
+			TRAP(r, AknIconUtils::CreateIconL(iIcon, iIconMask, *file, mif ? 16384 : 0, mif ? 16385 : 1));
+			delete file;
+			if (r == KErrNone)
+				r = AknIconUtils::SetSize(iIcon, TSize(48, 48), EAspectRatioPreserved);
+			}
 		}
 	if (r != KErrNone)
-		{ delete iIcon; iIcon = NULL; }
+		{ delete iIcon; iIcon = NULL; delete iIconMask; iIconMask = NULL; }
 	h.iIcon = iIcon ? iIcon->Handle() : 0;
+	h.iIconMask = iIconMask ? iIconMask->Handle() : 0;
 	const TInt e = iReg.SetHints(h);
-	Log(_L("screen %d: hints %dx%d, icon %d (%dx%d, AppArc %d): %d"), iScreen, iSize.iWidth, iSize.iHeight, h.iIcon,
-		iIcon ? iIcon->SizeInPixels().iWidth : 0, iIcon ? iIcon->SizeInPixels().iHeight : 0, r, e);
+	Log(_L("screen %d: hints %dx%d flags %d, icon %d mask %d (%dx%d, %d): %d"), iScreen, iSize.iWidth, iSize.iHeight, h.iFlags,
+		h.iIcon, h.iIconMask, iIcon ? iIcon->SizeInPixels().iWidth : 0, iIcon ? iIcon->SizeInPixels().iHeight : 0, r, e);
 	}
 
 // a frame's pointer event in this screen's pixels: the key focus (and with it WSERV's pointer, pointer_board.cpp) moves to this
@@ -397,7 +413,25 @@ void CScreenPub::RunL(TUint64 aWatch)
 				AnswerPing();
 			else if (ev > 0 && PheWinActionCode(ev) == EPheWinActClose)
 				{
-				if (!aWatch)
+				if (!aWatch && iScreen == 0)
+					{
+					// the phone screen (EPheWinHintPermanent): end the app in front, as the task switcher does; the menu stays
+					const TInt wg = iWs.GetFocusWindowGroup(0);
+					CApaWindowGroupName* name = NULL;
+					TRAPD(nr, name = CApaWindowGroupName::NewL(iWs, wg));
+					const TUid uid = nr == KErrNone ? name->AppUid() : KNullUid;
+					const TBool system = nr != KErrNone || name->IsSystem() || uid == KNullUid || uid == TUid::Uid(0x101F4CD2);
+					delete name;
+					if (!system)
+						{
+						TApaTask task(iWs);
+						task.SetWgId(wg);
+						task.EndTask();
+						}
+					Log(_L("screen 0: close action -> %S (group %d, app %08x)"),
+						system ? &_L("nothing: the menu or a system app is in front") : &_L("EndTask"), wg, uid.iUid);
+					}
+				else if (!aWatch)
 					Log(_L("screen %d: close action (ignored: no app given, the app owns its life)"), iScreen);
 				else if (!closing)
 					{

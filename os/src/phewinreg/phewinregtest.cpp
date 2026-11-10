@@ -272,6 +272,59 @@ static TInt PingTest(const TDesC& aTitle, const TDesC& aHang)
 	return r;
 	}
 
+// phewinregtest apps: the launch API's app list (hildon-port.md 7.51.23), a few lines
+// phewinregtest open <hex uid>: Open (raise or start), twice when "twice" follows
+static TInt AppsTest()
+	{
+	RPheWinReg reg;
+	TInt r = reg.Connect();
+	if (r != KErrNone)
+		return r;
+	TBuf8<1> none;
+	TInt n = reg.Apps(none);				// (the count only)
+	if (n < 0)
+		{ reg.Close(); return n; }
+	HBufC8* buf = HBufC8::New((n + 4) * sizeof(TPheWinApp));
+	if (!buf)
+		{ reg.Close(); return KErrNoMemory; }
+	TPtr8 b = buf->Des();
+	n = reg.Apps(b);
+	const TPheWinApp* a = (const TPheWinApp*)b.Ptr();
+	const TInt count = b.Length() / (TInt)sizeof(TPheWinApp);
+	TInt icons = 0;
+	for (TInt i = 0; i < count; ++i)
+		{
+		if (a[i].iIcon)
+			++icons;
+		if (i < 12)
+			{
+			TBuf8<64> c8;
+			c8.Copy(a[i].iCaption);
+			RDebug::Printf("[phewinregtest] app %08x \"%S\" window %d icon %d mask %d", a[i].iUid, &c8, a[i].iWindow, a[i].iIcon, a[i].iIconMask);
+			}
+		}
+	RDebug::Printf("[phewinregtest] apps: %d (returned %d), %d with an icon", count, n, icons);
+	delete buf;
+	reg.Close();
+	return KErrNone;
+	}
+
+static TInt OpenTest(const TDesC& aUid)
+	{
+	TLex l(aUid);
+	TUint32 uid = 0;
+	if (l.Val(uid, EHex) != KErrNone)
+		return KErrArgument;
+	RPheWinReg reg;
+	TInt r = reg.Connect();
+	if (r != KErrNone)
+		return r;
+	r = reg.Open(TUid::Uid(uid));
+	RDebug::Printf("[phewinregtest] open %08x: %d (> 0 = raised window, 0 = started)", uid, r);
+	reg.Close();
+	return r < 0 ? r : KErrNone;
+	}
+
 GLDEF_C TInt E32Main()
 	{
 	CTrapCleanup* cleanup = CTrapCleanup::New();
@@ -279,6 +332,12 @@ GLDEF_C TInt E32Main()
 	User::CommandLine(line);
 	TLex lex(line);
 	TPtrC cmd = lex.NextToken();
+	if (cmd.CompareF(_L("apps")) == 0 || cmd.CompareF(_L("open")) == 0)
+		{
+		const TInt c = cmd.CompareF(_L("apps")) == 0 ? AppsTest() : OpenTest(lex.NextToken());
+		delete cleanup;
+		return c;
+		}
 	if (cmd.CompareF(_L("ping")) == 0)
 		{
 		TPtrC title = lex.NextToken();
