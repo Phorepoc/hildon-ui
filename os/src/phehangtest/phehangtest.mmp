@@ -1,0 +1,31 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehangtest.mmp -- a classic test app that hangs on request (see phehangtest.cpp)
+#include <platform_paths.hrh>
+
+TARGET			phehangtest.exe
+TARGETTYPE		exe
+UID				0x100039CE 0xE701573C
+
+CAPABILITY		none
+VENDORID		0
+
+SOURCEPATH		.
+SOURCE			phehangtest.cpp
+
+START RESOURCE	phehangtest.rss
+HEADER
+TARGETPATH		/resource/apps
+END
+
+START RESOURCE	phehangtest_reg.rss
+TARGETPATH		/private/10003a3f/apps
+END
+
+USERINCLUDE		.
+APP_LAYER_SYSTEMINCLUDE
+
+LIBRARY			euser.lib apparc.lib cone.lib eikcore.lib avkon.lib eikcoctl.lib ws32.lib gdi.lib efsrv.lib
+
+EPOCSTACKSIZE	0x5000

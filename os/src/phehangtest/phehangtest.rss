@@ -1,0 +1,40 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehangtest.rss -- application resource
+NAME PHHT
+
+#include <eikon.rh>
+#include <avkon.rh>
+#include <avkon.rsg>
+#include <appinfo.rh>
+#include "phehangtest.hrh"
+
+RESOURCE RSS_SIGNATURE { }
+RESOURCE TBUF r_default_document_name { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+	{
+	menubar = r_phehangtest_menubar;
+	cba = R_AVKON_SOFTKEYS_OPTIONS_EXIT;
+	}
+
+RESOURCE MENU_BAR r_phehangtest_menubar
+	{
+	titles = { MENU_TITLE { menu_pane = r_phehangtest_menu; } };
+	}
+
+RESOURCE MENU_PANE r_phehangtest_menu
+	{
+	items =
+		{
+		MENU_ITEM { command = EPheHangCmdHang; txt = "Hang"; },
+		MENU_ITEM { command = EAknSoftkeyExit; txt = "Exit"; }
+		};
+	}
+
+RESOURCE LOCALISABLE_APP_INFO r_phehangtest_localisable_app_info
+	{
+	short_caption = "Hang test";
+	caption_and_icon = CAPTION_AND_ICON_INFO { caption = "Hang test"; number_of_icons = 0; };
+	}

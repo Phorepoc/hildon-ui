@@ -1,0 +1,11 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehangtest.hrh -- command ids
+#ifndef PHEHANGTEST_HRH
+#define PHEHANGTEST_HRH
+enum TPheHangTestCommands
+	{
+	EPheHangCmdHang = 0x6000
+	};
+#endif

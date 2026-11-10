@@ -1,0 +1,16 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehangtest_reg.rss -- application registration
+#include <appinfo.rh>
+#include <phehangtest.rsg>
+
+UID2 KUidAppRegistrationResourceFile
+UID3 0xE701573C
+
+RESOURCE APP_REGISTRATION_INFO
+	{
+	app_file = "phehangtest";
+	localisable_resource_file = "\resource\apps\phehangtest";
+	localisable_resource_id = R_PHEHANGTEST_LOCALISABLE_APP_INFO;
+	}
