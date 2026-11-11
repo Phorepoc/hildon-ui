@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=Phorepoc Hildon icons
+Comment=The control panel's own icons (BSD-2-Clause)
+Directories=48x48/hildon
+
+[48x48/hildon]
+Size=48
+Context=hildon
+Type=Threshold

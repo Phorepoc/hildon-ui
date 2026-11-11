@@ -35,6 +35,10 @@ phe_hcp_hildon_init (void)
 {
   hildon_init ();
   if (!phe_theme_load (phe_log)) gtk_rc_parse (phe_res ("resource/phehcp/phehildon.rc"));
+  { /* the applets' icons (general_clock, ...): our own icon theme in resource/phehcp/icons/hicolor, on whichever drive the package went to */
+    gchar *idx = g_strdup (phe_res ("resource/phehcp/icons/hicolor/index.theme")), *dir = g_path_get_dirname (idx), *top = g_path_get_dirname (dir);
+    gtk_icon_theme_append_search_path (gtk_icon_theme_get_default (), top);
+    g_free (idx); g_free (dir); g_free (top); }
 }
 
 struct osso_af_context_t {
