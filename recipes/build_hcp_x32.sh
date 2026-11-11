@@ -27,7 +27,8 @@ sed -e 's|@PYTHON@|python3|' -e 's|@VERSION@|2.56.4|' -e 's|@GLIB_MAJOR_VERSION@
 python3 $O/glib-genmarshal --prefix=hcp_marshal --header $CP/hcp-marshalers.list > $O/hcp-marshalers.h
 python3 $O/glib-genmarshal --prefix=hcp_marshal --body $CP/hcp-marshalers.list > $O/hcp-marshalers.c
 one $O/hcp-marshalers.c hcp-marshalers
-for f in hcp-program hcp-window hcp-app hcp-app-list hcp-app-view hcp-grid; do one $CP/$f.c $f; done
+one $CP/hcp-program.c hcp-program -include /h/os/src/phehcp/shims/phe_hcp_show.h     # its gtk_widget_show_all sizes the window to the screen (phehcp_osso.c)
+for f in hcp-window hcp-app hcp-app-list hcp-app-view hcp-grid; do one $CP/$f.c $f; done
 one $CP/hcp-main.c hcp-main -Dmain=phe_hcp_main -Dhildon_init=phe_hcp_hildon_init
 one /h/os/src/phehcp/phehcp_osso.c phehcp_osso
 one /h/os/src/phehcpdatetime/phehcpdatetime.c phehcpdatetime

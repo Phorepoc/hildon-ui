@@ -17,6 +17,19 @@ extern int phe_hcp_main (int argc, char **argv);   /* hildon-control-panel's mai
 const char *phe_hcp_res (const char *rel) { return phe_res (rel); }
 
 /* hcp-main.c calls hildon_init () right after gtk_init (): the theme is loaded there (it is built with -Dhildon_init=phe_hcp_hildon_init) */
+/* On Maemo the window manager maximises a stackable window; here nothing does, and the control panel (unlike the demo, which sets its size) stayed 584 px high with an unpainted strip
+ * below it. hcp-program.c's gtk_widget_show_all (the build renames it, shims/phe_hcp_show.h) comes here: a stackable window gets the screen size before it is shown. */
+#undef gtk_widget_show_all
+void
+phe_hcp_show_all (GtkWidget *w)
+{
+  if (HILDON_IS_STACKABLE_WINDOW (w)) {
+    gtk_window_set_default_size (GTK_WINDOW (w), gdk_screen_get_width (gdk_screen_get_default ()), gdk_screen_get_height (gdk_screen_get_default ()));
+    phe_log ("[phehcp] stackable window: default size = the screen");
+  }
+  gtk_widget_show_all (w);
+}
+
 void
 phe_hcp_hildon_init (void)
 {
