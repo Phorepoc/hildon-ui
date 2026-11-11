@@ -1,0 +1,16 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehildonwin_loc.rss -- the demo's caption in the application menu
+NAME PHHW
+
+#include <uikon.rh>
+#include <appinfo.rh>
+
+RESOURCE RSS_SIGNATURE { }
+
+RESOURCE LOCALISABLE_APP_INFO r_phehildonwin_localisable_app_info
+	{
+	short_caption = "Hildon demo";
+	caption_and_icon = CAPTION_AND_ICON_INFO { caption = "Hildon demo"; number_of_icons = 0; };
+	}

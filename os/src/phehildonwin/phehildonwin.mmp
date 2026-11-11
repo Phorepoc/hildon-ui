@@ -13,5 +13,14 @@ OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 OS_LAYER_LIBC_SYSTEMINCLUDE
 SOURCEPATH		.
 SOURCE			phehildonwin.cpp
+START RESOURCE	phehildonwin_loc.rss
+HEADER
+TARGETPATH		/resource/apps
+END
+
+START RESOURCE	phehildonwin_reg.rss
+TARGETPATH		/private/10003a3f/apps
+END
+USERINCLUDE		.
 LIBRARY			euser.lib ws32.lib gdi.lib fbscli.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib phepng.lib phepixman.lib phefreetype.lib phefontconfig.lib phehb.lib phecairo.lib phepango.lib phepixbuf.lib phegdk.lib pheatk.lib phegtk.lib phehildon.lib
 SMPSAFE
