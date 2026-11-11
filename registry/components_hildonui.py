@@ -46,7 +46,9 @@ COMPONENTS = {
                                           "resource\\phehildonwin\\beep.wav=.hildon/testdata/phehildon_beep.wav"]),
     # the Hildon control panel (its own package, hildon-settings: the menu's "Settings (Hildon)"), its two stand-in applets (docs hildon-port.md 7.104)
     "phehcp": _exe("phehcp", ["resource\\phehcp\\fonts.conf=.hildon/testdata/phehildonwin_fonts.conf",
-                              "resource\\phehcp\\phehildon.rc=.hildon/testdata/phehildon.rc"]),
+                              "resource\\phehcp\\phehildon.rc=.hildon/testdata/phehildon.rc"]
+                  + [f"resource\\phehcp\\icons\\hicolor\\{f.replace('/', chr(92))}=" + os.path.join(_DATA, "phehcp/icons/hicolor", f)
+                     for f in ("index.theme", "48x48/hildon/general_clock.png", "48x48/hildon/general_globe.png", "48x48/hildon/filemanager_unknown_file.png")]),
     "phehcpdatetime": _dll("phehcpdatetime", sym=True),
     "phehcpregion": _dll("phehcpregion", sym=True),
     # the clock home widget (its own package, hildon-clock-widget)
