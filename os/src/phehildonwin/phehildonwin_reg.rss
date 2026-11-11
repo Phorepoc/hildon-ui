@@ -11,6 +11,6 @@ UID3 0xE7015785
 RESOURCE APP_REGISTRATION_INFO
 	{
 	app_file = "phehildonwin";
-	localisable_resource_file = "\resource\apps\phehildonwin_loc";
+	localisable_resource_file = "\\resource\\apps\\phehildonwin_loc";
 	localisable_resource_id = R_PHEHILDONWIN_LOCALISABLE_APP_INFO;
 	}
