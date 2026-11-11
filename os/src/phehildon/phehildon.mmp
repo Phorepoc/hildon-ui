@@ -1,3 +1,5 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
 TARGET			phehildon.dll
 TARGETTYPE		dll
 UID				0x1000008d 0xE7015786

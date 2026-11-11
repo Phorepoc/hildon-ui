@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildondesktoptest_main.c -- libhildondesktop on the PC image, through its public API only: the heartbeat (HDHeartbeat over the in-process libiphb), the shortcuts store (HDShortcuts over the
  * GConf store: add a bookmark shortcut, read the list back, see the change notification), a home plug-in item (HDHomePluginItem subclass: realized as a window, plug-in id, applet id, resize
  * type), and the D-Bus connection a plug-in asks its item for (libdbus over TCP on the loopback: without a bus daemon the attempt must fail with a connection error, not hang or crash).

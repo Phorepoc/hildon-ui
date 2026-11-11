@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* shim: the part of GConf libhildon and libhildondesktop use -- typed get / set of keys by path, string lists, change notification -- implemented in phehildon_gconf.c as an in-process key store:
  * there is no GConf daemon here, so the "configuration database" lives for the life of the process (and is loaded from / saved to the GKeyFile $PHE_GCONF_FILE when that names a file).
  * BSD-2-Clause (Phorepoc). */

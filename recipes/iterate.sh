@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # iterate.sh -- host (Git Bash), from the Symbian-ReverseEngineered checkout: repackage the test, relink, rebuild the ROM, boot it
 # once in QEMU and print the [pheglib] lines. Needs the GLib objects from build_x32.sh in the hildon-wk volume.
 set -u

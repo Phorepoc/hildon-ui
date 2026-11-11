@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* shim: libiphb, the client side of the Nokia IP heartbeat daemon, implemented in phehildon_iphb.c with an in-process heartbeat: a client asks to be woken between mintime and maxtime
  * seconds from now; the wake-ups of all clients are batched (every waiter whose minimum has passed is woken when the first one reaches its maximum) so that periodic work of several
  * plug-ins happens together. The handle's file descriptor becomes readable at the wake-up. BSD-2-Clause (Phorepoc). */

@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildon_x11.c -- Xlib / gdkx.h for libhildon over the Symbian GDK backend (see shims/phe_xlib.h). One process owns every window and the backend is the window manager, so the
  * "server" operations are direct operations on GDK windows, atoms and properties. BSD-2-Clause (Phorepoc). */
 #include <string.h>

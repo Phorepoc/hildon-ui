@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build_hildon_x32.sh -- IN phorepoc-x86 (volume at /wk, repo :ro at /repo, this repo at /h): libhildon 2.2.30 (LGPL 2.1, github.com/maemo-leste/libhildon at the commit pinned in pins.sh, cloned into
 # dl/libhildon) for x32 over Open C, on GTK 2.24.33 / the Symbian GDK backend. No configure: the generated sources (hildon-enum-types.[ch], hildon-marshalers.[ch], hildon-version.h) are made exactly as
 # hildon/Makefile.am makes them; the platform dependencies of libhildon -- Xlib / gdkx.h (window ids, atoms, properties, client messages), GConf, libcanberra, libintl -- are the shims of

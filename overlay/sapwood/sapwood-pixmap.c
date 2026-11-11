@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* GTK+ Sapwood Engine -- in-process image tiles for Phorepoc. LGPL-2.1-or-later (the engine's licence).
  * Replaces sapwood-pixmap.c of the upstream engine: that file asked the separate sapwood-server for X pixmaps over a socket. Here the engine loads the image itself (gdk-pixbuf), cuts
  * it at the borders into 3x3 tiles and draws them with cairo (tiled, as upstream: no scaling; 8-bit alpha works, the upstream engine had 1-bit). Shaped windows are not supported. */

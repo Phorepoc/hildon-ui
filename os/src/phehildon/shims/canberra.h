@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* shim: libcanberra's client API with the platform's audio as its one backend: a sample file (media.filename) is played through the MMF (phehildon_mmf.cpp, CMdaAudioPlayerUtility), the finish
  * callback is called when the sample has been played. Sound-theme lookup by event id (event.id) is not implemented: a play request without a file name fails with CA_ERROR_NOTSUPPORTED.
  * Implemented in phehildon_canberra.c. BSD-2-Clause (Phorepoc). */

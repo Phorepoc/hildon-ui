@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehome_dbus.c -- the Home's D-Bus service com.nokia.HildonHome on the session bus. BSD-2-Clause (Phorepoc).
  * The interface is hildon-home's own: hd-hildon-home-dbus.xml of the pinned hildon-home, turned into dbus-glib server glue by the REAL dbus-binding-tool of the pinned dbus-glib tarball
  * (dbus-symbian/recipes/gen_glue.sh, native build; the generated hd-hildon-home-dbus-glue.h is included below). hildon-home's own implementation of the object (hd-hildon-home-dbus.c) needs

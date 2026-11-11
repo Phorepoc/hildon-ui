@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildon_iphb.c -- the in-process heartbeat behind shims/iphbd/libiphb.h. One thread keeps the time for every handle; a handle is a pipe: the wake-up is a byte written to it, the client
  * polls the read end (iphb_get_fd) and reads the byte. A waiter has a window [start + mintime, start + maxtime]; the first waiter to reach the end of its window wakes every waiter
  * whose window has opened. BSD-2-Clause (Phorepoc). */

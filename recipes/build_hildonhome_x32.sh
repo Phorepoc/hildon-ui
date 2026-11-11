@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build_hildonhome_x32.sh -- IN phorepoc-x86 (volume at /wk, repo :ro at /repo, this repo at /h, siblings at /glib /gtk /dbus): the Home process of the Phorepoc Hildon desktop.
 #  libphehome.a = the REAL hd-applet-manager.c and hd-widgets.c of hildon-home (github.com/maemo-leste/hildon-home at the commit pinned in pins.sh, LGPL-2.1, cloned into dl/hildon-home) + our main (os/src/phehome/phehome_main.c)
 #  libphehomeexample.a = libhildondesktop's example home applet (examples/home/example-label-home-applet.c), the plug-in the Home loads

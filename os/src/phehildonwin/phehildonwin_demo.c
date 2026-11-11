@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildonwin_demo.c -- the libhildon demo, written against the PUBLIC libhildon 2.2 API only: a HildonProgram with a HildonWindow whose content is a HildonPannableArea (finger scrolling)
  * of HildonButtons (title + value), a HildonCheckButton, a HildonEntry and a HildonPickerButton with a HildonTouchSelector; an application menu (HildonAppMenu); a banner; a HildonNote.
  * Runs on phehildon.dll over GTK 2.24 and the Symbian GDK backend. BSD-2-Clause (Phorepoc). */

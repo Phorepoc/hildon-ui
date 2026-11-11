@@ -1,3 +1,5 @@
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # sapwood_patch.py DIR -- the patches of build_sapwood_x32.sh to the upstream engine sources copied into DIR: no X-pixmap masks (shaped windows and 1-bit masks are not supported), so
 # the mask the renderer would create is NULL, and the shape code of sapwood-style.c is off.
 import sys

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build_sapwood_x32.sh -- IN phorepoc-x86 (volume at /wk, this repo at /h, siblings at /glib /gtk /dbus): the sapwood GTK theme engine (github.com/maemo-leste/sapwood, LGPL-2.1, pinned in pins.sh,
 # cloned into dl/sapwood) as libsapwood.a -> sapwood.dll. The engine of the Hildon (Nokia Nseries / Fremantle) themes. Upstream talks to a separate sapwood-server for X pixmaps: that one file
 # (engine/sapwood-pixmap.c + its header) is replaced by overlay/sapwood/ (in-process tiles drawn with cairo); theme-pixbuf.c and sapwood-style.c get small patches (sapwood_patch.py). The engine

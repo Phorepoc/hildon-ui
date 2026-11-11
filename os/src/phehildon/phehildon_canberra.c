@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildon_canberra.c -- see shims/canberra.h: the contexts and property lists are real, playing is the MMF through phehildon_mmf.cpp. BSD-2-Clause (Phorepoc). */
 #include <stdarg.h>
 #include "canberra.h"

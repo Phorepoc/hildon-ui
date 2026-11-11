@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phe_theme.h -- load the Hildon theme (hildon-theme-alpha, the Maemo Leste default, drawn by the sapwood and pixmap engines): BSD-2-Clause (Phorepoc).
  * The theme's gtkrc is read from wherever its package is installed (phe_res), its pixmap_path is rewritten to the drive-less /resource/gtk/themes/alpha/images, and the engines are named by absolute
  * path (engine "sapwood" -> engine "/resource/gtk/engines/sapwood"; GTK uses an absolute name as it is, GModule maps it to sapwood.dll). GTK path lists are split at the colon, so no path of ours can

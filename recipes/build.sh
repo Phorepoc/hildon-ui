@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build.sh -- libhildon 2.2 + libhildondesktop 2.1 on GTK (needs glib-symbian, gtk-symbian and dbus-symbian built into the same VOL). Host side, Git Bash, Docker Desktop up.
 #
 #   REPO=<Symbian-ReverseEngineered checkout>  bash recipes/build.sh [steps]

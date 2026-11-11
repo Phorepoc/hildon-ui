@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phe_locale.h -- the glibc locale API libhildon uses for calendar / date formats (newlocale + nl_langinfo_l, and the two glibc time items), for a C library that has the process locale only:
  * a "locale_t" names that locale, nl_langinfo_l () is nl_langinfo (), and the two glibc items answer as the C/POSIX locale does (first weekday Sunday, weeks counted from 1997-11-30). Included with -include. */
 #ifndef PHE_LOCALE_H

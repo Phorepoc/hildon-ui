@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build_statusmenu_x32.sh -- IN phorepoc-x86 (volume at /wk, repo :ro at /repo, this repo at /h, siblings at /glib /gtk /dbus): hildon-status-menu (github.com/maemo-leste/hildon-status-menu at the commit pinned
 # in pins.sh, LGPL-2.1, cloned into dl/hildon-status-menu) UNMODIFIED, over libhildon / libhildondesktop. It is the status area (clock and the permanent items along the top of the screen) and the status
 # menu (the pull-down of plug-ins). What it talks to is provided, not stubbed: GConf (shims/gconf, the in-process store), X properties (shims, over GDK window properties) and MCE's display-state

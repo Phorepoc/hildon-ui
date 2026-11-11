@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* shim: <libintl.h> for a system that ships no message catalogs: every lookup falls back to the msgid, as GNU gettext does when it finds no catalog for the domain (ngettext: the
  * English plural rule). bindtextdomain / textdomain / bind_textdomain_codeset record nothing and report the request as accepted. BSD-2-Clause (Phorepoc). */
 #ifndef PHE_LIBINTL_H

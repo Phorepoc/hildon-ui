@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # gen_defs.py <archive dir> <out os/src dir> -- the frozen-ordinal .def files of this repository's DLLs, from nm of the static archives.
 # A DLL exports (a) every public name (g_*, glib_*) its archive defines and (b) every other defined global that one of the OTHER
 # archives (or the test) needs from it. Ordinals are assigned in sorted order: the first freeze. Data symbols get DATA.

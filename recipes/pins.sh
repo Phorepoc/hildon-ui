@@ -1,3 +1,5 @@
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # pins.sh -- Leste sources (commits as cloned 2026-11-06). GLib / GTK / D-Bus pins live in glib-symbian, gtk-symbian, dbus-symbian.
 LIBHILDON=78c268e512009d0a742ed7c5326ac036be9873b3
 LIBHILDONDESKTOP=d05587180c24dbbe863823686461782e0db4b7c2

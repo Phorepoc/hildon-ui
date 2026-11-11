@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright The Phorepoc Authors
+# SPDX-License-Identifier: BSD-2-Clause
 # build_hildondesktop_x32.sh -- IN phorepoc-x86 (volume at /wk, repo :ro at /repo, this repo at /h): libhildondesktop 2.1.44 (the home / status area plug-in framework: HDPluginLoader,
 # HDPluginManager, HDHomePluginItem, HDStatusMenuItem, HDShortcuts ...; LGPL 2.1, github.com/maemo-leste/libhildondesktop at the commit pinned in pins.sh, cloned into dl/libhildondesktop) for
 # x32 over Open C, on libhildon, GTK, libdbus + dbus-glib. No configure: the 17 sources of libhildondesktop/Makefile.am, the paths the Makefile passes as -D are those of this system's resource

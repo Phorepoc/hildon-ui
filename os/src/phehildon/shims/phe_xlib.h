@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phe_xlib.h -- the part of Xlib / gdkx.h that libhildon uses, implemented over what the Symbian GDK backend really has: GDK atoms (the X predefined atoms 0-68 are the same numbers),
  * window properties, client messages, window groups. A window id (XID) is the native window id of this backend (the GdkWindow address, gdk_window_lookup () finds it again); a "Display" is the GdkDisplay.
  * Everything here is semantics of an X server whose only client is this process, and whose window manager is the backend itself. Implemented in phehildon_x11.c. BSD-2-Clause (Phorepoc). */

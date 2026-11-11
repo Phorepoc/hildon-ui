@@ -1,3 +1,5 @@
+/* Copyright The Phorepoc Authors */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /* phehildon_gconf.c -- the in-process configuration store behind shims/gconf/gconf-client.h. A GConfClient is a GObject (callers g_object_unref it); the default client is shared.
  * A key is a path "/a/b/c"; values are bool, int, string or a list of strings. An unset key reads as FALSE / 0 / NULL without an error, as GConf does. Setting or unsetting a key calls the
  * notifications registered on the key or on one of its parent directories. With $PHE_GCONF_FILE the store is a GKeyFile (group = the directory of the key, "b:1" / "i:5" / "s:text" for
