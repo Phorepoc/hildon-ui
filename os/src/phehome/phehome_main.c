@@ -14,6 +14,8 @@
 #include <libhildondesktop/libhildondesktop.h>
 
 #include "hd-applet-manager.h"
+#include "hd-widgets.h"
+#include "hd-install-widgets-dialog.h"
 
 extern void phe_log (const char *msg);
 #define LOG(...) do { char m_[300]; g_snprintf (m_, sizeof m_, __VA_ARGS__); phe_log (m_); } while (0)
@@ -56,6 +58,8 @@ phehome_set_background (const gchar *uri)
   return TRUE;
 }
 
+static void sync_edit_mode (GList *tops);
+
 /* once the plug-in manager has loaded the applets, put their windows on the home view: one below the other from the top left */
 static gboolean
 place_applets (gpointer data)
@@ -65,7 +69,7 @@ place_applets (gpointer data)
   (void) data;
   for (l = tops; l; l = l->next) {
     GtkWidget *w = l->data;
-    if (HD_IS_HOME_PLUGIN_ITEM (w)) {
+    if (HD_IS_HOME_PLUGIN_ITEM (w) && GTK_WIDGET_VISIBLE (w)) {       /* a removed applet is hidden at once and destroyed when the plug-in manager has seen the change */
       gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w));
       gboolean fresh = n >= placed;
       if (GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), "phe-placed-y")) != y + 1 && GTK_WIDGET_REALIZED (w)) {      /* only an applet that is not at its place yet is moved and raised */
@@ -79,10 +83,140 @@ place_applets (gpointer data)
       y += 130; n++;
     }
   }
+  sync_edit_mode (tops);
   g_list_free (tops);
   if (n != placed) LOG ("[phehome] %d home applet window(s) placed", n);
   placed = n;
   return TRUE;                   /* keep watching: applets come and go with the configuration */
+}
+
+/* ---- edit mode, following hildon-home's own flow as far as a Home without hildon-desktop can: a long press on the Home enters it; each applet gets a Remove button that sends the
+ * applet window the delete-event which hd-applet-manager.c turns into hd_applet_manager_remove_applet (the instance leaves home.plugins for good); "Add widget" opens hildon-home's
+ * HDInstallWidgetsDialog on the applet manager's list of installed widgets, whose choice is written to home.plugins the same way. */
+static gboolean edit_mode;
+static GtkWidget *edit_bar;
+static GList *close_wins;                                   /* the Remove windows; each carries its applet in the data "phe-applet" */
+
+static void
+remove_clicked (GtkWidget *b, gpointer win)
+{
+  GtkWidget *applet = g_object_get_data (G_OBJECT (win), "phe-applet");
+  GdkEvent *ev;
+  gboolean handled = FALSE;
+  (void) b;
+  if (!applet || !applet->window) return;
+  ev = gdk_event_new (GDK_DELETE);
+  ev->any.window = g_object_ref (applet->window); ev->any.send_event = TRUE;
+  g_signal_emit_by_name (applet, "delete-event", ev, &handled);
+  gdk_event_free (ev);
+  LOG ("[phehome] edit mode: applet removed");
+}
+
+static void
+add_clicked (GtkWidget *b, gpointer data)
+{
+  GtkWidget *dialog = hd_install_widgets_dialog_new (HD_WIDGETS (hd_applet_manager_get ()));
+  (void) b; (void) data;
+  gtk_widget_show (dialog);
+  LOG ("[phehome] edit mode: widget list opened");
+}
+
+static void
+leave_edit_mode (void)
+{
+  GList *l;
+  edit_mode = FALSE;
+  for (l = close_wins; l; l = l->next) gtk_widget_destroy (GTK_WIDGET (l->data));
+  g_list_free (close_wins); close_wins = NULL;
+  if (edit_bar) { gtk_widget_destroy (edit_bar); edit_bar = NULL; }
+  LOG ("[phehome] edit mode: left");
+}
+
+static void done_clicked (GtkWidget *b, gpointer data) { (void) b; (void) data; leave_edit_mode (); }
+
+static void
+enter_edit_mode (void)
+{
+  GtkWidget *box, *add, *done;
+  int sw = gdk_screen_get_width (gdk_screen_get_default ()), sh = gdk_screen_get_height (gdk_screen_get_default ());
+  if (edit_mode) return;
+  edit_mode = TRUE;
+  edit_bar = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_decorated (GTK_WINDOW (edit_bar), FALSE);
+  gtk_window_set_default_size (GTK_WINDOW (edit_bar), sw, 72);
+  box = gtk_hbox_new (TRUE, 6);
+  add = hildon_button_new_with_text (HILDON_SIZE_FINGER_HEIGHT, HILDON_BUTTON_ARRANGEMENT_VERTICAL, "Add widget", NULL);
+  done = hildon_button_new_with_text (HILDON_SIZE_FINGER_HEIGHT, HILDON_BUTTON_ARRANGEMENT_VERTICAL, "Done", NULL);
+  g_signal_connect (add, "clicked", G_CALLBACK (add_clicked), NULL);
+  g_signal_connect (done, "clicked", G_CALLBACK (done_clicked), NULL);
+  gtk_box_pack_start (GTK_BOX (box), add, TRUE, TRUE, 6); gtk_box_pack_start (GTK_BOX (box), done, TRUE, TRUE, 6);
+  gtk_container_add (GTK_CONTAINER (edit_bar), box);
+  gtk_widget_show_all (edit_bar);
+  gtk_window_move (GTK_WINDOW (edit_bar), 0, sh - 72);
+  LOG ("[phehome] edit mode: entered");
+}
+
+/* every tick: in edit mode each shown applet has its Remove window at its top right edge, and a Remove window whose applet is gone goes too */
+static void
+sync_edit_mode (GList *tops)
+{
+  GList *l, *n;
+  if (!edit_mode) return;
+  for (l = close_wins; l; l = n) {
+    GtkWidget *a = g_object_get_data (G_OBJECT (l->data), "phe-applet");
+    n = l->next;
+    if (!g_list_find (tops, a) || !GTK_WIDGET_VISIBLE (a)) { gtk_widget_destroy (GTK_WIDGET (l->data)); close_wins = g_list_delete_link (close_wins, l); }
+  }
+  for (l = tops; l; l = l->next) {
+    GtkWidget *w = l->data, *c = NULL;
+    GList *k;
+    if (!HD_IS_HOME_PLUGIN_ITEM (w) || !GTK_WIDGET_VISIBLE (w) || !GTK_WIDGET_REALIZED (w)) continue;
+    for (k = close_wins; k; k = k->next) if (g_object_get_data (G_OBJECT (k->data), "phe-applet") == w) c = k->data;
+    if (!c) {
+      GtkWidget *b = hildon_button_new_with_text (HILDON_SIZE_FINGER_HEIGHT, HILDON_BUTTON_ARRANGEMENT_VERTICAL, "Remove", NULL);
+      c = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+      gtk_window_set_decorated (GTK_WINDOW (c), FALSE);
+      gtk_window_set_default_size (GTK_WINDOW (c), 130, 64);
+      g_object_set_data (G_OBJECT (c), "phe-applet", w);
+      g_signal_connect (b, "clicked", G_CALLBACK (remove_clicked), c);
+      gtk_container_add (GTK_CONTAINER (c), b);
+      gtk_widget_show_all (c);
+      close_wins = g_list_prepend (close_wins, c);
+    }
+    { int x = 24 + w->allocation.width - 130, y = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), "phe-placed-y")) - 1;
+      gtk_window_move (GTK_WINDOW (c), x < 0 ? 0 : x, y < 0 ? 0 : y);
+      if (c->window) gdk_window_raise (c->window); }
+  }
+  if (edit_bar && edit_bar->window) gdk_window_raise (edit_bar->window);
+}
+
+/* a press that stays put on the Home for 800 ms enters edit mode */
+static guint hold_id;
+static double hold_x, hold_y;
+static gboolean hold_fired (gpointer d) { (void) d; hold_id = 0; enter_edit_mode (); return FALSE; }
+static gboolean
+home_press (GtkWidget *w, GdkEventButton *e, gpointer d)
+{
+  (void) w; (void) d;
+  if (e->button != 1 || edit_mode) return FALSE;
+  hold_x = e->x; hold_y = e->y;
+  if (hold_id) g_source_remove (hold_id);
+  hold_id = g_timeout_add (800, hold_fired, NULL);
+  return FALSE;
+}
+static gboolean
+home_release (GtkWidget *w, GdkEventButton *e, gpointer d)
+{
+  (void) w; (void) e; (void) d;
+  if (hold_id) { g_source_remove (hold_id); hold_id = 0; }
+  return FALSE;
+}
+static gboolean
+home_motion (GtkWidget *w, GdkEventMotion *e, gpointer d)
+{
+  (void) w; (void) d;
+  if (hold_id && (e->x - hold_x > 12 || hold_x - e->x > 12 || e->y - hold_y > 12 || hold_y - e->y > 12)) { g_source_remove (hold_id); hold_id = 0; }
+  return FALSE;
 }
 
 /* test only (a marker file z:/resource/phehome/alpha.demo in the test ROM): a window of the RGBA colormap that paints a half transparent rounded rectangle, to see per-pixel alpha working */
@@ -152,25 +286,16 @@ prepare_config (void)
       g_free (text); g_free (src); g_free (dst);
     }
     g_free (repl);
-    /* A widget package installed while the Home was not running was never added: the plug-in manager loads a new entry only when it sees it appear. So on every start every entry of the
-     * install drive that the user's home.plugins does not name yet gets its own applet instance (there is no edit mode yet to remove one). */
-    { gchar *cfg = g_build_filename ("c:/data/phehome/config/hildon-desktop", "home.plugins", NULL), *text = NULL, *edir = g_build_filename (dir, "entries", "home", NULL);
-      GDir *d = g_dir_open (edir, 0, NULL);
-      if (d && g_file_get_contents (cfg, &text, NULL, NULL)) {
-        GString *add = g_string_new (""); const gchar *n;
-        while ((n = g_dir_read_name (d)) != NULL) {
-          if (!g_str_has_suffix (n, ".desktop") || strstr (text, n)) continue;
-          { gchar *base = g_strndup (n, strlen (n) - 8);
-            g_string_append_printf (add, "\n[%s-0]\nX-Desktop-File=%c:/resource/hildondesktop/entries/home/%s\n", base, dir[0], n);
-            LOG ("[phehome] new home entry %s", n); g_free (base); }
-        }
-        if (add->len) { gchar *out = g_strconcat (text, add->str, NULL); g_file_set_contents (cfg, out, -1, NULL); g_free (out); }
-        g_string_free (add, TRUE);
-      }
-      if (d) g_dir_close (d);
-      g_free (text); g_free (cfg); g_free (edir); }
   }
   g_free (dir);
+}
+
+static gboolean
+stamp_done (gpointer d)
+{
+  (void) d;
+  hd_stamp_file_finalize ("c:/data/phehome/home.stamp");
+  return FALSE;
 }
 
 int
@@ -194,9 +319,14 @@ phe_home_main (void)
   g_signal_connect (home_window, "expose-event", G_CALLBACK (home_expose), NULL);
   { const char *wp = phe_res ("resource/gtk/themes/alpha/backgrounds/wallpaper1.png");                      /* the theme's first wallpaper (Leste's default background) */
     if (access (wp, F_OK) == 0) phehome_set_background (wp); }
+  gtk_widget_add_events (home_window, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+  g_signal_connect (home_window, "button-press-event", G_CALLBACK (home_press), NULL);
+  g_signal_connect (home_window, "button-release-event", G_CALLBACK (home_release), NULL);
+  g_signal_connect (home_window, "motion-notify-event", G_CALLBACK (home_motion), NULL);
   gtk_widget_show_all (home_window);
 
   /* the real applet manager: loads home.conf, finds the plug-in entries, loads the plug-in modules and creates the applets */
+  g_timeout_add_seconds (8, stamp_done, NULL);          /* the plug-ins loaded without a crash: remove the stamp (hildon-home does it when it quits, which this process, killed with its console, never does; the next start would be a safe-mode start with no applets) */
   hd_stamp_file_init ("c:/data/phehome/home.stamp");     /* what the plug-in manager uses to see that a plug-in loaded without crashing the process (hildon-home does the same at start-up) */
   prepare_config ();
   hd_applet_manager_get ();

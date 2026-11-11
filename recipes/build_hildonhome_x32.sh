@@ -29,13 +29,14 @@ one() { $CC $FF "${@:3}" -c $1 -o $O/$2.o 2> $O/errs.$2 || echo "FAIL $2"; }
 bash /dbus/recipes/gen_glue.sh hd_hildon_home_dbus glib-server $H/hd-hildon-home-dbus.xml $O/glue/hd-hildon-home-dbus-glue.h | tail -1
 one $H/hd-applet-manager.c hd-applet-manager
 one $H/hd-widgets.c hd-widgets
+one $H/hd-install-widgets-dialog.c hd-install-widgets-dialog
 one /h/os/src/phehome/phehome_main.c phehome_main -I$H
 one /h/os/src/phehome/phehome_dbus.c phehome_dbus -I$H -I$O/glue
 one $HD/examples/home/example-label-home-applet.c example-label-home-applet -I$HD/examples/home -I/wk/hdesktop-x32/inc/libhildondesktop
 cat $O/errs.* > $O/errors.txt 2>/dev/null || true; rm -f $O/errs.*
 grep -a "error" $O/errors.txt | cut -c1-200 | head -30
 rm -f /wk/out/libphehome.a /wk/out/libphehomeexample.a
-ar rcs /wk/out/libphehome.a $O/hd-applet-manager.o $O/hd-widgets.o $O/phehome_main.o $O/phehome_dbus.o
+ar rcs /wk/out/libphehome.a $O/hd-applet-manager.o $O/hd-widgets.o $O/hd-install-widgets-dialog.o $O/phehome_main.o $O/phehome_dbus.o
 ar rcs /wk/out/libphehomeexample.a $O/example-label-home-applet.o
 echo "libphehome.a: $(ar t /wk/out/libphehome.a | wc -l) members, libphehomeexample.a: $(ar t /wk/out/libphehomeexample.a | wc -l)"
 GO=$(ls /wk/hildon-x32/*.o /wk/gtk-x32/*.o /wk/gdk-x32/*.o /wk/gdk-x32/be/*.o /wk/hdesktop-x32/*.o)
