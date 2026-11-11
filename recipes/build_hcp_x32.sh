@@ -14,7 +14,7 @@ CP=/h/dl/hildon-control-panel/src; HD=/h/dl/libhildondesktop; O=/wk/hcp-x32; mkd
 [ -d $CP ] || { echo "no $CP: run recipes/fetch.sh"; exit 1; }
 printf '#define PACKAGE "hildon-control-panel"\n#define GETTEXT_PACKAGE "hildon-control-panel"\n#define VERSION "2.2.27"\n' > $O/config.h
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/h/os/src/phehcp/shims -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /glib/overlay/phe_respath.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h \
+FF="-O2 -g0 -w -fno-pic -I/h/os/src/phehcp/shims -I$SH/shims -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /glib/overlay/phe_respath.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h \
  -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H -DMAEMO_GTK -DDBUS_API_SUBJECT_TO_CHANGE -DLOCALEDIR=\"z:/resource/locale\" -DPREFIXDIR=\"z:\" \
  -DCONTROLPANEL_ENTRY_DIR=phe_res(\"resource/hildon-control-panel\") -DHCP_PLUGIN_DIR=\"z:/sys/bin\" \
  -I$O -I$CP -I$HD -I/wk/hdesktop-x32/inc -I$SH/shims -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/h/dl/libhildon -I/wk/dbusglib-x32/inc -I/wk/dbus-glib-$DBUSGLIB_VER -I/wk/dbus-glib-$DBUSGLIB_VER/dbus \

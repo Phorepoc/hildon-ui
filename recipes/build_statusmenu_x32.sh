@@ -17,7 +17,7 @@ cat > $O/config.h <<EOC
 #define HD_DESKTOP_ENTRY_PATH "z:/resource/hildondesktop/status-menu"
 EOC
 X32="-I/wk/x32 -I/wk/x32/glib -I/wk/glib-2.56.4 -I/wk/glib-2.56.4/glib -I/wk/glib-2.56.4/gobject -I/wk/glib-2.56.4/gmodule -I/wk/glib-2.56.4/gio -I/wk/ffi-x32/include"
-FF="-O2 -g0 -w -fno-pic -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /glib/overlay/phe_respath.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H -DMAEMO_GTK \
+FF="-O2 -g0 -w -fno-pic -I$SH/shims -I/glib/overlay -include /glib/overlay/phe_glib_compat.h -include /glib/overlay/phe_respath.h -include /wk/gdk-x32/gtkcompat.h -include $SH/shims/phe_locale.h -include /dbus/os/src/phedbus/phedbus_compat.h -DHAVE_CONFIG_H -DMAEMO_GTK \
  -DG_LOG_DOMAIN=\"hildon-status-menu\" -DLOCALEDIR=\"z:/resource/locale\" -DHD_DESKTOP_CONFIG_PATH=phe_res(\"resource/hildondesktop\") -DDBUS_API_SUBJECT_TO_CHANGE \
  -I$O -I$H -I$HD -I/wk/hdesktop-x32/inc -I$SH/shims -I$MCE -I/wk/hildon-x32 -I/wk/hildon-x32/inc -I/wk/dbusglib-x32/inc -I/wk/dbus-glib-$DBUSGLIB_VER -I/wk/dbus-glib-$DBUSGLIB_VER/dbus \
  -I$G -I$G/gdk -I/wk/gdk-x32 -I/wk/atk-$ATK_VER -I/wk/gtk-x32 -I/wk/gtk-x32/inc $X32 -I/wk/cairo-1.16.0/src -I/wk/cairo-x32/src -I/wk/pixman-0.42.2/pixman -I/wk/pango-1.40.14 -I/wk/pango-x32 \
