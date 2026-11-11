@@ -152,6 +152,23 @@ prepare_config (void)
       g_free (text); g_free (src); g_free (dst);
     }
     g_free (repl);
+    /* A widget package installed while the Home was not running was never added: the plug-in manager loads a new entry only when it sees it appear. So on every start every entry of the
+     * install drive that the user's home.plugins does not name yet gets its own applet instance (there is no edit mode yet to remove one). */
+    { gchar *cfg = g_build_filename ("c:/data/phehome/config/hildon-desktop", "home.plugins", NULL), *text = NULL, *edir = g_build_filename (dir, "entries", "home", NULL);
+      GDir *d = g_dir_open (edir, 0, NULL);
+      if (d && g_file_get_contents (cfg, &text, NULL, NULL)) {
+        GString *add = g_string_new (""); const gchar *n;
+        while ((n = g_dir_read_name (d)) != NULL) {
+          if (!g_str_has_suffix (n, ".desktop") || strstr (text, n)) continue;
+          { gchar *base = g_strndup (n, strlen (n) - 8);
+            g_string_append_printf (add, "\n[%s-0]\nX-Desktop-File=%c:/resource/hildondesktop/entries/home/%s\n", base, dir[0], n);
+            LOG ("[phehome] new home entry %s", n); g_free (base); }
+        }
+        if (add->len) { gchar *out = g_strconcat (text, add->str, NULL); g_file_set_contents (cfg, out, -1, NULL); g_free (out); }
+        g_string_free (add, TRUE);
+      }
+      if (d) g_dir_close (d);
+      g_free (text); g_free (cfg); g_free (edir); }
   }
   g_free (dir);
 }
