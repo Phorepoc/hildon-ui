@@ -1,0 +1,26 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phehcp.mmp -- OURS: the Hildon control panel. C code (hildon-control-panel's real sources + phehcp_osso.c) = prebuilt archive libphehcp.a (recipes/build_hcp_x32.sh).
+TARGET			phehcp.exe
+TARGETTYPE		exe
+UID				0x1000007a 0xE7016C00
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCSTACKSIZE	0x100000
+EPOCHEAPSIZE	0x100000 0x4000000
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phehcp.cpp
+START RESOURCE	phehcp_loc.rss
+HEADER
+TARGETPATH		/resource/apps
+END
+
+START RESOURCE	phehcp_reg.rss
+TARGETPATH		/private/10003a3f/apps
+END
+USERINCLUDE		.
+LIBRARY			euser.lib ws32.lib gdi.lib fbscli.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phegio.lib phepng.lib phepixman.lib phefreetype.lib phefontconfig.lib phehb.lib phecairo.lib phepango.lib phepixbuf.lib phegdk.lib pheatk.lib phegtk.lib phehildon.lib phedbus.lib phedbusglib.lib
+SMPSAFE

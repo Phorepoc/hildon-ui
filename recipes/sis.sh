@@ -24,3 +24,19 @@ done
 python3 "$PHOREPOC_PDK/tools/make_sis.py" phehildonwin --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
   --name "Hildon demo" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $DLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-ui-demo-$ARCH.sis"
+# the Hildon control panel (hildon-control-panel, LGPL-2.1) and its two stand-in applets as the Catalogue's "Hildon settings", registered with the application menu
+# ("Settings (Hildon)"); the clock home widget as "Hildon clock widget" (the Home loads it from the install drive's widget entries)
+SLIC=
+for f in "$REPO"/LICENSES/* "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
+  SLIC="$SLIC --file $f=!:/resource/hildon-settings/licences/$(basename "$f")"
+done
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehcp phehcpdatetime phehcpregion --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+  --name "Hildon settings" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $SLIC \
+  --out "$PHOREPOC_BUILD/sis/hildon-settings-$ARCH.sis"
+CLIC=
+for f in "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
+  CLIC="$CLIC --file $f=!:/resource/hildon-clock-widget/licences/$(basename "$f")"
+done
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehomeclock --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+  --name "Hildon clock widget" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $CLIC \
+  --out "$PHOREPOC_BUILD/sis/hildon-clock-widget-$ARCH.sis"

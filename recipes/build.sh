@@ -9,7 +9,7 @@
 # this repository at /h. The docker volume (VOL) is the shared build tree of the whole stack; OUTD (the archives) is $REPO/.phorepoc-x86-build/hildon.
 set -eu
 HERE=$(cd "$(dirname "$0")/.." && pwd -W); REPO=${REPO:-C:/Users/memph/Git/Symbian-ReverseEngineered}; VOL=${VOL:-hildon-wk}; PARENT=${HERE%/*}; SIB="-v $PARENT/glib-symbian:/glib:ro -v $PARENT/gtk-symbian:/gtk:ro -v $PARENT/dbus-symbian:/dbus:ro"
-STEPS=${*:-hildon hildondesktop hildonhome archives defs images boot}
+STEPS=${*:-hildon hildondesktop hildonhome hcp archives defs images boot}
 OUTD=$REPO/.phorepoc-x86-build/hildon; mkdir -p "$OUTD"
 IMG=phorepoc-x86
 dr() { MSYS_NO_PATHCONV=1 docker.exe run --rm --name "hildon-$1" -e JOBS="${JOBS:-8}" -v "$HERE":/h $SIB -v "$REPO":/repo:ro -v "$OUTD":/o -v "$VOL":/wk $IMG "${@:2}"; }
@@ -19,6 +19,7 @@ docker.exe volume create "$VOL" >/dev/null
 has hildon    && { echo "== hildon";     dr hl bash /h/recipes/build_hildon_x32.sh | tail -12; }
 has hildondesktop && { echo "== hildondesktop"; dr hd bash /h/recipes/build_hildondesktop_x32.sh | tail -10; }
 has hildonhome && { echo "== hildonhome"; dr hh bash /h/recipes/build_hildonhome_x32.sh | tail -8; }
+has hcp && { echo "== hcp"; dr hc bash /h/recipes/build_hcp_x32.sh | tail -6; }
 has archives && { echo "== archives"; dr a1 bash /h/recipes/package_x32.sh; }
 has defs     && { echo "== defs";     dr d1 python3 /h/recipes/gen_defs.py /o /h/os/src; }
 has boot     && { echo "== boot";     ( cd "$REPO" && bash "$HERE/recipes/iterate.sh" ); }

@@ -2,6 +2,7 @@ Hildon for Phorepoc (hildon-ui) -- licence notice and source offer
 
 This package contains Hildon libraries built for Phorepoc OS, from unmodified upstream sources plus the changes in our repository. The libraries and their licences:
   - libhildon, libhildondesktop, hildon-home (applet manager): LGPL-2.1 (LICENSES/libhildon-COPYING.txt)
+  - hildon-control-panel (the Hildon settings package): LGPL-2.1 (LICENSES/hildon-control-panel-COPYING.txt)
 All licence texts are installed with this package in \resource\hildon-ui\licences\ (NOTICE says which file covers what). Our own files (recipes, platform code,
 overlays) are BSD-2-Clause. Each library is a separate DLL: you can replace it with your own build (modified or not) of the same library; the DLLs are linked from
 archives the build leaves (see recipes/build.sh).
@@ -9,7 +10,7 @@ archives the build leaves (see recipes/build.sh).
 Corresponding source, available to anyone who has this package, for at least three years after the release you installed it from:
 
   1. The unmodified upstream sources, pinned (recipes/pins.sh and the dl/ folder's names):
-  - libhildon, libhildondesktop and hildon-home from https://github.com/maemo-leste (the commits are pinned in recipes/pins.sh)
+  - libhildon, libhildondesktop, hildon-home and hildon-control-panel from https://github.com/maemo-leste (the commits are pinned in recipes/pins.sh)
   2. Our changes to them (overlay/, patches applied by recipes/), our own files and the scripts that fetch, patch, build and package it:
        https://github.com/Phorepoc/hildon-ui   (the release tag of this package)
      with the toolchain images and build tools in https://github.com/Phorepoc/toolchain and https://github.com/Phorepoc/pdk.

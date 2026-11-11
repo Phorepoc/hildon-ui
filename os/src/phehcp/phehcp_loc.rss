@@ -1,0 +1,16 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+// phehcp_loc.rss -- the Hildon control panel's caption in the application menu
+NAME PHCP
+
+#include <uikon.rh>
+#include <appinfo.rh>
+
+RESOURCE RSS_SIGNATURE { }
+
+RESOURCE LOCALISABLE_APP_INFO r_phehcp_localisable_app_info
+	{
+	short_caption = "Settings (Hildon)";
+	caption_and_icon = CAPTION_AND_ICON_INFO { caption = "Settings (Hildon)"; number_of_icons = 0; };
+	}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+Name=Date and time
+Comment=Set the date, the time and the clock format
+Icon=general_clock
+Categories=personalisation
+X-control-panel-plugin=phehcpdatetime.so

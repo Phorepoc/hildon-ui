@@ -6,7 +6,7 @@
 # commit in pins.sh: libhildon, libhildondesktop, hildon-home, sapwood. A clone already there is only checked out at the pin.
 set -eu
 cd "$(dirname "$0")/.."; . recipes/pins.sh; mkdir -p dl
-for p in libhildon:$LIBHILDON libhildondesktop:$LIBHILDONDESKTOP hildon-home:$HILDON_HOME sapwood:$SAPWOOD; do
+for p in libhildon:$LIBHILDON libhildondesktop:$LIBHILDONDESKTOP hildon-home:$HILDON_HOME sapwood:$SAPWOOD hildon-control-panel:$HILDON_CONTROL_PANEL; do
   n=${p%%:*}; c=${p#*:}
   [ -d "dl/$n/.git" ] || git clone -q "https://github.com/maemo-leste/$n.git" "dl/$n"
   git -C "dl/$n" checkout -q "$c"

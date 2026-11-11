@@ -44,7 +44,19 @@ COMPONENTS = {
     "phehildonwin": _exe("phehildonwin", ["resource\\phehildonwin\\fonts.conf=.hildon/testdata/phehildonwin_fonts.conf",
                                           "resource\\phehildonwin\\phehildon.rc=.hildon/testdata/phehildon.rc",
                                           "resource\\phehildonwin\\beep.wav=.hildon/testdata/phehildon_beep.wav"]),
+    # the Hildon control panel (its own package, hildon-settings: the menu's "Settings (Hildon)"), its two stand-in applets (docs hildon-port.md 7.104)
+    "phehcp": _exe("phehcp", ["resource\\phehcp\\fonts.conf=.hildon/testdata/phehildonwin_fonts.conf",
+                              "resource\\phehcp\\phehildon.rc=.hildon/testdata/phehildon.rc"]),
+    "phehcpdatetime": _dll("phehcpdatetime", sym=True),
+    "phehcpregion": _dll("phehcpregion", sym=True),
+    # the clock home widget (its own package, hildon-clock-widget)
+    "phehomeclock": _dll("phehomeclock", sym=True),
 }
+
+for _n in ("phehcpdatetime", "phehcpregion"):
+    COMPONENTS[_n]["rom_data"].append(f"resource\\hildon-control-panel\\{_n}.desktop=" + os.path.join(_DATA, f"hildon-control-panel/{_n}.desktop"))
+COMPONENTS["phehomeclock"]["rom_data"].append("resource\\hildondesktop\\entries\\home\\phehomeclock.desktop="
+                                            + os.path.join(_DATA, "hildondesktop/entries/home/phehomeclock.desktop"))
 
 # installed, not in a ROM
 for _c in COMPONENTS.values():

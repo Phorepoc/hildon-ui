@@ -24,7 +24,8 @@ stack_step hildon fetch "bash /h/recipes/fetch.sh"
 stack_step hildon hildon "bash /h/recipes/build_hildon_x32.sh"
 stack_step hildon hildondesktop "bash /h/recipes/build_hildondesktop_x32.sh"
 stack_step hildon hildonhome "bash /h/recipes/build_hildonhome_x32.sh"
+stack_step hildon hcp "bash /h/recipes/build_hcp_x32.sh"
 stack_step hildon sapwood "bash /h/recipes/build_sapwood_x32.sh"
 stack_step hildon archives "bash /h/recipes/package_x32.sh"
-stack_need libphehildon.a libphehildondesktop.a libphehome.a libphehomeexample.a libsapwood.a libphehildonwin.a \
-  gmodule/sapwood.sym gmodule/phehomeexample.sym testdata/phehildon.rc testdata/phehildon_beep.wav testdata/phehildonwin_fonts.conf
+stack_need libphehildon.a libphehildondesktop.a libphehome.a libphehomeexample.a libsapwood.a libphehildonwin.a libphehcp.a libphehcpdatetime.a libphehcpregion.a libphehomeclock.a\
+  gmodule/sapwood.sym gmodule/phehomeexample.sym gmodule/phehcpdatetime.sym gmodule/phehcpregion.sym gmodule/phehomeclock.sym testdata/phehildon.rc testdata/phehildon_beep.wav testdata/phehildonwin_fonts.conf

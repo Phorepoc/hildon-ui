@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Clock
+Comment=The time and the date
+Type=default
+X-Path=phehomeclock.so

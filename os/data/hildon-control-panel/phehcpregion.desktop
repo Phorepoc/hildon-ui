@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+Name=Regional settings
+Comment=Set the date format
+Icon=general_globe
+Categories=personalisation
+X-control-panel-plugin=phehcpregion.so

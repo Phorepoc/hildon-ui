@@ -3,5 +3,6 @@ Copyright The Phorepoc Authors (see AUTHORS). Our files (os/src, recipes, overla
 
 Libraries built here, each in its own replaceable DLL, downloaded and never copied into this repository (recipes/pins.sh); licence texts are in LICENSES/:
   - libhildon, libhildondesktop, hildon-home (applet manager): LGPL-2.1 (LICENSES/libhildon-COPYING.txt)
+  - hildon-control-panel (the Hildon settings package): LGPL-2.1 (LICENSES/hildon-control-panel-COPYING.txt)
 
 The package installs LICENSE, NOTICE, SOURCE-OFFER.txt and LICENSES/* to \resource\hildon-ui\licences\.
