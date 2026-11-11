@@ -17,7 +17,7 @@ for f in "$REPO"/LICENSES/* "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.t
   LIC="$LIC --file $f=!:/resource/hildon-ui/licences/$(basename "$f")"
 done
 python3 "$PHOREPOC_PDK/tools/make_sis.py" phehildon phehildondesktop phehome phehomeexample sapwood --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
-  --name "Hildon" --vendor Phorepoc --depends 0xE7015772,1.0.0,"GLib" --depends 0xE7015777,1.0.0,"GTK" --depends 0xE7015787,1.0.0,"D-Bus" --file "$DBUS/os/data/dbus/services/com.nokia.HildonHome.service=!:/resource/dbus/services/com.nokia.HildonHome.service" $LIC \
+  --name "Hildon" --vendor Phorepoc --depends 0xE7015772,0.1.0,"GLib" --depends 0xE7015777,0.1.0,"GTK" --depends 0xE7015787,0.1.0,"D-Bus" --file "$DBUS/os/data/dbus/services/com.nokia.HildonHome.service=!:/resource/dbus/services/com.nokia.HildonHome.service" $LIC \
   --out "$PHOREPOC_BUILD/sis/hildon-ui-$ARCH.sis"
 # the libhildon demo (phehildonwin) as its own small package: the Catalogue's "Hildon demo", registered with the application menu
 DLIC=
@@ -25,5 +25,5 @@ for f in "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
   DLIC="$DLIC --file $f=!:/resource/hildon-ui-demo/licences/$(basename "$f")"
 done
 python3 "$PHOREPOC_PDK/tools/make_sis.py" phehildonwin --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
-  --name "Hildon demo" --vendor Phorepoc --depends 0xE7015786,1.0.0,"Hildon" $DLIC \
+  --name "Hildon demo" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $DLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-ui-demo-$ARCH.sis"
