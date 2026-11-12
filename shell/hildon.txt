@@ -1,0 +1,5 @@
+# The shell description file pheshellsel and the Settings list read (core: os/src/phedevmenu/pheshells.h).
+# "!:" is the drive this package is installed on. Home starts its session bus itself (phehome_dbus.c), so no start list.
+id=hildon
+name=Hildon
+launcher=!:\sys\bin\phehome.exe

@@ -422,6 +422,8 @@ stamp_done (gpointer d)
   return FALSE;
 }
 
+void phehome_rendezvous (void);
+
 int
 phe_home_main (void)
 {
@@ -455,6 +457,7 @@ phe_home_main (void)
   prepare_config ();
   hd_applet_manager_get ();
   LOG ("[phehome] applet manager created");
+  phehome_rendezvous ();
   phehome_dbus_start ();
   alpha_demo ();
   if (g_file_test ("z:/resource/phehome/livecfg.test", G_FILE_TEST_EXISTS)) g_timeout_add_seconds (12, livecfg_write, NULL);

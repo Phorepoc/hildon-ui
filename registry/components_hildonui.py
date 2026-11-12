@@ -35,6 +35,9 @@ COMPONENTS = {
     "sapwood": _dll("sapwood", sym=True),
     "phehome": _exe("phehome", ["resource\\phehome\\fonts.conf=.hildon/testdata/phehome_fonts.conf",
                                 "resource\\phehome\\phehildon.rc=.hildon/testdata/phehildon.rc",
+                                # makes Hildon a UI shell (Settings -> Device -> UI shell; core pheshells.h)
+                                "resource\\phe\\shells\\hildon.txt="
+                                + os.path.join(os.path.dirname(os.path.dirname(_DATA)), "shell", "hildon.txt"),
                                 "resource\\phehome\\wallpaper.png=" + os.path.join(_DATA, "phehome/wallpaper.png"),
                                 "resource\\hildondesktop\\home.conf=" + os.path.join(_DATA, "hildondesktop/home.conf"),
                                 "resource\\hildondesktop\\home.plugins=" + os.path.join(_DATA, "hildondesktop/home.plugins"),

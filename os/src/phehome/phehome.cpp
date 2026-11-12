@@ -13,6 +13,10 @@ extern "C" int phe_home_main(void);
 
 extern "C" void phe_log(const char* aMsg) { RDebug::Printf("%s", aMsg); }
 
+// the Home is up (its window shown, the applet manager created): signal whoever started it. As a UI shell
+// (shell/hildon.txt) its starter, pheshellsel, waits for this before it tells SSM the shell is up.
+extern "C" void phehome_rendezvous(void) { RProcess::Rendezvous(KErrNone); }
+
 extern "C" int phehome_spawn(const char* aExe, const char* aArgs)
 	{
 	TBuf<64> exe;
