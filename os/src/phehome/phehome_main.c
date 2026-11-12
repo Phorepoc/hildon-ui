@@ -60,7 +60,94 @@ phehome_set_background (const gchar *uri)
 
 static void sync_edit_mode (GList *tops);
 
-/* once the plug-in manager has loaded the applets, put their windows on the home view: one below the other from the top left */
+/* ---- applet positions: hildon-desktop keeps each applet's place (per plug-in id) when it is dragged in edit mode; here a key file in the user's configuration does */
+#define POS_FILE "c:/data/phehome/config/hildon-desktop/positions"
+#define POS_KEY(w) ((gpointer) "phe-pos")              /* object data: (x << 16 | y) + 1, 0 = not placed yet */
+static gboolean edit_mode;
+
+static gboolean
+saved_position (const gchar *id, int *x, int *y)
+{
+  GKeyFile *k = g_key_file_new (); gboolean ok = FALSE;
+  if (id && g_key_file_load_from_file (k, POS_FILE, G_KEY_FILE_NONE, NULL) && g_key_file_has_group (k, id)) {
+    *x = g_key_file_get_integer (k, id, "X", NULL); *y = g_key_file_get_integer (k, id, "Y", NULL); ok = TRUE;
+  }
+  g_key_file_free (k);
+  return ok;
+}
+
+static void
+save_position (GtkWidget *w, int x, int y)
+{
+  gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w)), *text;
+  GKeyFile *k = g_key_file_new ();
+  if (!id) { g_key_file_free (k); return; }
+  g_key_file_load_from_file (k, POS_FILE, G_KEY_FILE_KEEP_COMMENTS, NULL);
+  g_key_file_set_integer (k, id, "X", x); g_key_file_set_integer (k, id, "Y", y);
+  text = g_key_file_to_data (k, NULL, NULL);
+  g_file_set_contents (POS_FILE, text, -1, NULL);
+  LOG ("[phehome] applet \"%s\" moved to %d,%d", id, x, y);
+  g_free (text); g_free (id); g_key_file_free (k);
+}
+
+static void
+get_pos (GtkWidget *w, int *x, int *y)
+{
+  int v = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), POS_KEY (w))) - 1;
+  *x = v >> 16; *y = v & 0xffff;
+}
+
+static void
+set_pos (GtkWidget *w, int x, int y)
+{
+  int sw = gdk_screen_get_width (gdk_screen_get_default ()), sh = gdk_screen_get_height (gdk_screen_get_default ());
+  if (x > sw - w->allocation.width) x = sw - w->allocation.width;
+  if (y > sh - w->allocation.height) y = sh - w->allocation.height;
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  g_object_set_data (G_OBJECT (w), POS_KEY (w), GINT_TO_POINTER (((x << 16) | y) + 1));
+  gtk_window_move (GTK_WINDOW (w), x, y);
+}
+
+/* dragging an applet in edit mode: the press point inside the applet window is kept under the finger */
+static GtkWidget *drag_w;
+static int drag_dx, drag_dy, drag_moved;
+
+static gboolean
+applet_press (GtkWidget *w, GdkEventButton *e, gpointer d)
+{
+  (void) d;
+  if (!edit_mode || e->button != 1) return FALSE;
+  drag_w = w; drag_dx = (int) e->x; drag_dy = (int) e->y; drag_moved = 0;
+  gdk_window_raise (w->window);
+  return TRUE;
+}
+
+static gboolean
+applet_motion (GtkWidget *w, GdkEventMotion *e, gpointer d)
+{
+  int x, y;
+  (void) d;
+  if (!edit_mode || drag_w != w) return FALSE;
+  get_pos (w, &x, &y);
+  if ((int) e->x == drag_dx && (int) e->y == drag_dy) return TRUE;
+  set_pos (w, x + (int) e->x - drag_dx, y + (int) e->y - drag_dy);       /* the window moved under the pointer: e->x stays relative to it */
+  drag_moved = 1;
+  return TRUE;
+}
+
+static gboolean
+applet_release (GtkWidget *w, GdkEventButton *e, gpointer d)
+{
+  int x, y;
+  (void) e; (void) d;
+  if (drag_w != w) return FALSE;
+  drag_w = NULL;
+  if (drag_moved) { get_pos (w, &x, &y); save_position (w, x, y); }
+  return TRUE;
+}
+
+/* once the plug-in manager has loaded the applets, put their windows on the home view: at the place the user dragged each one to, else one below the other from the top left */
 static gboolean
 place_applets (gpointer data)
 {
@@ -70,17 +157,23 @@ place_applets (gpointer data)
   for (l = tops; l; l = l->next) {
     GtkWidget *w = l->data;
     if (HD_IS_HOME_PLUGIN_ITEM (w) && GTK_WIDGET_VISIBLE (w)) {       /* a removed applet is hidden at once and destroyed when the plug-in manager has seen the change */
-      gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w));
       gboolean fresh = n >= placed;
-      if (GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), "phe-placed-y")) != y + 1 && GTK_WIDGET_REALIZED (w)) {      /* only an applet that is not at its place yet is moved and raised */
-        g_object_set_data (G_OBJECT (w), "phe-placed-y", GINT_TO_POINTER (y + 1));
-        gtk_window_move (GTK_WINDOW (w), 24, y);
+      if (!g_object_get_data (G_OBJECT (w), POS_KEY (w)) && GTK_WIDGET_REALIZED (w)) {     /* only an applet that has no place yet is placed and raised */
+        gchar *id = hd_plugin_item_get_plugin_id (HD_PLUGIN_ITEM (w));
+        int px = 24, py = y;
+        gboolean saved = saved_position (id, &px, &py);
+        set_pos (w, px, py);
         gdk_window_raise (w->window);
+        gtk_widget_add_events (w, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+        g_signal_connect (w, "button-press-event", G_CALLBACK (applet_press), NULL);
+        g_signal_connect (w, "motion-notify-event", G_CALLBACK (applet_motion), NULL);
+        g_signal_connect (w, "button-release-event", G_CALLBACK (applet_release), NULL);
+        if (fresh) LOG ("[phehome] home applet \"%s\" (%s): window at %d,%d%s, visible %d, realized %d", id ? id : "?", G_OBJECT_TYPE_NAME (w), px, py, saved ? " (saved place)" : "",
+                        GTK_WIDGET_VISIBLE (w) ? 1 : 0, GTK_WIDGET_REALIZED (w) ? 1 : 0);
+        g_free (id);
       }
-      if (FALSE) gdk_window_raise (w->window);          /* the applets belong on top of the Home background (hildon-desktop stacks them there on a real device) */
-      if (fresh) LOG ("[phehome] home applet \"%s\" (%s): window at 24,%d, visible %d, realized %d", id ? id : "?", G_OBJECT_TYPE_NAME (w), y, GTK_WIDGET_VISIBLE (w) ? 1 : 0, GTK_WIDGET_REALIZED (w) ? 1 : 0);
-      g_free (id);
-      y += 130; n++;
+      { int px, py; get_pos (w, &px, &py); if (py + w->allocation.height + 20 > y) y = py + w->allocation.height + 20; }   /* the next new applet goes below the lowest one */
+      n++;
     }
   }
   sync_edit_mode (tops);
@@ -90,12 +183,11 @@ place_applets (gpointer data)
   return TRUE;                   /* keep watching: applets come and go with the configuration */
 }
 
-/* ---- edit mode, following hildon-home's own flow as far as a Home without hildon-desktop can: a long press on the Home enters it; each applet gets a Remove button that sends the
+/* ---- edit mode, following hildon-home's own flow as far as a Home without hildon-desktop can: a long press on the Home enters it; each applet gets a close button that sends the
  * applet window the delete-event which hd-applet-manager.c turns into hd_applet_manager_remove_applet (the instance leaves home.plugins for good); "Add widget" opens hildon-home's
  * HDInstallWidgetsDialog on the applet manager's list of installed widgets, whose choice is written to home.plugins the same way. */
-static gboolean edit_mode;
 static GtkWidget *edit_bar;
-static GList *close_wins;                                   /* the Remove windows; each carries its applet in the data "phe-applet" */
+static GList *close_wins;                                   /* the close buttons; each carries its applet in the data "phe-applet" */
 
 static void
 remove_clicked (GtkWidget *b, gpointer win)
@@ -156,7 +248,33 @@ enter_edit_mode (void)
   LOG ("[phehome] edit mode: entered");
 }
 
-/* every tick: in edit mode each shown applet has its Remove window at its top right edge, and a Remove window whose applet is gone goes too */
+#define CLOSE_SIZE 44
+
+static gboolean
+close_expose (GtkWidget *w, GdkEventExpose *e)
+{
+  cairo_t *cr = gdk_cairo_create (w->window);
+  double r = CLOSE_SIZE / 2.0, a = 7;
+  (void) e;
+  cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE); cairo_set_source_rgba (cr, 0, 0, 0, 0); cairo_paint (cr);
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+  cairo_arc (cr, r, r, r - 2, 0, 2 * G_PI); cairo_set_source_rgba (cr, 0.12, 0.12, 0.13, 0.92); cairo_fill_preserve (cr);
+  cairo_set_line_width (cr, 2); cairo_set_source_rgba (cr, 1, 1, 1, 0.9); cairo_stroke (cr);
+  cairo_set_line_width (cr, 3); cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND);
+  cairo_move_to (cr, r - a, r - a); cairo_line_to (cr, r + a, r + a); cairo_move_to (cr, r + a, r - a); cairo_line_to (cr, r - a, r + a); cairo_stroke (cr);
+  cairo_destroy (cr);
+  return TRUE;
+}
+
+static gboolean
+close_release (GtkWidget *c, GdkEventButton *e, gpointer d)
+{
+  (void) e; (void) d;
+  remove_clicked (NULL, c);
+  return TRUE;
+}
+
+/* every tick: in edit mode each shown applet has a close button at its top right corner, and a close button whose applet is gone goes too */
 static void
 sync_edit_mode (GList *tops)
 {
@@ -172,18 +290,22 @@ sync_edit_mode (GList *tops)
     GList *k;
     if (!HD_IS_HOME_PLUGIN_ITEM (w) || !GTK_WIDGET_VISIBLE (w) || !GTK_WIDGET_REALIZED (w)) continue;
     for (k = close_wins; k; k = k->next) if (g_object_get_data (G_OBJECT (k->data), "phe-applet") == w) c = k->data;
-    if (!c) {
-      GtkWidget *b = hildon_button_new_with_text (HILDON_SIZE_FINGER_HEIGHT, HILDON_BUTTON_ARRANGEMENT_VERTICAL, "Remove", NULL);
+    if (!c) {                         /* a round close button of our own (Etesian-style: a dark disc, a white cross), 44 px, on the applet's top right corner */
       c = gtk_window_new (GTK_WINDOW_TOPLEVEL);
       gtk_window_set_decorated (GTK_WINDOW (c), FALSE);
-      gtk_window_set_default_size (GTK_WINDOW (c), 130, 64);
+      gtk_widget_set_colormap (c, gdk_screen_get_rgba_colormap (gtk_widget_get_screen (c)));
+      gtk_widget_set_app_paintable (c, TRUE);
+      gtk_widget_set_size_request (c, CLOSE_SIZE, CLOSE_SIZE);
       g_object_set_data (G_OBJECT (c), "phe-applet", w);
-      g_signal_connect (b, "clicked", G_CALLBACK (remove_clicked), c);
-      gtk_container_add (GTK_CONTAINER (c), b);
+      gtk_widget_add_events (c, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+      g_signal_connect (c, "expose-event", G_CALLBACK (close_expose), NULL);
+      g_signal_connect (c, "button-release-event", G_CALLBACK (close_release), NULL);
       gtk_widget_show_all (c);
       close_wins = g_list_prepend (close_wins, c);
     }
-    { int x = 24 + w->allocation.width - 130, y = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), "phe-placed-y")) - 1;
+    { int ax, ay, x, y; get_pos (w, &ax, &ay);
+      x = ax + w->allocation.width - CLOSE_SIZE / 2 - 6; y = ay - CLOSE_SIZE / 2 + 6;
+      { int sw = gdk_screen_get_width (gdk_screen_get_default ()); if (x > sw - CLOSE_SIZE) x = sw - CLOSE_SIZE; }
       gtk_window_move (GTK_WINDOW (c), x < 0 ? 0 : x, y < 0 ? 0 : y);
       if (c->window) gdk_window_raise (c->window); }
   }
