@@ -30,7 +30,7 @@ SLIC=
 for f in "$REPO"/LICENSES/* "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
   SLIC="$SLIC --file $f=!:/resource/hildon-settings/licences/$(basename "$f")"
 done
-python3 "$PHOREPOC_PDK/tools/make_sis.py" phehcp phehcpdatetime phehcpregion --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehcp phehcpdatetime phehcpregion phehcpdisplay --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
   --name "Hildon settings" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $SLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-settings-$ARCH.sis"
 CLIC=
@@ -40,3 +40,11 @@ done
 python3 "$PHOREPOC_PDK/tools/make_sis.py" phehomeclock --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
   --name "Hildon clock widget" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $CLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-clock-widget-$ARCH.sis"
+# the date home widget (a calendar sheet) as "Hildon date widget", like the clock
+DLIC=
+for f in "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
+  DLIC="$DLIC --file $f=!:/resource/hildon-date-widget/licences/$(basename "$f")"
+done
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehomedate --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+  --name "Hildon date widget" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $DLIC \
+  --out "$PHOREPOC_BUILD/sis/hildon-date-widget-$ARCH.sis"

@@ -1,6 +1,6 @@
 # Copyright The Phorepoc Authors
 # SPDX-License-Identifier: BSD-2-Clause
-"""make_icons.py -- draws the control panel's icons (ours, BSD-2-Clause): general_clock, general_globe, filemanager_unknown_file (the grid's fallback), 48x48 RGBA PNG, no dependencies.
+"""make_icons.py -- draws the control panel's icons (ours, BSD-2-Clause): general_clock, general_globe, general_display, filemanager_unknown_file (the grid's fallback), 48x48 RGBA PNG, no dependencies.
     python3 make_icons.py   -> hicolor/48x48/hildon/<name>.png
 Each icon is a rounded dark tile with a white line drawing and one blue accent (the Hildon touch look); shapes are distance functions, 4x4 supersampled."""
 import math
@@ -47,6 +47,17 @@ def sheet(x, y):
     return None
 
 
+def display(x, y):                                          # a phone screen with a light (a sun: disc and rays) on it
+    if abs(rrect(x, y, 13, 7, 35, 41, 3)) < 1.4: return LINE
+    if 34 < y < 36 and 21 < x < 27: return LINE
+    r = math.hypot(x - 24, y - 21)
+    if r < 3.6: return ACCENT
+    for k in range(8):
+        a = k * math.pi / 4
+        if seg(x, y, 24 + 6 * math.cos(a), 21 + 6 * math.sin(a), 24 + 8.5 * math.cos(a), 21 + 8.5 * math.sin(a)) < 0.9: return ACCENT
+    return None
+
+
 def render(shape):
     rows = []
     for j in range(N):
@@ -73,5 +84,5 @@ def render(shape):
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.join(here, "hicolor", "48x48", "hildon")
 os.makedirs(out, exist_ok=True)
-for name, shape in (("general_clock", clock), ("general_globe", globe), ("filemanager_unknown_file", sheet)):
+for name, shape in (("general_clock", clock), ("general_globe", globe), ("filemanager_unknown_file", sheet), ("general_display", display)):
     open(os.path.join(out, name + ".png"), "wb").write(render(shape))

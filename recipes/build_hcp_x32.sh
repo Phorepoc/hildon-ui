@@ -34,14 +34,18 @@ one $CP/hcp-main.c hcp-main -Dmain=phe_hcp_main -Dhildon_init=phe_hcp_hildon_ini
 one /h/os/src/phehcp/phehcp_osso.c phehcp_osso
 one /h/os/src/phehcpdatetime/phehcpdatetime.c phehcpdatetime
 one /h/os/src/phehcpregion/phehcpregion.c phehcpregion
+one /h/os/src/phehcpdisplay/phehcpdisplay.c phehcpdisplay
 one /h/os/src/phehomeclock/phehomeclock.c phehomeclock -I/wk/hdesktop-x32/inc/libhildondesktop
+one /h/os/src/phehomedate/phehomedate.c phehomedate -I/wk/hdesktop-x32/inc/libhildondesktop
 cat $O/errs.* > $O/errors.txt 2>/dev/null || true; rm -f $O/errs.*
 grep -a "error" $O/errors.txt | cut -c1-200 | head -30
-rm -f /wk/out/libphehcp.a /wk/out/libphehcpdatetime.a /wk/out/libphehcpregion.a /wk/out/libphehomeclock.a
+rm -f /wk/out/libphehcp.a /wk/out/libphehcpdatetime.a /wk/out/libphehcpregion.a /wk/out/libphehomeclock.a /wk/out/libphehomedate.a /wk/out/libphehcpdisplay.a
 ar rcs /wk/out/libphehcp.a $O/hcp-marshalers.o $O/hcp-program.o $O/hcp-window.o $O/hcp-app.o $O/hcp-app-list.o $O/hcp-app-view.o $O/hcp-grid.o $O/hcp-main.o $O/phehcp_osso.o
 ar rcs /wk/out/libphehcpdatetime.a $O/phehcpdatetime.o
 ar rcs /wk/out/libphehcpregion.a $O/phehcpregion.o
+ar rcs /wk/out/libphehcpdisplay.a $O/phehcpdisplay.o
 ar rcs /wk/out/libphehomeclock.a $O/phehomeclock.o
+ar rcs /wk/out/libphehomedate.a $O/phehomedate.o
 echo "libphehcp.a: $(ar t /wk/out/libphehcp.a | wc -l) members"
 GO=$(ls /wk/hildon-x32/*.o /wk/gtk-x32/*.o /wk/gdk-x32/*.o /wk/gdk-x32/be/*.o /wk/hdesktop-x32/*.o)
 nm -u $O/*.o | grep " U " | awk '{print $2}' | sort -u > $O/und_all.txt

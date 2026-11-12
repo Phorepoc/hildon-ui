@@ -30,7 +30,7 @@ fi
 # the Home process (build_hildonhome_x32.sh): archives, and the symbol tables (GModule, glib-symbian) of this repository's DLLs
 [ -f /wk/out/libphehome.a ] && cp /wk/out/libphehome.a $O/libphehome.a && cp /wk/out/libphehomeexample.a $O/libphehomeexample.a && echo "libphehome.a copied"
 # the control panel, its applets and the clock home widget (build_hcp_x32.sh)
-for a in libphehcp libphehcpdatetime libphehcpregion libphehomeclock; do [ -f /wk/out/$a.a ] && cp /wk/out/$a.a $O/$a.a; done
+for a in libphehcp libphehcpdatetime libphehcpregion libphehcpdisplay libphehomeclock libphehomedate; do [ -f /wk/out/$a.a ] && cp /wk/out/$a.a $O/$a.a; done
 [ -f /wk/out/libsapwood.a ] && cp /wk/out/libsapwood.a $O/libsapwood.a && echo "libsapwood.a copied"
 [ -f /wk/out/libpixmap.a ] && cp /wk/out/libpixmap.a $O/libpixmap.a && echo "libpixmap.a copied"
 mkdir -p $O/testdata $O/gmodule

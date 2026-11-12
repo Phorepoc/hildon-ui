@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+Name=Display
+Comment=Turn the screen light off after a time
+Icon=general_display
+Categories=personalisation
+X-control-panel-plugin=phehcpdisplay.so

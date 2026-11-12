@@ -1,0 +1,17 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phehcpdisplay.mmp -- OURS: the Display applet of the Hildon control panel (a minimal stand-in, docs hildon-port.md 7.104). Code = prebuilt archive libphehcpdisplay.a (recipes/build_hcp_x32.sh) + the Symbian calls (phehcpdisplay_sym.cpp);
+// its exports (execute / save_state) are looked up by name through resource/gmodule/phehcpdisplay.sym (GModule, glib-symbian).
+TARGET			phehcpdisplay.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7016C05
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCALLOWDLLDATA
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phehcpdisplay_sym.cpp
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phepango.lib phecairo.lib phegdk.lib phegtk.lib phehildon.lib centralrepository.lib
+SMPSAFE

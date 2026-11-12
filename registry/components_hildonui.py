@@ -48,17 +48,22 @@ COMPONENTS = {
     "phehcp": _exe("phehcp", ["resource\\phehcp\\fonts.conf=.hildon/testdata/phehildonwin_fonts.conf",
                               "resource\\phehcp\\phehildon.rc=.hildon/testdata/phehildon.rc"]
                   + [f"resource\\phehcp\\icons\\hicolor\\{f.replace('/', chr(92))}=" + os.path.join(_DATA, "phehcp/icons/hicolor", f)
-                     for f in ("index.theme", "48x48/hildon/general_clock.png", "48x48/hildon/general_globe.png", "48x48/hildon/filemanager_unknown_file.png")]),
+                     for f in ("index.theme", "48x48/hildon/general_clock.png", "48x48/hildon/general_globe.png", "48x48/hildon/general_display.png", "48x48/hildon/filemanager_unknown_file.png")]),
     "phehcpdatetime": _dll("phehcpdatetime", sym=True),
     "phehcpregion": _dll("phehcpregion", sym=True),
+    "phehcpdisplay": _dll("phehcpdisplay", sym=True),
     # the clock home widget (its own package, hildon-clock-widget)
     "phehomeclock": _dll("phehomeclock", sym=True),
+    # the date home widget (its own package, hildon-date-widget)
+    "phehomedate": _dll("phehomedate", sym=True),
 }
 
-for _n in ("phehcpdatetime", "phehcpregion"):
+for _n in ("phehcpdatetime", "phehcpregion", "phehcpdisplay"):
     COMPONENTS[_n]["rom_data"].append(f"resource\\hildon-control-panel\\{_n}.desktop=" + os.path.join(_DATA, f"hildon-control-panel/{_n}.desktop"))
 COMPONENTS["phehomeclock"]["rom_data"].append("resource\\hildondesktop\\entries\\home\\phehomeclock.desktop="
                                             + os.path.join(_DATA, "hildondesktop/entries/home/phehomeclock.desktop"))
+COMPONENTS["phehomedate"]["rom_data"].append("resource\\hildondesktop\\entries\\home\\phehomedate.desktop="
+                                           + os.path.join(_DATA, "hildondesktop/entries/home/phehomedate.desktop"))
 
 # installed, not in a ROM
 for _c in COMPONENTS.values():

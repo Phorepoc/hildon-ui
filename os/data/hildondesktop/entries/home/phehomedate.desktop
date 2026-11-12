@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Date
+Comment=The date as a calendar sheet
+Type=default
+X-Path=phehomedate.so
