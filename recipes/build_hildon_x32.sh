@@ -53,7 +53,8 @@ FF="-O2 -g0 -w -fno-pic -I$SH/shims -I/glib/overlay -include /glib/overlay/phe_g
 # <hildon/hildon.h> style includes and <gtk/gtk.h>: symlink trees
 mkdir -p $O/inc; ln -sfn $S $O/inc/hildon
 rm -f $O/*.o $O/errs.*; export CC FF O S SH
-one() { f=$1; $CC $FF -I$O/inc -c $S/$f.c -o $O/$f.o 2> $O/errs.$f || echo "FAIL $f"; }
+# hildon-picker-dialog.c: its centring on the selection is done again after the resize pass (shims/phe_picker_center.h)
+one() { f=$1; x=; [ $f = hildon-picker-dialog ] && x="-include $SH/shims/phe_picker_center.h"; $CC $FF $x -I$O/inc -c $S/$f.c -o $O/$f.o 2> $O/errs.$f || echo "FAIL $f"; }
 export -f one
 for x in hildon-marshalers hildon-enum-types; do $CC $FF -I$O/inc -c $O/$x.c -o $O/$x.o 2> $O/errs.$x || echo "FAIL $x"; done
 for x in phehildon_x11 phehildon_gconf phehildon_canberra; do $CC $FF -I$O/inc -c $SH/$x.c -o $O/$x.o 2> $O/errs.$x || echo "FAIL $x"; done
