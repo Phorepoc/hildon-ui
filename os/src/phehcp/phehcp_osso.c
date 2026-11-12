@@ -158,10 +158,20 @@ osso_state_read (osso_context_t *o, osso_state_t *state)
   p = state_path (o);
   if (!g_file_get_contents (p, &data, &len, NULL)) { g_free (p); return OSSO_ERROR_NO_STATE; }
   /* the state is read once: libosso keeps it in tmpfs, gone at the next boot. Kept on C:, a state saved while an applet ran
-     ("Execute" true) came back after a reboot without its focused item, hildon-control-panel's execute flag stayed set and no
-     applet opened again (hildon-port.md 7.113) */
+     ("Execute" true) came back after a reboot (hildon-port.md 7.113) */
   g_remove (p);
   g_free (p);
+  { /* hildon-control-panel restores "Execute" but its relaunch of the saved applet is disabled upstream (hcp_window_size_allocate,
+       enforce_state FALSE), so a restored true is never cleared and every tap is refused: the panel always starts with no applet running */
+    GKeyFile *k = g_key_file_new ();
+    if (g_key_file_load_from_data (k, data, len, G_KEY_FILE_KEEP_COMMENTS, NULL) && g_key_file_has_key (k, "HildonControlPanel", "Execute", NULL)) {
+      gsize n = 0; gchar *d2;
+      g_key_file_set_boolean (k, "HildonControlPanel", "Execute", FALSE);
+      d2 = g_key_file_to_data (k, &n, NULL);
+      if (d2) { g_free (data); data = d2; len = n; }
+    }
+    g_key_file_free (k);
+  }
   if (state->state_size && state->state_data) {          /* the caller gave a buffer: it must fit */
     if (len != state->state_size) { g_free (data); return OSSO_ERROR_STATE_SIZE; }
     memcpy (state->state_data, data, len); g_free (data);
