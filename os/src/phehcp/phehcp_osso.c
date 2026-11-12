@@ -5,11 +5,13 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <gtk/gtk.h>
+#include <glib/gstdio.h>
 #include <gconf/gconf-client.h>
 #include <hildon/hildon.h>
 #include "libosso.h"
 #include "phe_respath.h"
 #include "phe_theme.h"
+#include "hcp-program.h"
 
 extern void phe_log (const char *msg);
 extern int phe_hcp_main (int argc, char **argv);   /* hildon-control-panel's main (hcp-main.c, its main renamed) */
@@ -32,12 +34,62 @@ phe_hcp_show_all (GtkWidget *w)
 
 /* hcp-app-view.c's grid item width (shims/phe_hcp_itemwidth.h): the N900 portrait width (432 px) at most the screen width less the
    window's margins, so the grid never overflows the pannable area sideways (a tap scrolled it, the icons went off the left edge) */
+/* Trace (the marker file c:/data/phegdk.trace): where the grid's inner (bin) window sits and the pannable area's scroll values, at each
+   expose and around an activation -- the grid repaints blank after a tap (hildon-port.md 7.112) */
+static void
+phe_hcp_trace_view (GtkWidget *w, const char *when)
+{
+  static int n;
+  GList *c; gint bx = 0, by = 0, bw = 0, bh = 0; gchar *m; GtkWidget *pa;
+  gdouble hv = -1, vv = -1, vu = -1;
+  if (n++ > 60 || !w->window) return;
+  for (c = gdk_window_peek_children (w->window); c; c = c->next)
+    if (gdk_window_is_visible (c->data)) { gdk_window_get_position (c->data, &bx, &by); gdk_drawable_get_size (c->data, &bw, &bh); break; }
+  pa = gtk_widget_get_ancestor (w, HILDON_TYPE_PANNABLE_AREA);
+  if (pa) {
+    GtkAdjustment *h = hildon_pannable_area_get_hadjustment (HILDON_PANNABLE_AREA (pa)), *v = hildon_pannable_area_get_vadjustment (HILDON_PANNABLE_AREA (pa));
+    if (h) hv = h->value;
+    if (v) { vv = v->value; vu = v->upper; }
+  }
+  m = g_strdup_printf ("[phehcp] grid %s: alloc %d,%d %dx%d bin %d,%d %dx%d pannable h %.0f v %.0f/%.0f", when,
+                       w->allocation.x, w->allocation.y, w->allocation.width, w->allocation.height, bx, by, bw, bh, hv, vv, vu);
+  phe_log (m); g_free (m);
+}
+static gboolean phe_hcp_trace_expose (GtkWidget *w, GdkEventExpose *e, gpointer d) { (void) e; phe_hcp_trace_view (w, d); return FALSE; }
+static void phe_hcp_trace_act (GtkIconView *v, GtkTreePath *p, gpointer d)
+{
+  gchar *m = g_strdup_printf ("[phehcp] %s: execute %d", (const char *) d, hcp_program_get_instance ()->execute);
+  (void) p; phe_log (m); g_free (m); phe_hcp_trace_view (GTK_WIDGET (v), d);
+}
+static gboolean phe_hcp_trace_later (gpointer v) { phe_hcp_trace_view (v, "1s after activation"); return FALSE; }
+static void phe_hcp_trace_act_after (GtkIconView *v, GtkTreePath *p, gpointer d) { phe_hcp_trace_act (v, p, d); g_timeout_add (1000, phe_hcp_trace_later, v); }
+
 void
 phe_hcp_set_item_width (GtkIconView *view, gint width)
 {
   gint max = gdk_screen_get_width (gdk_screen_get_default ()) - 3 * HILDON_MARGIN_DOUBLE;
   if (max > 0 && width > max) width = max;
   gtk_icon_view_set_item_width (view, width);
+  /* hcp-grid packs its own cells (no set_text_column), so GTK's adjust_wrap_width never bounds the label: a label wider than the rest of
+     the item ("Regional settings") made the item span two columns (640 px in a 328 px grid), and the press's scroll-to-item then moved
+     the grid 312 px left -- the blank grid after a tap (hildon-port.md 7.113). The label gets the width left beside the icon. */
+  {
+    GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (view)), *l; gint pix = 0, xpad = 0;
+    for (l = cells; l; l = l->next)
+      if (GTK_IS_CELL_RENDERER_PIXBUF (l->data)) { g_object_get (l->data, "xpad", &xpad, NULL); pix = HILDON_ICON_PIXEL_SIZE_FINGER + 2 * xpad; }
+    for (l = cells; l; l = l->next)
+      if (GTK_IS_CELL_RENDERER_TEXT (l->data)) {
+        gint tw = width - pix - gtk_icon_view_get_spacing (view) - 2 * gtk_icon_view_get_item_padding (view);
+        if (tw > 0) g_object_set (l->data, "width", tw, "wrap-width", -1, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+      }
+    g_list_free (cells);
+  }
+  if (g_file_test ("c:/data/phegdk.trace", G_FILE_TEST_EXISTS) && !g_object_get_data (G_OBJECT (view), "phe-trace")) {
+    g_object_set_data (G_OBJECT (view), "phe-trace", view);
+    g_signal_connect (view, "expose-event", G_CALLBACK (phe_hcp_trace_expose), "expose");
+    g_signal_connect (view, "item-activated", G_CALLBACK (phe_hcp_trace_act), "before activation");
+    g_signal_connect_after (view, "item-activated", G_CALLBACK (phe_hcp_trace_act_after), "after activation");
+  }
 }
 
 void
@@ -105,6 +157,10 @@ osso_state_read (osso_context_t *o, osso_state_t *state)
   if (!o || !state) return OSSO_INVALID;
   p = state_path (o);
   if (!g_file_get_contents (p, &data, &len, NULL)) { g_free (p); return OSSO_ERROR_NO_STATE; }
+  /* the state is read once: libosso keeps it in tmpfs, gone at the next boot. Kept on C:, a state saved while an applet ran
+     ("Execute" true) came back after a reboot without its focused item, hildon-control-panel's execute flag stayed set and no
+     applet opened again (hildon-port.md 7.113) */
+  g_remove (p);
   g_free (p);
   if (state->state_size && state->state_data) {          /* the caller gave a buffer: it must fit */
     if (len != state->state_size) { g_free (data); return OSSO_ERROR_STATE_SIZE; }
