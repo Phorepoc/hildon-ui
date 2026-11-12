@@ -109,16 +109,18 @@ set_pos (GtkWidget *w, int x, int y)
   gtk_window_move (GTK_WINDOW (w), x, y);
 }
 
-/* dragging an applet in edit mode: the press point inside the applet window is kept under the finger */
+/* dragging an applet in edit mode: the applet moves by the finger's movement on the screen since the press (root coordinates; the window-relative ones of a
+   motion event queued before the last move are stale and made the applet run ahead of the finger) */
 static GtkWidget *drag_w;
-static int drag_dx, drag_dy, drag_moved;
+static int drag_x0, drag_y0, drag_rx, drag_ry, drag_moved;
 
 static gboolean
 applet_press (GtkWidget *w, GdkEventButton *e, gpointer d)
 {
   (void) d;
   if (!edit_mode || e->button != 1) return FALSE;
-  drag_w = w; drag_dx = (int) e->x; drag_dy = (int) e->y; drag_moved = 0;
+  drag_w = w; drag_moved = 0;
+  get_pos (w, &drag_x0, &drag_y0); drag_rx = (int) e->x_root; drag_ry = (int) e->y_root;
   gdk_window_raise (w->window);
   return TRUE;
 }
@@ -126,12 +128,12 @@ applet_press (GtkWidget *w, GdkEventButton *e, gpointer d)
 static gboolean
 applet_motion (GtkWidget *w, GdkEventMotion *e, gpointer d)
 {
-  int x, y;
+  int dx, dy;
   (void) d;
   if (!edit_mode || drag_w != w) return FALSE;
-  get_pos (w, &x, &y);
-  if ((int) e->x == drag_dx && (int) e->y == drag_dy) return TRUE;
-  set_pos (w, x + (int) e->x - drag_dx, y + (int) e->y - drag_dy);       /* the window moved under the pointer: e->x stays relative to it */
+  dx = (int) e->x_root - drag_rx; dy = (int) e->y_root - drag_ry;
+  if (!drag_moved && dx > -6 && dx < 6 && dy > -6 && dy < 6) return TRUE;      /* a tap, not a drag */
+  set_pos (w, drag_x0 + dx, drag_y0 + dy);
   drag_moved = 1;
   return TRUE;
 }
