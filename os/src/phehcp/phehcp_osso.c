@@ -30,6 +30,16 @@ phe_hcp_show_all (GtkWidget *w)
   gtk_widget_show_all (w);
 }
 
+/* hcp-app-view.c's grid item width (shims/phe_hcp_itemwidth.h): the N900 portrait width (432 px) at most the screen width less the
+   window's margins, so the grid never overflows the pannable area sideways (a tap scrolled it, the icons went off the left edge) */
+void
+phe_hcp_set_item_width (GtkIconView *view, gint width)
+{
+  gint max = gdk_screen_get_width (gdk_screen_get_default ()) - 3 * HILDON_MARGIN_DOUBLE;
+  if (max > 0 && width > max) width = max;
+  gtk_icon_view_set_item_width (view, width);
+}
+
 void
 phe_hcp_hildon_init (void)
 {
