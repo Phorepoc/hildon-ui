@@ -30,7 +30,7 @@ SLIC=
 for f in "$REPO"/LICENSES/* "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
   SLIC="$SLIC --file $f=!:/resource/hildon-settings/licences/$(basename "$f")"
 done
-python3 "$PHOREPOC_PDK/tools/make_sis.py" phehcp phehcpdatetime phehcpregion phehcpdisplay --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehcp phehcpdatetime phehcpregion phehcpdisplay phehcpabout phehcpprofiles --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
   --name "Hildon settings" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $SLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-settings-$ARCH.sis"
 CLIC=
@@ -48,3 +48,11 @@ done
 python3 "$PHOREPOC_PDK/tools/make_sis.py" phehomedate --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
   --name "Hildon date widget" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $DLIC \
   --out "$PHOREPOC_BUILD/sis/hildon-date-widget-$ARCH.sis"
+# the device status home widget (free memory and storage) as "Hildon status widget", like the clock
+TLIC=
+for f in "$REPO/LICENSE" "$REPO/NOTICE" "$REPO/SOURCE-OFFER.txt"; do
+  TLIC="$TLIC --file $f=!:/resource/hildon-status-widget/licences/$(basename "$f")"
+done
+python3 "$PHOREPOC_PDK/tools/make_sis.py" phehomestatus --unsigned --version "${PHOREPOC_PACKAGE_VERSION:-1.0.0}" \
+  --name "Hildon status widget" --vendor Phorepoc --depends 0xE7015786,0.1.0,"Hildon" $TLIC \
+  --out "$PHOREPOC_BUILD/sis/hildon-status-widget-$ARCH.sis"

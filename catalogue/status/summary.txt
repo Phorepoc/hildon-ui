@@ -1,0 +1,1 @@
+A device status widget for the Hildon Home: free memory and free storage as bars

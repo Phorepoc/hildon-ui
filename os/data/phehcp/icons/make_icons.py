@@ -1,6 +1,6 @@
 # Copyright The Phorepoc Authors
 # SPDX-License-Identifier: BSD-2-Clause
-"""make_icons.py -- draws the control panel's icons (ours, BSD-2-Clause): general_clock, general_globe, general_display, filemanager_unknown_file (the grid's fallback), 48x48 RGBA PNG, no dependencies.
+"""make_icons.py -- draws the control panel's icons (ours, BSD-2-Clause): general_clock, general_globe, general_display, control_about, control_profiles, filemanager_unknown_file (the grid's fallback), 48x48 RGBA PNG, no dependencies.
     python3 make_icons.py   -> hicolor/48x48/hildon/<name>.png
 Each icon is a rounded dark tile with a white line drawing and one blue accent (the Hildon touch look); shapes are distance functions, 4x4 supersampled."""
 import math
@@ -58,6 +58,23 @@ def display(x, y):                                          # a phone screen wit
     return None
 
 
+def about(x, y):                                            # an "i" in a ring
+    if abs(math.hypot(x - 24, y - 24) - 15) < 1.5: return LINE
+    if math.hypot(x - 24, y - 16) < 2.2: return ACCENT
+    if seg(x, y, 24, 21.5, 24, 32) < 1.7: return LINE
+    return None
+
+
+def profiles(x, y):                                         # a speaker with two sound waves
+    if 11 < x < 18 and 19 < y < 29: return LINE
+    if 17 < x < 25 and abs(y - 24) < (x - 17) * 0.9 + 5: return LINE
+    r = math.hypot(x - 24, y - 24)
+    if x > 27 and abs(y - 24) < (x - 24) * 0.9:
+        if abs(r - 8) < 1.2: return ACCENT
+        if abs(r - 13) < 1.2: return ACCENT
+    return None
+
+
 def render(shape):
     rows = []
     for j in range(N):
@@ -84,5 +101,5 @@ def render(shape):
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.join(here, "hicolor", "48x48", "hildon")
 os.makedirs(out, exist_ok=True)
-for name, shape in (("general_clock", clock), ("general_globe", globe), ("filemanager_unknown_file", sheet), ("general_display", display)):
+for name, shape in (("general_clock", clock), ("general_globe", globe), ("filemanager_unknown_file", sheet), ("general_display", display), ("control_about", about), ("control_profiles", profiles)):
     open(os.path.join(out, name + ".png"), "wb").write(render(shape))

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+Name=Profiles
+Comment=Switch the sound profile
+Icon=control_profiles
+Categories=personalisation
+X-control-panel-plugin=phehcpprofiles.so

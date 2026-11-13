@@ -1,1 +1,1 @@
-The Hildon control panel (Maemo Leste) with Date and time and Regional settings
+The Hildon control panel (Maemo Leste) with Date and time, Regional, Display, Profiles and About device

@@ -27,5 +27,5 @@ stack_step hildon hildonhome "bash /h/recipes/build_hildonhome_x32.sh"
 stack_step hildon hcp "bash /h/recipes/build_hcp_x32.sh"
 stack_step hildon sapwood "bash /h/recipes/build_sapwood_x32.sh"
 stack_step hildon archives "bash /h/recipes/package_x32.sh"
-stack_need libphehildon.a libphehildondesktop.a libphehome.a libphehomeexample.a libsapwood.a libphehildonwin.a libphehcp.a libphehcpdatetime.a libphehcpregion.a libphehcpdisplay.a libphehomeclock.a libphehomedate.a\
-  gmodule/sapwood.sym gmodule/phehomeexample.sym gmodule/phehcpdatetime.sym gmodule/phehcpregion.sym gmodule/phehcpdisplay.sym gmodule/phehomeclock.sym gmodule/phehomedate.sym testdata/phehildon.rc testdata/phehildon_beep.wav testdata/phehildonwin_fonts.conf
+stack_need libphehildon.a libphehildondesktop.a libphehome.a libphehomeexample.a libsapwood.a libphehildonwin.a libphehcp.a libphehcpdatetime.a libphehcpregion.a libphehcpdisplay.a libphehomeclock.a libphehomedate.a libphehcpabout.a libphehcpprofiles.a libphehomestatus.a\
+  gmodule/phehcpabout.sym gmodule/phehcpprofiles.sym gmodule/phehomestatus.sym gmodule/sapwood.sym gmodule/phehomeexample.sym gmodule/phehcpdatetime.sym gmodule/phehcpregion.sym gmodule/phehcpdisplay.sym gmodule/phehomeclock.sym gmodule/phehomedate.sym testdata/phehildon.rc testdata/phehildon_beep.wav testdata/phehildonwin_fonts.conf

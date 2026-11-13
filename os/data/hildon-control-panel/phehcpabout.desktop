@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=HildonControlPanelPlugin
+Name=About device
+Comment=Software version, memory and storage
+Icon=control_about
+Categories=general
+X-control-panel-plugin=phehcpabout.so

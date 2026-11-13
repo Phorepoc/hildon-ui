@@ -1,0 +1,17 @@
+// Copyright The Phorepoc Authors
+// SPDX-License-Identifier: BSD-2-Clause
+//
+// phehomestatus.mmp -- OURS: the device status home widget (an HDHomePluginItem) for the Hildon Home. Code = prebuilt archive libphehomestatus.a (recipes/build_hcp_x32.sh) + the Symbian calls (phehomestatus_sym.cpp);
+// its exports (hd_plugin_module_load / hd_plugin_module_unload) are looked up by name through resource/gmodule/phehomestatus.sym (GModule, glib-symbian).
+TARGET			phehomestatus.dll
+TARGETTYPE		dll
+UID				0x1000008d 0xE7016C08
+CAPABILITY		all -tcb
+VENDORID		0
+EPOCALLOWDLLDATA
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+OS_LAYER_LIBC_SYSTEMINCLUDE
+SOURCEPATH		.
+SOURCE			phehomestatus_sym.cpp
+LIBRARY			euser.lib libc.lib libm.lib libpthread.lib pheglib.lib phegobject.lib phegmodule.lib phegthread.lib phepango.lib phecairo.lib phegdk.lib phegtk.lib phehildon.lib phehildondesktop.lib efsrv.lib hal.lib
+SMPSAFE
