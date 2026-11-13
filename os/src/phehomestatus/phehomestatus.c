@@ -19,7 +19,7 @@ GType phe_home_status_get_type (void);
 HD_DEFINE_PLUGIN_MODULE_WITH_PRIVATE (PheHomeStatus, phe_home_status, HD_TYPE_HOME_PLUGIN_ITEM);
 
 #define PRIV(o) ((PheHomeStatusPrivate *) phe_home_status_get_instance_private ((PheHomeStatus *) (o)))
-#define W 230
+#define W 256
 #define H 152
 
 /* every 30 s: redraw when a value has changed */
